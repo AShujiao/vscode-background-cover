@@ -1,0 +1,58 @@
+{
+    "name": "background-cover",
+    "displayName": "background-cover",
+    "description": "background-cover",
+    "version": "0.1.0",
+    "publisher": "manasxx",
+    "engines": {
+        "vscode": "^1.28.0"
+    },
+    "categories": [
+        "Other"
+    ],
+    "activationEvents": [
+        "*"
+    ],
+    "main": "./out/extension",
+    "contributes": {
+        "commands": [{
+            "command": "extension.backgroundCover",
+            "title": "Hello backgroundCover"
+        }],
+        "configuration": {
+            "title": "background-cover config",
+            "properties": {
+                "backgroundCover.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "插件是否启用"
+                },
+                "backgroundCover.opacity": {
+                    "type": "number",
+                    "maximum": 1,
+                    "minimum": 0.1,
+                    "default": 0.5,
+                    "description": "背景透明度0.1-1"
+                },
+                "backgroundCover.imagePath": {
+                    "type": "string",
+                    "default": "",
+                    "description": "背景图片路径"
+                }
+            }
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "postinstall": "node ./node_modules/vscode/bin/install",
+        "test": "npm run compile && node ./node_modules/vscode/bin/test"
+    },
+    "devDependencies": {
+        "typescript": "^2.6.1",
+        "vscode": "^1.1.6",
+        "@types/node": "^7.0.43",
+        "@types/mocha": "^2.2.42"
+    }
+}
