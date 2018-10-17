@@ -73,7 +73,7 @@ export class Dom {
         // 4.如果关闭插件
         if (!config.enabled) {
             this.uninstall();
-            vsHelp.showInfoRestart(this.extName + '已关闭插件，请重新启动！');
+            vsHelp.showInfoRestart(this.extName + 'The plugin has been closed, please restart!');
             return;
         }
 
@@ -88,7 +88,7 @@ export class Dom {
         newContent += content;
 
         this.saveContent(newContent);
-        vsHelp.showInfoRestart(this.extName + ' 已更新配置，请重新启动！');
+        vsHelp.showInfoRestart(this.extName + ' The configuration has been updated, please restart!');
 
     }
 
@@ -154,7 +154,7 @@ export class Dom {
 
         if (info.firstload) {
             // 提示
-            vsHelp.showInfo('插件： ' + this.extName + '已启动! ')
+            vsHelp.showInfo('Plugin： ' + this.extName + 'Started! ')
             // 标识插件已启动过
             info.firstload = false;
             fs.writeFileSync(configPath, JSON.stringify(info, null, '    '), 'utf-8');

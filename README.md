@@ -1,65 +1,82 @@
-# manasxx README
+# vscode-background-cover
 
-This is the README for your extension "manasxx". After writing up a brief description, we recommend including the following sections.
+## Add a picture you like to cover the entire vscode..
+## 添加一张你喜欢的图片铺满整个vscode..
 
-## Features
+### 此插件根据[background](https://marketplace.visualstudio.com/items?itemName=shalldie.background)插件修改而来，两个插件不冲突，已征得作者同意发布到市场
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+## It looks like:
 
-For example if there is an image subfolder under your extension project workspace:
+![](https://user-images.githubusercontent.com/14969576/47087812-92168980-d24f-11e8-9a69-cee757ace627.png)
+![](https://user-images.githubusercontent.com/14969576/47087915-d0ac4400-d24f-11e8-92c0-0754f7d5b127.png)
 
-\!\[feature X\]\(images/feature-x.png\)
+## Warns 警告：
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+> **本插件是通过修改 vscode 的 css 文件的方式运行**  
+> 所以会在初次安装，或者 vscode 升级的时候，出现以下提示，请选择 【不再提示】:
+>
+> **This extension works by editting the vscode's css file.**  
+> So, a information appears while the first time to install or vscode update.U can click the [never show again] to avoid it.
 
-## Requirements
+![](https://user-images.githubusercontent.com/14969576/47090529-b1b0b080-d255-11e8-8812-d541cb1c3852.png)
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
 
-## Extension Settings
+## Config 配置项
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+| Name                        |      Type       | Description                                                                                 |
+| :------------------------   | :-------------: | :------------------------------------------------------------------------------------------ |
+| `backgroundCover.enabled`   |    `Boolean`    | 插件是否启用 <br> If background enabled.                                                     |
+| `backgroundCover.opacity`   |    `Number`     | 背景图片透明度 <br> background opacity.                                                      |
+| `backgroundCover.imagePath` |    `String`     | 背景图片路径<br> Images path                                                                 |
 
-For example:
+## Notice 提示
 
-This extension contributes the following settings:
+Local path  ： {"backgroundCover.imagePath": "file:///E:/OneDrive/Pictures/overwatch/ow.jpg"}
 
-* `myExtension.enable`: enable/disable this extension
-* `myExtension.thing`: set to `blah` to do something
+本地图片请使用此格式 ： {"backgroundCover.imagePath": "file:///E:/OneDrive/Pictures/overwatch/ow.jpg"}
+如果不填写路径则使用插件的默认图片
 
-## Known Issues
+**http** 协议的外链图片在当前版本不能使用(vscode 限制)，需要用 **https** 协议开头的外链地址。
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+You should use protocol **https** instead of **http** to the image,which is not support by vscode now.
 
-## Release Notes
+## Uninstall 卸载
 
-Users appreciate release notes as you update your extension.
+    Set the config  {"backgroundCover.enabled": false}  in settings.json,then uninstall the plugin.
+    在 settings.json 中设置 {"backgroundCover.enabled": false} ，然后再删除插件。如果直接删除插件会有遗留，就需要重装插件解决了。
 
-### 1.0.0
+### Q&A 常见问题:
 
-Initial release of ...
+---
 
-### 1.0.1
+    Q:It seems that nothing happens after installing the extension?
+    Q:安装完插件后，似乎没有反应？
 
-Fixed issue #.
+    A:Make sure to have the administrator authority！！
+    A:如果不能使用，请确保你有管理员权限！！
 
-### 1.1.0
+---
 
-Added features X, Y, and Z.
+    Q:How to get the administrator authority?
+    Q:怎么获取管理员权限呢？ =。=
+
+    A:In windows,click right button on the vscode's icon,then check the [run with the administrator authority].
+    A:在windows环境中，可以右键单击vscode的图标，选择【以管理员身份运行】。
+
+---
+## 发行说明
+
+#### ver 0.1.0 (2018/10/17)
+	第一版发布
 
 -----------------------------------------------------------------------------------------------------------
+### Thanks 感谢
 
-## Working with Markdown
+* [vscode-background](https://github.com/shalldie/vscode-background)
 
-**Note:** You can author your README using Visual Studio Code.  Here are some useful editor keyboard shortcuts:
+### Information 相关信息
 
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux)
-* Toggle preview (`Shift+CMD+V` on macOS or `Shift+Ctrl+V` on Windows and Linux)
-* Press `Ctrl+Space` (Windows, Linux) or `Cmd+Space` (macOS) to see a list of Markdown snippets
+* [GitHub](https://github.com/AShujiao/vscode-background-cover)
 
-### For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
 
 **Enjoy!**

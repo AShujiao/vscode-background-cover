@@ -1,14 +1,19 @@
 {
     "name": "background-cover",
     "displayName": "background-cover",
-    "description": "background-cover",
+    "description": "Add a picture you like to cover the entire vscode..",
     "version": "0.1.0",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.28.0"
     },
+    "icon": "resources/background-cover.png",
     "categories": [
         "Other"
+    ],
+    "keywords": [
+        "background",
+        "Theme"
     ],
     "activationEvents": [
         "*"
@@ -25,23 +30,32 @@
                 "backgroundCover.enabled": {
                     "type": "boolean",
                     "default": true,
-                    "description": "插件是否启用"
+                    "description": "plugin is enabled / 插件是否启用"
                 },
                 "backgroundCover.opacity": {
                     "type": "number",
                     "maximum": 1,
                     "minimum": 0.1,
                     "default": 0.5,
-                    "description": "背景透明度0.1-1"
+                    "description": "Background opacity / 背景透明度(0.1 - 1)"
                 },
                 "backgroundCover.imagePath": {
                     "type": "string",
                     "default": "",
-                    "description": "背景图片路径"
+                    "description": "Background image path / 背景图片路径"
                 }
             }
         }
     },
+    "bugs": {
+        "url": "https://github.com/AShujiao/vscode-background-cover/issues",
+        "email": "a916817706@live.com"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/AShujiao/vscode-background-cover.git"
+    },
+    "homepage": "https://github.com/AShujiao/vscode-background-cover/blob/master/README.md#manasxx-readme",
     "scripts": {
         "vscode:prepublish": "npm run compile",
         "compile": "tsc -p ./",
