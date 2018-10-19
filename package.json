@@ -5,7 +5,7 @@
     "version": "0.1.0",
     "publisher": "manasxx",
     "engines": {
-        "vscode": "^1.28.0"
+        "vscode": "^1.20.0"
     },
     "icon": "resources/background-cover.png",
     "categories": [
