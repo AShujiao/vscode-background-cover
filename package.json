@@ -20,10 +20,22 @@
     ],
     "main": "./out/extension",
     "contributes": {
-        "commands": [{
-            "command": "extension.backgroundCover",
-            "title": "Hello backgroundCover"
-        }],
+        "commands": [
+            {
+                "command": "extension.backgroundCover",
+                "title": "Hello backgroundCover"
+            },
+            {
+                "command": "extension.backgroundCover.refresh",
+                "title": "backgroundCover - refresh"
+            }
+        ],
+        "keybindings": [
+            {
+                "command": "extension.backgroundCover.refresh",
+                "key": "ctrl+shift+f7"
+            }
+        ],
         "configuration": {
             "title": "background-cover config",
             "properties": {
@@ -43,6 +55,11 @@
                     "type": "string",
                     "default": "",
                     "description": "Background image path / 背景图片路径"
+                },
+                "backgroundCover.randomImageFolder": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Background image's folder path for random"
                 }
             }
         }
