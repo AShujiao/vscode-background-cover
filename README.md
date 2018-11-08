@@ -3,7 +3,9 @@
 ## Add a picture you like to cover the entire vscode..
 ## 添加一张你喜欢的图片铺满整个vscode..
 
-### 此插件根据[background](https://marketplace.visualstudio.com/items?itemName=shalldie.background)插件修改而来，两个插件不冲突，已征得作者同意发布到市场
+    You can also configure a folder path to randomly display the images inside.
+    你也可以配置一个文件夹路径来随机展示里面的图片
+
 
 ## It looks like:
 
@@ -28,20 +30,37 @@
 | `backgroundCover.enabled`   |    `Boolean`    | 插件是否启用 <br> If background enabled.                                                     |
 | `backgroundCover.opacity`   |    `Number`     | 背景图片透明度 <br> background opacity.                                                      |
 | `backgroundCover.imagePath` |    `String`     | 背景图片路径<br> Images path                                                                 |
+| `backgroundCover.randomImageFolder` |    `String`     | 随机背景图片文件夹路径<br> Background image's folder path for random                   |
 
 ## Notice 提示
-
-Local path  ： {"backgroundCover.imagePath": "file:///E:/OneDrive/Pictures/overwatch/ow.jpg"}
-
-本地图片请使用此格式 ： {"backgroundCover.imagePath": "file:///E:/OneDrive/Pictures/overwatch/ow.jpg"}
-如果不填写路径则使用插件的默认图片
-
-**http** 协议的外链图片在当前版本不能使用(vscode 限制)，需要用 **https** 协议开头的外链地址。
+---
+    (A picture) config: {"backgroundCover.imagePath": "file:///E:/OneDrive/Pictures/overwatch/ow.jpg"}  or "E:/OneDrive/Pictures/overwatch/ow.jpg"
+    (Random display) config：{"backgroundCover.randomImageFolder": "E:\\image"}
 
 You should use protocol **https** instead of **http** to the image,which is not support by vscode now.
 
-## Uninstall 卸载
+>Random background needs to execute the command to restart vscode and randomly change a background image：
 
+>1. Open the Command Palette (Ctrl+Shift+P (Cmd+Shift+P on macOS)).
+
+>2. Select the backgroundCover - refresh command and press Enter.(key:ctrl+shift+f7)
+
+----
+    (单   张  图) 配置 ： {"backgroundCover.imagePath": "file:///E:/OneDrive/Pictures/overwatch/ow.jpg"} 或者 "E:/OneDrive/Pictures/overwatch/ow.jpg"
+    (多图随机显示) 配置 ：{"backgroundCover.randomImageFolder": "E:\\image"}
+
+
+
+**http** 协议的外链图片在当前版本不能使用(vscode 限制)，需要用 **https** 协议开头的外链地址。
+
+>随机背景图并不会像幻灯片那样几分钟换一次，而时执行相应的命令重启vscode去随机更换一张背景图:
+
+>1. 打开命令面板 (Ctrl+Shift+P (Cmd+Shift+P on macOS)).
+
+>2. 输入 "backgroundCover - refresh" 命令，然后按下回车.(快捷键:ctrl+shift+f7)
+
+## Uninstall 卸载
+---
     Set the config  {"backgroundCover.enabled": false}  in settings.json,then uninstall the plugin.
     在 settings.json 中设置 {"backgroundCover.enabled": false} ，然后再删除插件。如果直接删除插件会有遗留，就需要重装插件解决了。
 
@@ -69,14 +88,25 @@ You should use protocol **https** instead of **http** to the image,which is not 
 #### ver 0.1.0 (2018/10/17)
 	第一版发布
 
------------------------------------------------------------------------------------------------------------
+#### ver 1.0.0 (2018/11/08)
+	添加随机更换背景的功能
+---
 ### Thanks 感谢
 
 * [vscode-background](https://github.com/shalldie/vscode-background)
+* [feature_restart_random_image](https://github.com/AShujiao/vscode-background-cover/pull/2)
+
+    注：此插件根据[vscode-background](https://marketplace.visualstudio.com/items?itemName=shalldie.background)插件修改而来，两个插件不冲突，已征得作者同意发布到市场
+
+## Contributors 贡献者
+[<img alt="HOT3" src="https://avatars2.githubusercontent.com/u/14969576?s=460&v=4" width="117">](https://github.com/AShujiao)
+[<img alt="HOT3" src="https://avatars3.githubusercontent.com/u/9987486?s=460&v=4" width="117">](https://github.com/shalldie)
+[<img alt="HOT3" src="https://avatars0.githubusercontent.com/u/43977240?s=400&v=4" width="117">](https://github.com/hot3)
 
 ### Information 相关信息
 
 * [GitHub](https://github.com/AShujiao/vscode-background-cover)
+* [Visual Studio|Marketplace](https://marketplace.visualstudio.com/items?itemName=manasxx.background-cover)
 
 
 **Enjoy!**

@@ -93,7 +93,7 @@ export class Dom {
     }
 
   	/**
-	 * Restart without confirmation
+	 * Restart without confirmation / 扩展重启命令
 	 */
     public refresh() {
         let config = this.config;
@@ -181,7 +181,6 @@ export class Dom {
 
             return true;
         }
-
         return false;
     }
 
