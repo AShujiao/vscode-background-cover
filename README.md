@@ -99,8 +99,8 @@ You should use protocol **https** instead of **http** to the image,which is not 
     注：此插件根据[vscode-background](https://marketplace.visualstudio.com/items?itemName=shalldie.background)插件修改而来，两个插件不冲突，已征得作者同意发布到市场
 
 ## Contributors 贡献者
-[<img alt="HOT3" src="https://avatars2.githubusercontent.com/u/14969576?s=460&v=4" width="117">](https://github.com/AShujiao)
-[<img alt="HOT3" src="https://avatars3.githubusercontent.com/u/9987486?s=460&v=4" width="117">](https://github.com/shalldie)
+[<img alt="AShujiao" src="https://avatars2.githubusercontent.com/u/14969576?s=460&v=4" width="117">](https://github.com/AShujiao)
+[<img alt="shalldie" src="https://avatars3.githubusercontent.com/u/9987486?s=460&v=4" width="117">](https://github.com/shalldie)
 [<img alt="HOT3" src="https://avatars0.githubusercontent.com/u/43977240?s=400&v=4" width="117">](https://github.com/hot3)
 
 ### Information 相关信息
