@@ -11,6 +11,7 @@ export class Main{
 		const extName = "backgroundCover";
 		//入口
 		let DomApi = new Dom(extName,filePath,version,extName);
+		vscode.commands.registerCommand( 'extension.backgroundCover.refresh', () => { DomApi.refresh(); });
 		return vscode.workspace.onDidChangeConfiguration(() => DomApi.install());
 	}
 }

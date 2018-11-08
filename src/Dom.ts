@@ -92,6 +92,26 @@ export class Dom {
 
     }
 
+  	/**
+	 * Restart without confirmation
+	 */
+    public refresh() {
+        let config = this.config;
+        if (!config.enabled) {
+            this.uninstall();
+            vscode.commands.executeCommand('workbench.action.reloadWindow');
+            return;
+        }
+        let content = getNewContent(config, this.extName,this.version).replace(/\s*$/, ''); // 去除末尾空白
+
+        // 添加代码到文件中，并尝试删除原来已经添加的
+        let newContent = this.getContent();
+        newContent = this.clearCssContent(newContent);
+        newContent += content;
+
+        this.saveContent(newContent);
+        vscode.commands.executeCommand('workbench.action.reloadWindow');
+    }
 
 	/**
 	 * 获取文件内容
