@@ -8,6 +8,10 @@
         "vscode": "^1.20.0"
     },
     "icon": "resources/background-cover.png",
+    "galleryBanner": {
+		"color": "#1e3147",
+		"theme": "dark"
+	},
     "categories": [
         "Other"
     ],
