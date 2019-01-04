@@ -6,6 +6,9 @@
     You can also configure a folder path to randomly display the images inside.
     你也可以配置一个文件夹路径来随机展示里面的图片
 
+>使用此扩展请以管理员身份运行vscode
+
+>Use this extension to run vscode as an administrator
 
 ## It looks like:
 
@@ -61,8 +64,13 @@ You should use protocol **https** instead of **http** to the image,which is not 
 
 ## Uninstall 卸载
 ---
+
+    如果卸载扩展后图片背景还在？这个不是bug,请手动关闭再打开一次vscode会自动执行最后的清理操作，然后重启即可。
+    Is the picture still there after uninstalling the extension? Please turn off manually and open vscode again, which will automatically perform the final cleaning operation and restart.
+    OR:
     Set the config  {"backgroundCover.enabled": false}  in settings.json,then uninstall the plugin.
-    在 settings.json 中设置 {"backgroundCover.enabled": false} ，然后再删除插件。如果直接删除插件会有遗留，就需要重装插件解决了。
+    在 settings.json 中设置 {"backgroundCover.enabled": false} ，然后再卸载插件。
+    
 
 ### Q&A 常见问题:
 
@@ -90,6 +98,9 @@ You should use protocol **https** instead of **http** to the image,which is not 
 
 #### ver 1.0.0 (2018/11/08)
 	添加随机更换背景的功能
+
+#### ver 1.1.0 (2019/01/04)
+	添加卸载钩子
 ---
 ### Thanks 感谢
 
