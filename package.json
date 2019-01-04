@@ -2,16 +2,16 @@
     "name": "background-cover",
     "displayName": "background-cover",
     "description": "Add a picture you like to cover the entire vscode..",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.20.0"
     },
     "icon": "resources/background-cover.png",
     "galleryBanner": {
-		"color": "#1e3147",
-		"theme": "dark"
-	},
+        "color": "#1e3147",
+        "theme": "dark"
+    },
     "categories": [
         "Other"
     ],
@@ -78,7 +78,8 @@
     },
     "homepage": "https://github.com/AShujiao/vscode-background-cover/blob/master/README.md#manasxx-readme",
     "scripts": {
-        "vscode:prepublish": "npm run compile",
+        "vscode:prepublish": "",
+        "vscode:uninstall": "node ./resources/uninstall.js",
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
         "postinstall": "node ./node_modules/vscode/bin/install",
