@@ -64,6 +64,14 @@
                     "type": "string",
                     "default": "",
                     "description": "Background image's folder path for random / 随机图片的文件夹路径"
+                },
+                "backgroundCover.style": {
+                    "type": "object",
+                    "default": {
+                        "background-position": "0% 0%",
+                        "background-size": "cover"
+                    },
+                    "description": "Custom style / 自定义样式"
                 }
             }
         }
