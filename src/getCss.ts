@@ -16,7 +16,7 @@ export default function(config:any,extName:string,version:string):string{
 	}
 
 	opacity = opacity<=0.1?0.1:opacity>=1?1:opacity;
-	opacity = 0.89 + (0.1-(opacity / 10));
+	opacity = 0.69 + (0.1-(opacity / 10));
 	
 	return `
 	/*ext-${extName}-start*/

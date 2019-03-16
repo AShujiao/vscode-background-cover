@@ -91,7 +91,7 @@ You should use protocol **https** instead of **http** to the image,which is not 
     A:在windows环境中，可以右键单击vscode的图标，选择【以管理员身份运行】。
 
 ---
-## 发行说明
+## 更新日志
 
 #### ver 0.1.0 (2018/10/17)
 	第一版发布
@@ -101,6 +101,9 @@ You should use protocol **https** instead of **http** to the image,which is not 
 
 #### ver 1.1.0 (2019/01/04)
 	添加卸载钩子
+
+#### ver 1.1.1 (2019/03/16)
+	增加图片透明度（对于亮度低的图片）
 ---
 ### Thanks 感谢
 

@@ -1,7 +1,13 @@
-# Change Log
-All notable changes to the "manasxx" extension will be documented in this file.
+## 更新日志
 
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
+#### ver 0.1.0 (2018/10/17)
+	第一版发布
 
-## [Unreleased]
-- Initial release
+#### ver 1.0.0 (2018/11/08)
+	添加随机更换背景的功能
+
+#### ver 1.1.0 (2019/01/04)
+	添加卸载钩子
+
+#### ver 1.1.1 (2019/03/16)
+	增加图片透明度（对于亮度低的图片）
