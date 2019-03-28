@@ -12,6 +12,7 @@ export class Main{
 		//入口
 		let DomApi = new Dom(extName,filePath,version,extName);
 		vscode.commands.registerCommand( 'extension.backgroundCover.refresh', () => { DomApi.refresh(); });
+		vscode.commands.registerCommand('extension.backgroundCover.selectImg',() => {DomApi.showImageItem();});
 		return vscode.workspace.onDidChangeConfiguration(() => DomApi.install());
 	}
 }

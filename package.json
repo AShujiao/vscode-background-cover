@@ -5,7 +5,7 @@
     "version": "1.1.1",
     "publisher": "manasxx",
     "engines": {
-        "vscode": "^1.20.0"
+        "vscode": "^1.26.0"
     },
     "icon": "resources/background-cover.png",
     "galleryBanner": {
@@ -32,6 +32,10 @@
             {
                 "command": "extension.backgroundCover.refresh",
                 "title": "backgroundCover - refresh"
+            },
+            {
+                "command": "extension.backgroundCover.selectImg",
+                "title": "backgroundCover - selectImg"
             }
         ],
         "keybindings": [

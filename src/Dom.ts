@@ -16,7 +16,8 @@ export class Dom {
     private version: string;
     //插件名称
     private extName: string;
-
+    //底部切换按钮
+    private selectImageBar:vscode.StatusBarItem|undefined;
 
     //初始化参数
     public constructor(
@@ -26,15 +27,16 @@ export class Dom {
         extName: string,
     ) {
         this.configName = configName;
-        this.filePath = filePath;
-        this.version = version;
-        this.extName = extName;
+        this.filePath   = filePath;
+        this.version    = version;
+        this.extName    = extName;
+        this.config     = vscode.workspace.getConfiguration(this.configName);
+        let firstload   = this.checkFirstload();                               // 是否初次加载插件
+        let fileType    = this.getFileType(); // css 文件目前状态
 
-        this.config = vscode.workspace.getConfiguration(this.configName);
-        let firstload = this.checkFirstload();  // 是否初次加载插件
-
-        let fileType = this.getFileType(); // css 文件目前状态
-
+        //如果配置了文件夹背景路径展示底部选择图片按钮
+        this.switchStatusBar();
+        
         // 如果是第一次加载插件，或者旧版本
         if (firstload || fileType == FileType.isOld || fileType == FileType.empty) {
             this.install(true);
@@ -50,8 +52,8 @@ export class Dom {
      */
     public install(refresh?: boolean): void {
 
-        let lastConfig = this.config;  // 之前的配置
-        let config = vscode.workspace.getConfiguration(this.configName); // 当前用户配置
+        let lastConfig = this.config;                                         // 之前的配置
+        let config     = vscode.workspace.getConfiguration(this.configName);  // 当前用户配置
 
         // 1.如果配置文件改变到时候，当前插件配置没有改变，则返回
         if (!refresh && JSON.stringify(lastConfig) == JSON.stringify(config)) {
@@ -70,6 +72,9 @@ export class Dom {
         // 3.保存当前配置
         this.config = config; // 更新配置
 
+        // 4.切换按钮状态
+        this.switchStatusBar();
+
         // 4.如果关闭插件
         if (!config.enabled) {
             this.uninstall();
@@ -78,16 +83,7 @@ export class Dom {
         }
 
         // 5.hack 样式
-
-        // 自定义的样式内容
-        let content = getNewContent(config, this.extName,this.version).replace(/\s*$/, ''); // 去除末尾空白
-
-        // 添加代码到文件中，并尝试删除原来已经添加的
-        let newContent = this.getContent();
-        newContent = this.clearCssContent(newContent);
-        newContent += content;
-
-        this.saveContent(newContent);
+        this.updateContent();
         vsHelp.showInfoRestart(this.extName + ' The configuration has been updated, please restart!');
 
     }
@@ -102,15 +98,20 @@ export class Dom {
             vscode.commands.executeCommand('workbench.action.reloadWindow');
             return;
         }
-        let content = getNewContent(config, this.extName,this.version).replace(/\s*$/, ''); // 去除末尾空白
-
-        // 添加代码到文件中，并尝试删除原来已经添加的
-        let newContent = this.getContent();
-        newContent = this.clearCssContent(newContent);
-        newContent += content;
-
-        this.saveContent(newContent);
+        this.updateContent();
         vscode.commands.executeCommand('workbench.action.reloadWindow');
+    }
+
+    /**
+     * updateContent / 更新背景
+     */
+    public updateContent(imgUrl?:string){
+        let content = getNewContent(this.config, this.extName,this.version,imgUrl).replace(/\s*$/, ''); // 去除末尾空白
+        // 添加代码到文件中，并尝试删除原来已经添加的
+        let newContent  = this.getContent();
+            newContent  = this.clearCssContent(newContent);
+            newContent += content;
+        return this.saveContent(newContent);
     }
 
 	/**
@@ -138,9 +139,9 @@ export class Dom {
      * @returns {string} 
      */
     private clearCssContent(content: string): string {
-        var re =new RegExp("\\/\\*ext-" + this.extName + "-start\\*\\/[\\s\\S]*?\\/\\*ext-" + this.extName + "-end\\*"+"\\/","g"); 
-        content = content.replace(re, '');
-        content = content.replace(/\s*$/, '');
+        let re      = new RegExp("\\/\\*ext-" + this.extName + "-start\\*\\/[\\s\\S]*?\\/\\*ext-" + this.extName + "-end\\*"+"\\/","g");
+            content = content.replace(re, '');
+            content = content.replace(/\s*$/, '');
         return content;
     }
 
@@ -152,7 +153,7 @@ export class Dom {
     private uninstall(): boolean {
         try {
             let content = this.getContent();
-            content = this.clearCssContent(content);
+                content = this.clearCssContent(content);
             this.saveContent(content);
             return true;
         }
@@ -211,4 +212,84 @@ export class Dom {
         return FileType.isNew;
     }
 
+
+    /**
+     *  switchStatusBar / 切换选择背景图按钮展示状态
+     */
+    private switchStatusBar():void{
+
+        let hideBar:boolean = (!this.config.randomImageFolder || !this.config.enabled);
+
+        if(this.selectImageBar != undefined && hideBar){
+            return this.selectImageBar.hide();
+        }
+
+        if(this.selectImageBar != undefined && !hideBar){
+            return this.selectImageBar.show();
+        }
+
+        if(this.selectImageBar == undefined && !hideBar){
+            //创建按钮
+            this.selectImageBar         = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right,-999);
+            this.selectImageBar.text    = '$(file-media)';
+            this.selectImageBar.command = 'extension.backgroundCover.selectImg';
+            this.selectImageBar.tooltip = '切换背景图';
+            return this.selectImageBar.show();
+        }
+
+        return;
+    }
+
+
+    /**
+     * showImageItem / 展示切换背景图下拉列表
+     */
+    public showImageItem(){
+        if(!this.config.randomImageFolder){
+            return vscode.window.showInformationMessage('未配置文件夹路径！');
+        }
+        // 读取路径下的所有图片
+        let fdPath: string = this.config.randomImageFolder;
+		let files: string[] = fs.readdirSync(path.resolve(fdPath)).filter((s) => {
+			return s.endsWith('.png') || s.endsWith('.jpg') || s.endsWith('.gif');
+        });
+        // 是否存在图片
+		if(files.length == 0){
+            return vscode.window.showInformationMessage('文件夹下不存在图片！');
+        }
+        // 获取一个随机路径
+        let randomFile = files[Math.floor(Math.random() * files.length)];
+        files.unshift(randomFile);
+        
+        
+        // 创建下拉
+        const quickItem = vscode.window.createQuickPick<imgItem>();
+        quickItem.title = '选择一个你要切换的背景图片';
+        quickItem.items = files.map((i,n) => new imgItem(i,n));
+        quickItem.onDidChangeSelection(items => {
+            const item = items[0];
+            item.path = path.join(fdPath, item.path).toString().replace(/\\/g, '/');
+            //return vscode.window.showInformationMessage(item.label);
+            this.updateContent(item.path);
+            vsHelp.showInfoRestart(this.extName + ' The configuration has been updated, please restart!');
+            quickItem.hide();
+        })
+        quickItem.onDidHide(()=>{
+            quickItem.dispose();
+        })
+        quickItem.show();
+
+    }
+
+}
+
+class imgItem implements vscode.QuickPickItem{
+
+    label: string;
+    path :string;
+	
+	constructor(url : string,index:number) {
+        this.label = index == 0 ? 'random / 随机' : url;
+        this.path = url;
+	}
 }

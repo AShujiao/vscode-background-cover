@@ -110,7 +110,7 @@ You should use protocol **https** instead of **http** to the image,which is not 
 * [vscode-background](https://github.com/shalldie/vscode-background)
 * [feature_restart_random_image](https://github.com/AShujiao/vscode-background-cover/pull/2)
 
-    注：此插件根据[vscode-background](https://marketplace.visualstudio.com/items?itemName=shalldie.background)插件修改而来，两个插件不冲突，已征得作者同意发布到市场
+    注：底层部分代码来自 ：[vscode-background](https://marketplace.visualstudio.com/items?itemName=shalldie.background)，已征得作者同意
 
 ## Contributors 贡献者
 [<img alt="AShujiao" src="https://avatars2.githubusercontent.com/u/14969576?s=460&v=4" width="117">](https://github.com/AShujiao)
