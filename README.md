@@ -13,7 +13,7 @@
 ## It looks like:
 
 ![](https://user-images.githubusercontent.com/14969576/47087812-92168980-d24f-11e8-9a69-cee757ace627.png)
-![](https://user-images.githubusercontent.com/14969576/47087915-d0ac4400-d24f-11e8-92c0-0754f7d5b127.png)
+![](https://user-images.githubusercontent.com/14969576/55158915-f7758b80-519a-11e9-9699-9db0ed771c91.gif)
 
 ## Warns 警告：
 
@@ -62,6 +62,12 @@ You should use protocol **https** instead of **http** to the image,which is not 
 
 >2. 输入 "backgroundCover - refresh" 命令，然后按下回车.(快捷键:ctrl+shift+f7)
 
+
+    当你配置了 'randomImageFolder' 文件夹路径时，可以点击底部状态栏右下角的切换背景图来选择你要使用的背景图片。
+
+    When you configure the 'randomImageFolder' folder path, you can select the background image you want to use by clicking the switch background image in the lower right corner of the bottom status bar.
+
+
 ## Uninstall 卸载
 ---
 
@@ -92,25 +98,18 @@ You should use protocol **https** instead of **http** to the image,which is not 
 
 ---
 ## 更新日志
+[日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 0.1.0 (2018/10/17)
-	第一版发布
-
-#### ver 1.0.0 (2018/11/08)
-	添加随机更换背景的功能
-
-#### ver 1.1.0 (2019/01/04)
-	添加卸载钩子
-
-#### ver 1.1.1 (2019/03/16)
-	增加图片透明度（对于亮度低的图片）
+#### ver 1.5.1 (2019/03/28)
+	1.更新卸载钩子的实现方式
+    2.状态栏底部增加切换图片功能（配置随机背景图文件夹时可用）
 ---
 ### Thanks 感谢
 
 * [vscode-background](https://github.com/shalldie/vscode-background)
 * [feature_restart_random_image](https://github.com/AShujiao/vscode-background-cover/pull/2)
 
-    注：底层部分代码来自 ：[vscode-background](https://marketplace.visualstudio.com/items?itemName=shalldie.background)，已征得作者同意
+    底层部分代码来自 [shalldie](https://github.com/shalldie) ：[vscode-background](https://marketplace.visualstudio.com/items?itemName=shalldie.background)
 
 ## Contributors 贡献者
 [<img alt="AShujiao" src="https://avatars2.githubusercontent.com/u/14969576?s=460&v=4" width="117">](https://github.com/AShujiao)
