@@ -262,7 +262,7 @@ export class Dom {
         files.unshift(randomFile);
         
         
-        // 创建下拉
+        // 创建图片选择下拉框
         const quickItem = vscode.window.createQuickPick<imgItem>();
         quickItem.title = '选择一个你要切换的背景图片';
         quickItem.items = files.map((i,n) => new imgItem(i,n));
@@ -273,12 +273,34 @@ export class Dom {
             this.updateContent(item.path);
             vsHelp.showInfoRestart(this.extName + ' The configuration has been updated, please restart!');
             quickItem.hide();
+            this.reloadWindow();
         })
         quickItem.onDidHide(()=>{
             quickItem.dispose();
         })
         quickItem.show();
 
+    }
+
+    /**
+     * reloadWindow / 重新加载窗口
+     */
+    private reloadWindow(){
+        const listItem = vscode.window.createQuickPick();
+        listItem.title = '是否重启';
+        listItem.items = [{label:'YES'},{label:'NO'}];
+
+        listItem.onDidChangeSelection(items => {
+            if(items[0].label == 'YES'){
+                return vscode.commands.executeCommand('workbench.action.reloadWindow');
+            }else{
+                listItem.hide();
+            }
+        });
+        listItem.onDidHide(()=>{
+            listItem.dispose();
+        })
+        listItem.show();
     }
 
 }
