@@ -264,10 +264,12 @@ export class Dom {
 		if(!fsStatus){
 			return vscode.window.showInformationMessage('There is no image under the folder / 文件夹下不存在图片！');
         }
+        // 判断是否为目录路径
         let stat = fs.statSync(fdPath);
         if(!stat.isDirectory()){
             return vscode.window.showInformationMessage('There is no image under the folder / 文件夹下不存在图片！');
         }
+        // 获取目录下的所有图片
         let files: string[] = fs.readdirSync(path.resolve(fdPath)).filter((s) => {
             return s.endsWith('.png') || s.endsWith('.jpg') || s.endsWith('.gif');
         });
@@ -275,7 +277,7 @@ export class Dom {
         if (files.length == 0) {
             return vscode.window.showInformationMessage('There is no image under the folder / 文件夹下不存在图片！');
         }
-        // 获取一个随机路径
+        // 获取一个随机路径存入数组中
         let randomFile = files[Math.floor(Math.random() * files.length)];
         files.unshift(randomFile);
 
@@ -284,15 +286,16 @@ export class Dom {
         const quickItem = vscode.window.createQuickPick<imgItem>();
         quickItem.placeholder = 'Choose a background image / 选择一张你要切换的背景图片';
         quickItem.items = files.map((i, n) => new imgItem(i, n));
+        // 点击事件
         quickItem.onDidChangeSelection(items => {
             const item = items[0];
             item.path = path.join(fdPath, item.path).toString().replace(/\\/g, '/');
-            //return vscode.window.showInformationMessage(item.label);
             this.updateContent(item.path);
-            //vsHelp.showInfoRestart(this.extName + ' The configuration has been updated, please restart!');
             quickItem.hide();
+            // 弹出确认重启弹窗
             this.reloadWindow();
         })
+        // 隐藏事件
         quickItem.onDidHide(() => {
             quickItem.dispose();
         })
@@ -323,6 +326,9 @@ export class Dom {
 
 }
 
+/**
+ * imgItem / 图片List类
+ */
 class imgItem implements vscode.QuickPickItem {
 
     label: string;
