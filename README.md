@@ -100,10 +100,8 @@ You should use protocol **https** instead of **http** to the image,which is not 
 ## 更新日志
 [日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 1.5.1 (2019/03/28)
-	1.更新卸载钩子的实现方式
-    2.对图片路径增加检测及自动转换
-    3.状态栏底部增加切换图片功能（配置随机背景图文件夹时可用）
+#### ver 1.5.2 (2019/04/08)
+	1.暂时去除图片路径检测
 ---
 ### Thanks 感谢
 

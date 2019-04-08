@@ -30,15 +30,15 @@ export default function (config: any, extName: string, version: string,imgUrl?:s
 		imagePath = config.imagePath ? config.imagePath.replace(/\\/g, '/') : vscode.Uri.file(path.join(__filename, '..', '..', 'resources', 'ow.jpg'));
 	}
 
-	// 判断图片路径是否存在
-	if(!fs.existsSync(imagePath)){
-		return '';
-	}
-	// 判断是否为文件类型
-	let stat = fs.statSync(imagePath);
-	if(!stat.isFile()){
-		return '';
-	}
+	// // 判断图片路径是否存在
+	// if(!fs.existsSync(imagePath)){
+	// 	return '';
+	// }
+	// // 判断是否为文件类型
+	// let stat = fs.statSync(imagePath);
+	// if(!stat.isFile()){
+	// 	return '';
+	// }
 
 	opacity = opacity <= 0.1 ? 0.1 : opacity >= 1 ? 1 : opacity;
 	opacity = 0.62 + (0.4 - ((opacity*4) / 10));
