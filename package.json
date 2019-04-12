@@ -2,7 +2,7 @@
     "name": "background-cover",
     "displayName": "background-cover",
     "description": "Add a picture you like to cover the entire vscode..",
-    "version": "1.5.1",
+    "version": "2.0.0",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.26.0"
@@ -26,22 +26,8 @@
     "contributes": {
         "commands": [
             {
-                "command": "extension.backgroundCover",
-                "title": "Hello backgroundCover"
-            },
-            {
-                "command": "extension.backgroundCover.refresh",
-                "title": "backgroundCover - refresh"
-            },
-            {
-                "command": "extension.backgroundCover.selectImg",
-                "title": "backgroundCover - selectImg"
-            }
-        ],
-        "keybindings": [
-            {
-                "command": "extension.backgroundCover.refresh",
-                "key": "ctrl+shift+f7"
+                "command": "extension.backgroundCover.start",
+                "title": "backgroundCover - start"
             }
         ],
         "configuration": {
