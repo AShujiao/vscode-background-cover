@@ -48,6 +48,7 @@ export default function (config: any, extName: string, version: string,imgUrl?:s
 	/*ext.${extName}.ver.${version}*/
 	body{
 		background-size:cover;
+		background-repeat: no-repeat;
 		opacity:${opacity};
 		background-image:url('${imagePath}');
 	}
