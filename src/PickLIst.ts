@@ -11,7 +11,7 @@ export class PickList{
 
 	private _disposables: vscode.Disposable[] = [];
 
-	private config = vscode.workspace.getConfiguration('backgroundCover');
+	private config = this.getConfig();
 
 	public static createItemLIst(){
 
@@ -20,9 +20,9 @@ export class PickList{
 		let items: imgItem[] = [
 			{ label: '选择图片', description: '选择一张背景图', type: 1 },
 			{ label: '添加目录', description: '添加图片目录', type: 2 },
-			{ label: '透明度', description: '更新图片透明度', type: 2 },
-			{ label: '手动输入/https', description: '手动输入图片地址', type: 2 },
-			{ label: '关闭/开启背景', description: '背景图是否展示', type: 2 },
+			{ label: '透明度', description: '更新图片透明度', type: 4 },
+			{ label: '手动输入/https', description: '手动输入图片地址', type: 5 },
+			{ label: '关闭/开启背景', description: '背景图是否展示', type: 6 },
 		];
 		list.items = items;
 		PickList.itemList = new PickList(list);
@@ -43,6 +43,10 @@ export class PickList{
 		this.quickPick.show();
 	}
 
+	private getConfig():vscode.WorkspaceConfiguration{
+		return vscode.workspace.getConfiguration('backgroundCover');
+	}
+
 	private listChange(type:number){
 
 		switch (type) {
@@ -54,6 +58,16 @@ export class PickList{
 				break;
 			case 3:
 				this.updateConfig(1);
+				break;
+			case 4:
+				this.updateConfig(1);
+				break;
+			case 5:
+				this.updateConfig(1);
+				break;
+			case 6:
+				this.updateConfig(1);
+				break;
 			default:
 				break;
 		}
@@ -63,7 +77,7 @@ export class PickList{
 	private dispose() {
 		PickList.itemList = undefined;
 		// Clean up our resources
-		this.quickPick.dispose();
+		this.quickPick.hide();
 
 		while (this._disposables.length) {
 			const x = this._disposables.pop();
@@ -73,11 +87,11 @@ export class PickList{
 		}
 	}
 
-	private imgList(){
+	private imgList(folderPath?:string){
 		let items: imgItem[] = [
 			{ label: '手动选择', description: '选择一张背景图', type: 3 }
 		];
-		let randomPath:any = this.config.randomImageFolder;
+		let randomPath:any = folderPath ? folderPath : this.config.randomImageFolder;
 		if(this.checkFolder(randomPath)){
 			// 获取目录下的所有图片
 			let files: string[] = fs.readdirSync(path.resolve(randomPath)).filter((s) => {
@@ -128,7 +142,8 @@ export class PickList{
 		}
 		let fileUri = folderUris[0];
 		if(type == 2){
-			return this.setConfigValue('randomImageFolder',fileUri.fsPath);
+			this.setConfigValue('randomImageFolder',fileUri.fsPath);
+			return this.imgList(fileUri.fsPath);
 		}
 		if(type == 1){
 			return this.setConfigValue('imagePath',fileUri.fsPath);
@@ -138,6 +153,7 @@ export class PickList{
 	}
 
 	private setConfigValue(name:string,value:any){
+		// 更新变量
 		return this.config.update(name,value,vscode.ConfigurationTarget.Global);
 	}
 }
