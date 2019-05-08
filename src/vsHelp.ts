@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 
 const vsHelp = {
+    // 文件路径
+    filePath : path.join(path.dirname(require.main.filename), 'vs', 'workbench', 'workbench.main.css'),
     /**
      * 展示信息提示框
      * 

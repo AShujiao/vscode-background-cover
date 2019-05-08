@@ -33,7 +33,7 @@ export class PickList{
 
 		this.quickPick.onDidChangeSelection( e => {
 			let item = e[0];
-			this.listChange(item.type);
+			this.listChange(item.type,item.path);
 		})
 
 		this.quickPick.onDidHide(()=>{
@@ -47,20 +47,20 @@ export class PickList{
 		return vscode.workspace.getConfiguration('backgroundCover');
 	}
 
-	private listChange(type:number){
+	private listChange(type:number,path?:string){
 
 		switch (type) {
 			case 1:
-				this.imgList();
+				this.imgList(); // 展示图片列表
 				break;
 			case 2:
-				this.updateConfig(2);
+				this.updateConfig(2); // 弹出选择文件夹对话框
 				break;
 			case 3:
-				this.updateConfig(1);
+				this.updateConfig(1); // 弹出选择图片文件对话框
 				break;
 			case 4:
-				this.updateConfig(1);
+				this.updateBackgound(path); // 选择图片，更新背景css
 				break;
 			case 5:
 				this.updateConfig(1);
@@ -129,7 +129,8 @@ export class PickList{
 		return true;
 	}
 
-	private updateBackgound(path:string){
+	private updateBackgound(path?:string){
+		if(!path) return false;
 		this.setConfigValue('imagePath',path);
 	}
 
