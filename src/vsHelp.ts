@@ -3,7 +3,7 @@ import * as path from 'path';
 
 const vsHelp = {
     // 文件路径
-    filePath : path.join(path.dirname(require.main.filename), 'vs', 'workbench', 'workbench.main.css'),
+    filePath : ,
     /**
      * 展示信息提示框
      * 

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { imgItem } from './ImgItem';
+import { FileDom } from './FileDom';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -54,20 +55,26 @@ export class PickList{
 				this.imgList(); // 展示图片列表
 				break;
 			case 2:
-				this.updateConfig(2); // 弹出选择文件夹对话框
+				this.openFieldDialog(2); // 弹出选择文件夹对话框
 				break;
 			case 3:
-				this.updateConfig(1); // 弹出选择图片文件对话框
+				this.openFieldDialog(1); // 弹出选择图片文件对话框
 				break;
 			case 4:
 				this.updateBackgound(path); // 选择图片，更新背景css
 				break;
 			case 5:
-				this.updateConfig(1);
+				this.openFieldDialog(1);
 				break;
 			case 6:
-				this.updateConfig(1);
+				this.openFieldDialog(1);
 				break;
+			case 7:
+				vscode.commands.executeCommand('workbench.action.reloadWindow');
+				break;
+			case 8:
+				this.quickPick.hide();
+				break;				
 			default:
 				break;
 		}
@@ -134,7 +141,7 @@ export class PickList{
 		this.setConfigValue('imagePath',path);
 	}
 
-	private async updateConfig(type:number){
+	private async openFieldDialog(type:number){
 		let isFolders = type == 1 ? false:true;
 		let isFiles   = type == 2 ? false:true;
 		let folderUris = await vscode.window.showOpenDialog({ canSelectFolders: isFolders, canSelectFiles: isFiles, canSelectMany: false, openLabel: 'Select folder',filters:{'Images': ['png', 'jpg','gif','jpeg']} });
@@ -143,7 +150,7 @@ export class PickList{
 		}
 		let fileUri = folderUris[0];
 		if(type == 2){
-			this.setConfigValue('randomImageFolder',fileUri.fsPath);
+			this.setConfigValue('randomImageFolder',fileUri.fsPath,false);
 			return this.imgList(fileUri.fsPath);
 		}
 		if(type == 1){
@@ -153,8 +160,20 @@ export class PickList{
 		return false;
 	}
 
-	private setConfigValue(name:string,value:any){
-		// 更新变量
-		return this.config.update(name,value,vscode.ConfigurationTarget.Global);
+	private setConfigValue(name:string,value:any,updateDom:Boolean = true){
+		// 更新变量		
+		this.config.update(name,value,vscode.ConfigurationTarget.Global);
+		// 是否需要更新Dom
+		if(updateDom){
+			let dom:FileDom = new FileDom();
+			let result = dom.install();
+			if(result){
+				this.quickPick.placeholder = 'Reloading takes effect? / 重新加载生效？';
+				this.quickPick.items = [{ label: 'YES', description: '立即重新加载窗口生效',type:7 }, { label: 'NO', description: '稍后手动重启',type:8 }];
+				this.quickPick.ignoreFocusOut = true;
+				this.quickPick.show();
+			}
+		}
+		return true;
 	}
 }
