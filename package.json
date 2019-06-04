@@ -33,11 +33,6 @@
         "configuration": {
             "title": "background-cover config",
             "properties": {
-                "backgroundCover.enabled": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "plugin is enabled / 插件是否启用"
-                },
                 "backgroundCover.opacity": {
                     "type": "number",
                     "maximum": 1,

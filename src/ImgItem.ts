@@ -6,13 +6,13 @@ export class imgItem implements vscode.QuickPickItem {
 
 	label: string;
 	description: string;
-	type: number;
+	imageType: number;
 	path?: string|undefined;
 
 	constructor(label: string, description: string,type:number,path?:string|undefined) {
         this.label = label;
         this.description = description;
-				this.type = type;
+				this.imageType = type;
 				this.path = path;
     }
 }

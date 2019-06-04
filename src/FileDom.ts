@@ -1,6 +1,5 @@
 import * as path from 'path';
 import * as fs from 'fs';
-import * as vscode from 'vscode';
 import version from './version';
 
 
@@ -9,6 +8,14 @@ export class FileDom{
 	// 文件路径
 	private  filePath = path.join(path.dirname(require.main.filename), 'vs', 'workbench', 'workbench.main.css');
 	private  extName = "backgroundCover";
+	private  imagePath:string = '';
+	private  imageOpacity:number = 1;
+
+
+	constructor(imagePath:string,opacity:number){
+		this.imagePath = imagePath;
+		this.imageOpacity = opacity;
+	}
 
 
 	public install():boolean{
@@ -25,12 +32,13 @@ export class FileDom{
 	}
 
 	private getCss():string{
-		let config = vscode.workspace.getConfiguration('backgroundCover');
 
 		// 重新计算透明度
-		let opacity = config.opacity;
+		let opacity = this.imageOpacity;
 		opacity = opacity <= 0.1 ? 0.1 : opacity >= 1 ? 1 : opacity;
 		opacity = 0.62 + (0.4 - ((opacity*4) / 10));
+
+		let imagePath = this.imagePath.replace(/\\/g, '/');
 
 		return `
 		/*ext-${this.extName}-start*/
@@ -39,7 +47,7 @@ export class FileDom{
 			background-size:cover;
 			background-repeat: no-repeat;
 			opacity:${opacity};
-			background-image:url('${config.imagePath}');
+			background-image:url('${imagePath}');
 		}
 		/*ext-${this.extName}-end*/
 		`;

@@ -1,9 +1,6 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 
 const vsHelp = {
-    // 文件路径
-    filePath : ,
     /**
      * 展示信息提示框
      * 
