@@ -34,6 +34,7 @@
 ## Config 配置项
 
 > 2.0 版本开始你只需要通过插件自带的配置项进行使用即可
+
 > Starting with version 2.0, you only need to use the configuration items that come with the plug-in.
 
 ## Notice 提示
