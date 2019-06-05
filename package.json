@@ -2,7 +2,7 @@
     "name": "background-cover",
     "displayName": "background-cover",
     "description": "Add a picture you like to cover the entire vscode..",
-    "version": "1.5.2",
+    "version": "2.0.0",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.26.0"
@@ -26,36 +26,17 @@
     "contributes": {
         "commands": [
             {
-                "command": "extension.backgroundCover",
-                "title": "Hello backgroundCover"
-            },
-            {
-                "command": "extension.backgroundCover.refresh",
-                "title": "backgroundCover - refresh"
-            },
-            {
-                "command": "extension.backgroundCover.selectImg",
-                "title": "backgroundCover - selectImg"
-            }
-        ],
-        "keybindings": [
-            {
-                "command": "extension.backgroundCover.refresh",
-                "key": "ctrl+shift+f7"
+                "command": "extension.backgroundCover.start",
+                "title": "backgroundCover - start"
             }
         ],
         "configuration": {
             "title": "background-cover config",
             "properties": {
-                "backgroundCover.enabled": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "plugin is enabled / 插件是否启用"
-                },
                 "backgroundCover.opacity": {
                     "type": "number",
                     "maximum": 1,
-                    "minimum": 0.1,
+                    "minimum": 0,
                     "default": 0.2,
                     "description": "Background opacity / 背景透明度(0.1 - 1)"
                 },
@@ -90,9 +71,9 @@
         "test": "npm run compile && node ./node_modules/vscode/bin/test"
     },
     "devDependencies": {
+        "@types/mocha": "^2.2.42",
+        "@types/node": "^7.10.6",
         "typescript": "^2.6.1",
-        "vscode": "^1.1.6",
-        "@types/node": "^7.0.43",
-        "@types/mocha": "^2.2.42"
+        "vscode": "^1.1.33"
     }
 }
