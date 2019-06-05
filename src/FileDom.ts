@@ -36,7 +36,7 @@ export class FileDom{
 		// 重新计算透明度
 		let opacity = this.imageOpacity;
 		opacity = opacity <= 0.1 ? 0.1 : opacity >= 1 ? 1 : opacity;
-		opacity = 0.62 + (0.4 - ((opacity*4) / 10));
+		opacity = 0.79 + (0.2 - ((opacity*2) / 10));
 
 		let imagePath = this.imagePath.replace(/\\/g, '/');
 
@@ -97,8 +97,7 @@ export class FileDom{
 			content = this.clearCssContent( content );
 			this.saveContent( content );
 			return true;
-		}
-		catch ( ex ) {
+		}catch ( ex ) {
 			//console.log(ex);
 			return false;
 		}

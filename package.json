@@ -36,7 +36,7 @@
                 "backgroundCover.opacity": {
                     "type": "number",
                     "maximum": 1,
-                    "minimum": 0.1,
+                    "minimum": 0,
                     "default": 0.2,
                     "description": "Background opacity / 背景透明度(0.1 - 1)"
                 },
