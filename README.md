@@ -3,17 +3,22 @@
 ## Add a picture you like to cover the entire vscode..
 ## 添加一张你喜欢的图片铺满整个vscode..
 
-    You can also configure a folder path to randomly display the images inside.
-    你也可以配置一个文件夹路径来随机展示里面的图片
 
 >使用此扩展请以管理员身份运行vscode
 
+>请通过插件配置命令或底部按钮进行配置（不要手动修改配置参数）
+
 >Use this extension to run vscode as an administrator
+
+>Please configure it through the plug-in configuration command or the bottom button (do not modify the configuration parameters manually)
+
+
 
 ## It looks like:
 
-![](https://user-images.githubusercontent.com/14969576/47087812-92168980-d24f-11e8-9a69-cee757ace627.png)
-![](https://user-images.githubusercontent.com/14969576/55158915-f7758b80-519a-11e9-9699-9db0ed771c91.gif)
+![](https://user-images.githubusercontent.com/14969576/58956213-65a88100-87d0-11e9-98ed-a0ee0992b61f.gif)
+![](https://user-images.githubusercontent.com/14969576/58956227-6c36f880-87d0-11e9-94f6-e039f43a0305.jpg)
+![](https://user-images.githubusercontent.com/14969576/58956233-6d682580-87d0-11e9-80a3-729ecc421e0c.jpg)
 
 ## Warns 警告：
 
@@ -28,44 +33,19 @@
 
 ## Config 配置项
 
-| Name                        |      Type       | Description                                                                                 |
-| :------------------------   | :-------------: | :------------------------------------------------------------------------------------------ |
-| `backgroundCover.enabled`   |    `Boolean`    | 插件是否启用 <br> If background enabled.                                                     |
-| `backgroundCover.opacity`   |    `Number`     | 背景图片透明度 <br> background opacity.                                                      |
-| `backgroundCover.imagePath` |    `String`     | 背景图片路径<br> Images path                                                                 |
-| `backgroundCover.randomImageFolder` |    `String`     | 随机背景图片文件夹路径<br> Background image's folder path for random                   |
+> 2.0 版本开始你只需要通过插件自带的配置项进行使用即可
+> Starting with version 2.0, you only need to use the configuration items that come with the plug-in.
 
 ## Notice 提示
 ---
-    (A picture) config: {"backgroundCover.imagePath": "file:///E:/OneDrive/Pictures/overwatch/ow.jpg"}  or "E:/OneDrive/Pictures/overwatch/ow.jpg"
-    (Random display) config：{"backgroundCover.randomImageFolder": "E:\\image"}
 
-You should use protocol **https** instead of **http** to the image,which is not support by vscode now.
+>1.点击底部切换背景图按钮 / Click the bottom toggle background button
 
->Random background needs to execute the command to restart vscode and randomly change a background image：
-
->1. Open the Command Palette (Ctrl+Shift+P (Cmd+Shift+P on macOS)).
-
->2. Select the backgroundCover - refresh command and press Enter.(key:ctrl+shift+f7)
-
-----
-    (单   张  图) 配置 ： {"backgroundCover.imagePath": "file:///E:/OneDrive/Pictures/overwatch/ow.jpg"} 或者 "E:/OneDrive/Pictures/overwatch/ow.jpg"
-    (多图随机显示) 配置 ：{"backgroundCover.randomImageFolder": "E:\\image"}
+>2.ctrl + shift + P  >  "backgroundCover - start" 
 
 
 
-**http** 协议的外链图片在当前版本不能使用(vscode 限制)，需要用 **https** 协议开头的外链地址。
-
->随机背景图并不会像幻灯片那样几分钟换一次，而时执行相应的命令重启vscode去随机更换一张背景图:
-
->1. 打开命令面板 (Ctrl+Shift+P (Cmd+Shift+P on macOS)).
-
->2. 输入 "backgroundCover - refresh" 命令，然后按下回车.(快捷键:ctrl+shift+f7)
-
-
-    当你配置了 'randomImageFolder' 文件夹路径时，可以点击底部状态栏右下角的切换背景图来选择你要使用的背景图片。
-
-    When you configure the 'randomImageFolder' folder path, you can select the background image you want to use by clicking the switch background image in the lower right corner of the bottom status bar.
+![](https://user-images.githubusercontent.com/14969576/58956744-b076c880-87d1-11e9-8552-7a9f93eaf3b4.jpg)
 
 
 ## Uninstall 卸载
@@ -100,8 +80,10 @@ You should use protocol **https** instead of **http** to the image,which is not 
 ## 更新日志
 [日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 1.5.2 (2019/04/08)
-	1.暂时去除图片路径检测
+#### ver 2.0.0 (2019/06/05)
+	1.重写功能，添加独立配置，使用更方便
+    2.不再通过监听设置进行更新背景
+    3.去除默认背景图
 ---
 ### Thanks 感谢
 

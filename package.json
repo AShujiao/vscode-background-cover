@@ -38,7 +38,7 @@
                     "maximum": 1,
                     "minimum": 0,
                     "default": 0.2,
-                    "description": "Background opacity / 背景透明度(0.1 - 1)"
+                    "description": "Background opacity / 背景透明度(0 - 1)"
                 },
                 "backgroundCover.imagePath": {
                     "type": "string",
@@ -63,7 +63,7 @@
     },
     "homepage": "https://github.com/AShujiao/vscode-background-cover/blob/master/README.md#manasxx-readme",
     "scripts": {
-        "vscode:prepublish": "npm run compile",
+        "vscode:prepublish": "",
         "vscode:uninstall": "node ./out/uninstall",
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
