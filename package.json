@@ -2,7 +2,7 @@
     "name": "background-cover",
     "displayName": "background-cover",
     "description": "Add a picture you like to cover the entire vscode..",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.26.0"
@@ -48,7 +48,7 @@
                 "backgroundCover.randomImageFolder": {
                     "type": "string",
                     "default": "",
-                    "description": "Background image's folder path for random / 随机图片的文件夹路径"
+                    "description": "Background image's folder path for random / 图片目录"
                 }
             }
         }
@@ -74,6 +74,6 @@
         "@types/mocha": "^2.2.42",
         "@types/node": "^7.10.6",
         "typescript": "^2.6.1",
-        "vscode": "^1.1.33"
+        "vscode": "^1.1.34"
     }
 }

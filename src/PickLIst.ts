@@ -30,11 +30,11 @@ export class PickList{
 		let list:vscode.QuickPick<imgItem> = vscode.window.createQuickPick<imgItem>();
 		list.placeholder = 'Please choose configuration! / 请选择相关配置！';
 		let items: imgItem[] = [
-			{ label: 'Select pictures',    description: '选择一张背景图', imageType: 1 },
-			{ label: 'Add directory',      description: '添加图片目录', imageType: 2 },
-			{ label: 'Background opacity', description: '更新图片不透明度', imageType: 5 },
-			{ label: 'input : path/https', description: '输入图片路径：本地/https', imageType: 6 },
-			{ label: 'Closing background', description: '关闭背景图', imageType: 7 },
+			{ label: '$(file-media)    Select pictures         ',    description: '选择一张背景图', imageType: 1 },
+			{ label: '$(file-directory)    Add directory          ',      description: '添加图片目录', imageType: 2 },
+			{ label: '$(settings)   Background opacity', description: '更新图片不透明度', imageType: 5 },
+			{ label: '$(pencil)    Input : path/https    ', description: '输入图片路径：本地/https', imageType: 6 },
+			{ label: '$(eye-closed)   Closing background', description: '关闭背景图', imageType: 7 },
 		];
 		list.items = items;
 		PickList.itemList = new PickList(list);
@@ -113,7 +113,7 @@ export class PickList{
 	// 根据图片目录展示图片列表
 	private imgList(folderPath?:string){
 		let items:imgItem[] = [
-			{ label: 'Manual selection', description: '选择一张背景图', imageType: 3 }
+			{ label: '$(diff-added)  Manual selection', description: '选择一张背景图', imageType: 3 }
 		];
 		let randomPath:any = folderPath ? folderPath : this.config.randomImageFolder;
 		if(this.checkFolder(randomPath)){
@@ -125,8 +125,8 @@ export class PickList{
 			if (files.length > 0) {
 				// 获取一个随机路径存入数组中
 				let randomFile = files[Math.floor(Math.random() * files.length)];
-				items.push({label:'Random pictures',description:'随机自动选择',imageType:4,path:path.join(randomPath,randomFile)});
-				items = items.concat(files.map((e)=> new imgItem(e,e,4,path.join(randomPath,e))));
+				items.push({label:'$(light-bulb)   Random pictures',description:'随机自动选择',imageType:4,path:path.join(randomPath,randomFile)});
+				items = items.concat(files.map((e)=> new imgItem('$(tag) '+e,e,4,path.join(randomPath,e))));
 			}
 		}
 		//console.log(items);
@@ -256,7 +256,7 @@ export class PickList{
 		}
 		if(result){
 			this.quickPick.placeholder = 'Reloading takes effect? / 重新加载生效？';
-			this.quickPick.items = [{ label: 'YES', description: '立即重新加载窗口生效',imageType:8 }, { label: 'NO', description: '稍后手动重启',imageType:9 }];
+			this.quickPick.items = [{ label: '$(check)   YES', description: '立即重新加载窗口生效',imageType:8 }, { label: '$(x)   NO', description: '稍后手动重启',imageType:9 }];
 			this.quickPick.ignoreFocusOut = true;
 			this.quickPick.show();
 		}

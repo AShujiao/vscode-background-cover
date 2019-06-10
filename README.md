@@ -44,6 +44,8 @@
 
 >2.ctrl + shift + P  >  "backgroundCover - start" 
 
+>3.VSCode更新版本时会导致背景图消失，需要手动重新设置
+
 
 
 ![](https://user-images.githubusercontent.com/14969576/58956744-b076c880-87d1-11e9-8552-7a9f93eaf3b4.jpg)
@@ -85,6 +87,9 @@
 	1.重写功能，添加独立配置，使用更方便
     2.不再通过监听设置进行更新背景
     3.去除默认背景图
+
+#### ver 2.0.1 (2019/06/10)
+	1.下拉列表添加图标、文字对齐
 ---
 ### Thanks 感谢
 
