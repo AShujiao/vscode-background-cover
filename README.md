@@ -16,9 +16,8 @@
 
 ## It looks like:
 
-![](https://user-images.githubusercontent.com/14969576/58956213-65a88100-87d0-11e9-98ed-a0ee0992b61f.gif)
-![](https://user-images.githubusercontent.com/14969576/58956227-6c36f880-87d0-11e9-94f6-e039f43a0305.jpg)
-![](https://user-images.githubusercontent.com/14969576/58956233-6d682580-87d0-11e9-80a3-729ecc421e0c.jpg)
+![](https://user-images.githubusercontent.com/14969576/59507703-68952700-8ede-11e9-9633-5b9351c5bbb8.gif)
+![](https://user-images.githubusercontent.com/14969576/59507145-b90b8500-8edc-11e9-9bf4-a7b9d1d8ae00.png)
 
 ## Warns 警告：
 
