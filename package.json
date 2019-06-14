@@ -2,7 +2,7 @@
     "name": "background-cover",
     "displayName": "background-cover",
     "description": "Add a picture you like to cover the entire vscode..",
-    "version": "2.0.1",
+    "version": "2.0.7",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.26.0"
@@ -49,6 +49,11 @@
                     "type": "string",
                     "default": "",
                     "description": "Background image's folder path for random / 图片目录"
+                },
+                "backgroundCover.autoStatus":{
+                    "type":"boolean",
+                    "default":false,
+                    "description": "Automatically change background each time you start / 每次启动时随机自动更换背景"
                 }
             }
         }

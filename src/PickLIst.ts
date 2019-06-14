@@ -11,58 +11,72 @@ export class PickList{
 	public static itemList:PickList|undefined;
 
 	// 下拉列表
-	private readonly quickPick : vscode.QuickPick<imgItem>;
+	private readonly quickPick: vscode.QuickPick<imgItem>|any;
 
 	private _disposables: vscode.Disposable[] = [];
 
 	// 当前配置
-	private config = this.getConfig();
+	private config:vscode.WorkspaceConfiguration;
 
 	// 当前配置的背景图路径
-	private imgPath:string = this.config.imagePath;
+	private imgPath:string;
 
 	// 当前配置的背景图透明度
-	private opacity:number = this.config.opacity;
+	private opacity:number;
 
 	// 初始下拉列表
 	public static createItemLIst(){
 
+		let config:vscode.WorkspaceConfiguration = vscode.workspace.getConfiguration('backgroundCover');
 		let list:vscode.QuickPick<imgItem> = vscode.window.createQuickPick<imgItem>();
 		list.placeholder = 'Please choose configuration! / 请选择相关配置！';
 		let items: imgItem[] = [
-			{ label: '$(file-media)    Select pictures         ',    description: '选择一张背景图', imageType: 1 },
-			{ label: '$(file-directory)    Add directory          ',      description: '添加图片目录', imageType: 2 },
-			{ label: '$(settings)   Background opacity', description: '更新图片不透明度', imageType: 5 },
-			{ label: '$(pencil)    Input : path/https    ', description: '输入图片路径：本地/https', imageType: 6 },
-			{ label: '$(eye-closed)   Closing background', description: '关闭背景图', imageType: 7 },
+			{ label: '$(file-media)    Select pictures               ',    description: '选择一张背景图', imageType: 1 },
+			{ label: '$(file-directory)    Add directory                ',      description: '添加图片目录', imageType: 2 },
+			{ label: '$(settings)   Background opacity      ', description: '更新图片不透明度', imageType: 5 },
+			{ label: '$(pencil)    Input : path/https          ', description: '输入图片路径：本地/https', imageType: 6 },
+			{ label: '$(eye-closed)   Closing background      ', description: '关闭背景图', imageType: 7 },
 		];
+		if(config.autoStatus){
+			items.push({label:'$(sync)     OFF start replacement   ',description:'关闭启动自动更换',imageType:10})
+		}else{
+			items.push({label:'$(sync)     ON start replacement   ',description:'开启启动自动更换',imageType:11})
+		}
 		list.items = items;
-		PickList.itemList = new PickList(list);
+		PickList.itemList = new PickList(config,list);
+	}
+
+	/**
+	 *  自动更新背景
+	 */
+	public static autoUpdateBackground(){
+		let config = vscode.workspace.getConfiguration('backgroundCover');
+		if(!config.randomImageFolder || !config.autoStatus){
+			return false;
+		}
+		PickList.itemList = new PickList(config);
+		PickList.itemList.autoUpdateBackground();
+		return PickList.itemList = undefined;
 	}
 
 	// 列表构造方法
-	private constructor(pickList:vscode.QuickPick<imgItem>){
-		this.quickPick = pickList;
-
-		this.quickPick.onDidAccept( e => this.listChange(this.quickPick.selectedItems[0]));
-
-		this.quickPick.onDidHide(()=>{
-			this.dispose();
-		},null,this._disposables);
-
-		this.quickPick.show();
-	}
-
-	// 获取当前配置
-	private getConfig():vscode.WorkspaceConfiguration{
-		return vscode.workspace.getConfiguration('backgroundCover');
+	private constructor(config:vscode.WorkspaceConfiguration,pickList?:vscode.QuickPick<imgItem>){
+		this.config = config;
+		this.imgPath = config.imagePath;
+		this.opacity = config.opacity;
+		if(pickList){
+			this.quickPick = pickList;
+			this.quickPick.onDidAccept( e => this.listChange(this.quickPick.selectedItems[0].imageType,this.quickPick.selectedItems[0].path));
+			this.quickPick.onDidHide(()=>{
+				this.dispose();
+			},null,this._disposables);
+			this.quickPick.show();
+		}
 	}
 
 	// 列表点击事件分配
-	private listChange(item:imgItem){
+	private listChange(type:number,path?:string){
 		
-		let type = item.imageType; // 类型
-		let path = item.path;      // 路径
 		switch (type) {
 			case 1:
 				this.imgList(); // 展示图片列表
@@ -90,7 +104,20 @@ export class PickList{
 				break;
 			case 9:
 				this.quickPick.hide(); // 隐藏设置弹窗
-				break;				
+				break;	
+			case 10:
+				this.setConfigValue('autoStatus',false,false);
+				this.quickPick.hide();
+				break;
+			case 11:
+				if(!this.config.randomImageFolder){
+					vscode.window.showWarningMessage('Please add a directory! / 请添加目录后再来开启！');
+				}else{
+					this.setConfigValue('autoStatus',true,false);
+					this.autoUpdateBackground();
+				}
+				this.quickPick.hide();
+				break;			
 			default:
 				break;
 		}
@@ -110,11 +137,32 @@ export class PickList{
 		}
 	}
 
+	/**
+	 * 启动时自动更新背景
+	 */
+	private autoUpdateBackground(){
+		if(this.checkFolder(this.config.randomImageFolder)){
+			// 获取目录下的所有图片
+			let files: string[] = fs.readdirSync(path.resolve(this.config.randomImageFolder)).filter((s) => {
+				return s.endsWith('.png') || s.endsWith('.jpg') || s.endsWith('.gif');
+			});
+			// 是否存在图片
+			if (files.length > 0) {
+				// 获取一个随机路径存入数组中
+				let randomFile = files[Math.floor(Math.random() * files.length)];
+				let file = path.join(this.config.randomImageFolder,randomFile);
+				this.listChange(4,file);
+			}
+		}
+		return true;
+	}
+
 	// 根据图片目录展示图片列表
 	private imgList(folderPath?:string){
 		let items:imgItem[] = [
 			{ label: '$(diff-added)  Manual selection', description: '选择一张背景图', imageType: 3 }
 		];
+
 		let randomPath:any = folderPath ? folderPath : this.config.randomImageFolder;
 		if(this.checkFolder(randomPath)){
 			// 获取目录下的所有图片
@@ -129,8 +177,7 @@ export class PickList{
 				items = items.concat(files.map((e)=> new imgItem('$(tag) '+e,e,4,path.join(randomPath,e))));
 			}
 		}
-		//console.log(items);
-		//this.quickPick.ignoreFocusOut = true;
+		
 		this.quickPick.items = items;
 		this.quickPick.show();
 	}
@@ -254,7 +301,7 @@ export class PickList{
 		}else{
 			result = dom.install();
 		}
-		if(result){
+		if(result && this.quickPick){
 			this.quickPick.placeholder = 'Reloading takes effect? / 重新加载生效？';
 			this.quickPick.items = [{ label: '$(check)   YES', description: '立即重新加载窗口生效',imageType:8 }, { label: '$(x)   NO', description: '稍后手动重启',imageType:9 }];
 			this.quickPick.ignoreFocusOut = true;

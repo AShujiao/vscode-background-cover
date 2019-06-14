@@ -56,9 +56,6 @@
 
     如果卸载扩展后图片背景还在？这个不是bug,请手动关闭再打开一次vscode会自动执行最后的清理操作，然后重启即可。
     Is the picture still there after uninstalling the extension? Please turn off manually and open vscode again, which will automatically perform the final cleaning operation and restart.
-    OR:
-    Set the config  {"backgroundCover.enabled": false}  in settings.json,then uninstall the plugin.
-    在 settings.json 中设置 {"backgroundCover.enabled": false} ，然后再卸载插件。
     
 
 ### Q&A 常见问题:
@@ -90,6 +87,9 @@
 
 #### ver 2.0.1 (2019/06/10)
 	1.下拉列表添加图标、文字对齐
+
+#### ver 2.1.0 (2019/06/14)
+	1.添加每次启动时随机自动更换背景图功能（请先添加目录后开启）
 ---
 ### Thanks 感谢
 
