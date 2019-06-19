@@ -28,6 +28,16 @@
             {
                 "command": "extension.backgroundCover.start",
                 "title": "backgroundCover - start"
+            },
+            {
+                "command": "extension.backgroundCover.refresh",
+                "title": "backgroundCover - refresh"
+            }
+        ],
+        "keybindings": [
+            {
+                "command": "extension.backgroundCover.refresh",
+                "key": "ctrl+shift+f7"
             }
         ],
         "configuration": {

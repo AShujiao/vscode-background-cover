@@ -59,6 +59,21 @@ export class PickList{
 		return PickList.itemList = undefined;
 	}
 
+	/**
+	 *  随机更新一张背景
+	 */
+	public static randomUpdateBackground(){
+		let config = vscode.workspace.getConfiguration('backgroundCover');
+		if(!config.randomImageFolder){
+			vscode.window.showWarningMessage('Please add a directory! / 请添加目录！');
+			return false;
+		}
+		PickList.itemList = new PickList(config);
+		PickList.itemList.autoUpdateBackground();
+		PickList.itemList = undefined;
+		return vscode.commands.executeCommand('workbench.action.reloadWindow');
+	}
+
 	// 列表构造方法
 	private constructor(config:vscode.WorkspaceConfiguration,pickList?:vscode.QuickPick<imgItem>){
 		this.config = config;

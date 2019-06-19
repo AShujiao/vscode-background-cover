@@ -14,8 +14,10 @@ export function activate( context: vscode.ExtensionContext ) {
 	backImgBtn.tooltip = 'Switch background image / 切换背景图';
 	backImgBtn.show();
 	PickList.autoUpdateBackground();
-	let startCommand = vscode.commands.registerCommand( 'extension.backgroundCover.start', () => { PickList.createItemLIst() } );
-	context.subscriptions.push( startCommand );
+	let randomCommand = vscode.commands.registerCommand( 'extension.backgroundCover.refresh', () => { PickList.randomUpdateBackground(); });
+	let startCommand  = vscode.commands.registerCommand( 'extension.backgroundCover.start', () => { PickList.createItemLIst() } );
+	context.subscriptions.push(startCommand);
+	context.subscriptions.push(randomCommand);
 }
 
 // this method is called when your extension is deactivated
