@@ -188,7 +188,7 @@ export class PickList{
 			if (files.length > 0) {
 				// 获取一个随机路径存入数组中
 				let randomFile = files[Math.floor(Math.random() * files.length)];
-				items.push({label:'$(light-bulb)   Random pictures',description:'随机自动选择',imageType:4,path:path.join(randomPath,randomFile)});
+				items.push({label:'$(light-bulb)   Random pictures',description:'随机自动选择       ctrl+shift+F7',imageType:4,path:path.join(randomPath,randomFile)});
 				items = items.concat(files.map((e)=> new imgItem('$(tag) '+e,e,4,path.join(randomPath,e))));
 			}
 		}

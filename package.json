@@ -2,14 +2,14 @@
     "name": "background-cover",
     "displayName": "background-cover",
     "description": "Add a picture you like to cover the entire vscode..",
-    "version": "2.1.0",
+    "version": "2.2.0",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.26.0"
     },
     "icon": "resources/background-cover.png",
     "galleryBanner": {
-        "color": "#1e3147",
+        "color": "#9c7af3",
         "theme": "dark"
     },
     "categories": [

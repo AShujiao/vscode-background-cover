@@ -43,7 +43,9 @@
 
 >2.ctrl + shift + P  >  "backgroundCover - start" 
 
->3.VSCode更新版本时会导致背景图消失，需要手动重新设置
+>3.ctrl + shift + F7 >  "Random update background and restart"
+
+>4.VSCode更新版本时会导致背景图消失，需要手动重新设置
 
 
 
@@ -89,6 +91,9 @@
 
 #### ver 2.1.0 (2019/06/14)
 	1.添加每次启动时随机自动更换背景图功能（请先添加目录后开启）
+
+#### ver 2.2.0 (2019/06/20)
+	1.添加快捷键ctrl + shift + F7 随机更新背景并重启
 ---
 ### Thanks 感谢
 
