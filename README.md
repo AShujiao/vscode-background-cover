@@ -1,7 +1,30 @@
-# vscode-background-cover
+<h1 align="center">
+  <br>
+    <img src="https://user-images.githubusercontent.com/14969576/61449520-b55d9900-a987-11e9-9dc9-e81fa416688c.png" alt="logo" width="200">
+  <br>
+  VS Code - Background Cover
+  <br>
+  <br>
+</h1>
 
-## Add a picture you like to cover the entire vscode..
-## 添加一张你喜欢的图片铺满整个vscode..
+
+
+<p align="center">
+Add a picture you like to cover the entire vscode..
+<br/>
+添加一张你喜欢的图片铺满整个vscode..
+<br/>
+<img src="https://vsmarketplacebadge.apphb.com/installs-short/manasxx.background-cover.svg
+" alt="vsts">
+<img src="https://vsmarketplacebadge.apphb.com/downloads-short/manasxx.background-cover.svg
+" alt="vsts">
+<img src="https://vsmarketplacebadge.apphb.com/rating-star/manasxx.background-cover.svg
+" alt="vsts">
+<a href="https://marketplace.visualstudio.com/items?itemName=manasxx.background-cover"><img src="https://vsmarketplacebadge.apphb.com/version/manasxx.background-cover.svg
+" alt="vsts"></a>  
+</p>
+
+---
 
 
 >使用此扩展请以管理员身份运行vscode
@@ -94,6 +117,9 @@
 
 #### ver 2.2.0 (2019/06/20)
 	1.添加快捷键ctrl + shift + F7 随机更新背景并重启
+
+#### ver 2.2.1 (2019/07/18)
+	1.支持更多的图片格式
 ---
 ### Thanks 感谢
 

@@ -158,9 +158,7 @@ export class PickList{
 	private autoUpdateBackground(){
 		if(this.checkFolder(this.config.randomImageFolder)){
 			// 获取目录下的所有图片
-			let files: string[] = fs.readdirSync(path.resolve(this.config.randomImageFolder)).filter((s) => {
-				return s.endsWith('.png') || s.endsWith('.jpg') || s.endsWith('.gif');
-			});
+			let files: string[] = this.getFolderImgList(this.config.randomImageFolder);
 			// 是否存在图片
 			if (files.length > 0) {
 				// 获取一个随机路径存入数组中
@@ -181,9 +179,7 @@ export class PickList{
 		let randomPath:any = folderPath ? folderPath : this.config.randomImageFolder;
 		if(this.checkFolder(randomPath)){
 			// 获取目录下的所有图片
-			let files: string[] = fs.readdirSync(path.resolve(randomPath)).filter((s) => {
-				return s.endsWith('.png') || s.endsWith('.jpg') || s.endsWith('.gif');
-			});
+			let files: string[] = this.getFolderImgList(randomPath);
 			// 是否存在图片
 			if (files.length > 0) {
 				// 获取一个随机路径存入数组中
@@ -195,6 +191,22 @@ export class PickList{
 		
 		this.quickPick.items = items;
 		this.quickPick.show();
+	}
+
+	/**
+	 * 获取目录下的所有图片
+	 * @param pathUrl 
+	 */
+	private getFolderImgList(pathUrl:string):string[]{
+		if(!pathUrl || pathUrl == ''){
+			return [];
+		}
+		// 获取目录下的所有图片
+		let files: string[] = fs.readdirSync(path.resolve(pathUrl)).filter((s) => {
+			return s.endsWith('.png') || s.endsWith('.jpg') || s.endsWith('.jpeg') || s.endsWith('.gif') || s.endsWith('.webp') || s.endsWith('.bmp');
+		});
+
+		return files;
 	}
 
 

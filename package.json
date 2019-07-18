@@ -2,7 +2,7 @@
     "name": "background-cover",
     "displayName": "background-cover",
     "description": "Add a picture you like to cover the entire vscode..",
-    "version": "2.2.0",
+    "version": "2.2.1",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.26.0"
@@ -78,7 +78,7 @@
     },
     "homepage": "https://github.com/AShujiao/vscode-background-cover/blob/master/README.md#manasxx-readme",
     "scripts": {
-        "vscode:prepublish": "",
+        "vscode:prepublish": "npm run compile",
         "vscode:uninstall": "node ./out/uninstall",
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
