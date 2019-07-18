@@ -14,7 +14,9 @@ Add a picture you like to cover the entire vscode..
 <br/>
 添加一张你喜欢的图片铺满整个vscode..
 <br/>
-<img src="https://vsmarketplacebadge.apphb.com/installs-short/manasxx.background-cover.svg?label=background-cover" alt="installs">
+<a href="https://github.com/vscode-extension/vscode-background-cover">
+<img src="https://img.shields.io/github/stars/vscode-extension/vscode-background-cover.svg?style=social" alt="stars">
+</a>
 <img src="https://vsmarketplacebadge.apphb.com/downloads-short/manasxx.background-cover.svg?label=background-cover" alt="downloads">
 <img src="https://vsmarketplacebadge.apphb.com/rating-star/manasxx.background-cover.svg?label=background-cover" alt="star">
 <a href="https://marketplace.visualstudio.com/items?itemName=manasxx.background-cover"><img src="https://vsmarketplacebadge.apphb.com/version/manasxx.background-cover.svg?label=background-cover" alt="Version"></a>  
