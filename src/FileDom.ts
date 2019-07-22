@@ -6,7 +6,7 @@ import version from './version';
 export class FileDom {
 
 	// 文件路径
-	private filePath = path.join(path.dirname(require.main.filename), 'vs', 'workbench', 'workbench.main.css');
+	private filePath = path.join(path.dirname((require.main as NodeModule).filename), 'vs', 'workbench', 'workbench.main.css');
 	private extName = "backgroundCover";
 	private imagePath: string = '';
 	private imageOpacity: number = 1;

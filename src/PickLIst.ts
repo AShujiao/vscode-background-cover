@@ -114,7 +114,7 @@ export class PickList {
 		if (pickList) {
 			this.quickPick = pickList;
 			this.quickPick.onDidAccept(
-				e => this.listChange(
+				(e: any) => this.listChange(
 					this.quickPick.selectedItems[0].imageType,
 					this.quickPick.selectedItems[0].path));
 			this.quickPick.onDidHide(() => {
