@@ -4,7 +4,7 @@ import * as fs from 'fs';
 
 const base = process.cwd();
 // 文件路径
-const filePath = path.join( base, 'resources', 'app', 'out', 'vs', 'workbench', 'workbench.main.css');
+const filePath = path.join(base, 'resources', 'app', 'out', 'vs', 'workbench', 'workbench.main.css');
 const extName = "backgroundCover";
 
 //执行清理
@@ -14,11 +14,11 @@ main();
 function main() {
     try {
         let content = getContent();
-        content = clearCssContent( content );
-        saveContent( content );
+        content = clearCssContent(content);
+        saveContent(content);
         return true;
     }
-    catch ( ex ) {
+    catch (ex) {
         return false;
     }
 }
@@ -29,7 +29,7 @@ function main() {
  * @var mixed
  */
 function getContent(): string {
-    return fs.readFileSync( filePath, 'utf-8' );
+    return fs.readFileSync(filePath, 'utf-8');
 }
 /**
 * 清理已经添加的代码
@@ -38,10 +38,10 @@ function getContent(): string {
 * @param {string} content 
 * @returns {string} 
 */
-function clearCssContent( content: string ): string {
-    var re = new RegExp( "\\/\\*ext-" + extName + "-start\\*\\/[\\s\\S]*?\\/\\*ext-" + extName + "-end\\*" + "\\/", "g" );
-    content = content.replace( re, '' );
-    content = content.replace( /\s*$/, '' );
+function clearCssContent(content: string): string {
+    var re = new RegExp("\\/\\*ext-" + extName + "-start\\*\\/[\\s\\S]*?\\/\\*ext-" + extName + "-end\\*" + "\\/", "g");
+    content = content.replace(re, '');
+    content = content.replace(/\s*$/, '');
     return content;
 }
 /**
@@ -50,6 +50,6 @@ function clearCssContent( content: string ): string {
 * @private
 * @param {string} content 
 */
-function saveContent( content: string ): void {
-    fs.writeFileSync( filePath, content, 'utf-8' );
+function saveContent(content: string): void {
+    fs.writeFileSync(filePath, content, 'utf-8');
 }
