@@ -17,10 +17,10 @@ const vsHelp = {
      * @param {any} content 提示内容
      * @returns {Thenable<void>} 
      */
-    showInfoRestart(content:any): Thenable<void> {
+    showInfoRestart(content: any): Thenable<void> {
         return vscode.window.showInformationMessage(content, { title: "Reload" })
             .then(function (item) {
-                if (!item) return;
+                if (!item) { return; }
                 vscode.commands.executeCommand('workbench.action.reloadWindow');
             });
     }

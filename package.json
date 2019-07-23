@@ -16,12 +16,13 @@
         "Other"
     ],
     "keywords": [
-        "background",
+        "Background",
         "Theme"
     ],
     "activationEvents": [
         "*"
     ],
+    "license": "ISC",
     "main": "./out/extension",
     "contributes": {
         "commands": [
@@ -48,7 +49,7 @@
                     "maximum": 1,
                     "minimum": 0,
                     "default": 0.2,
-                    "description": "Background opacity / 背景透明度(0 - 1)"
+                    "description": "Background opacity (0 - 1) / 背景透明度(0 - 1)"
                 },
                 "backgroundCover.imagePath": {
                     "type": "string",
@@ -60,9 +61,9 @@
                     "default": "",
                     "description": "Background image's folder path for random / 图片目录"
                 },
-                "backgroundCover.autoStatus":{
-                    "type":"boolean",
-                    "default":false,
+                "backgroundCover.autoStatus": {
+                    "type": "boolean",
+                    "default": false,
                     "description": "Automatically change background each time you start / 每次启动时随机自动更换背景"
                 }
             }
@@ -83,12 +84,13 @@
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
         "postinstall": "node ./node_modules/vscode/bin/install",
-        "test": "npm run compile && node ./node_modules/vscode/bin/test"
+        "test": "npm run compile && node ./node_modules/vscode/bin/test",
+        "check": "tslint -p ./"
     },
     "devDependencies": {
-        "@types/mocha": "^2.2.42",
-        "@types/node": "^7.10.6",
-        "typescript": "^2.6.1",
+        "@types/mocha": "^5.2.7",
+        "@types/node": "^12.0.8",
+        "typescript": "3.5",
         "vscode": "^1.1.34"
     }
 }
