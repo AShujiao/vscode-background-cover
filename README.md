@@ -118,6 +118,10 @@ Add a picture you like to cover the entire vscode..
 
 #### ver 2.2.1 (2019/07/18)
 	1.支持更多的图片格式
+
+#### ver 2.2.2 (2019/08/15)
+	1.适配1.38版本CSS路径
+    2.优化代码
 ---
 ### Thanks 感谢
 
@@ -128,8 +132,10 @@ Add a picture you like to cover the entire vscode..
 
 ## Contributors 贡献者
 [<img alt="AShujiao" src="https://avatars2.githubusercontent.com/u/14969576?s=460&v=4" width="117">](https://github.com/AShujiao)
+[<img alt="yjhmelody" src="https://avatars0.githubusercontent.com/u/16250688?s=460&v=4" width="117">](https://github.com/yjhmelody)
 [<img alt="shalldie" src="https://avatars3.githubusercontent.com/u/9987486?s=460&v=4" width="117">](https://github.com/shalldie)
 [<img alt="HOT3" src="https://avatars0.githubusercontent.com/u/43977240?s=400&v=4" width="117">](https://github.com/hot3)
+[<img alt="rogeraabbccdd" src="https://avatars0.githubusercontent.com/u/15815422?s=460&v=4" width="117">](https://github.com/rogeraabbccdd)
 
 ### Information 相关信息
 
