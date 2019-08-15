@@ -2,9 +2,12 @@
 import * as path from 'path';
 import * as fs from 'fs';
 
+import * as vscode from 'vscode';
+
 const base = process.cwd();
 // 文件路径
-const filePath = path.join(base, 'resources', 'app', 'out', 'vs', 'workbench', 'workbench.main.css');
+const cssName: string = vscode.version >= "1.38" ? 'workbench.desktop.main.css' : 'workbench.main.css';
+const filePath = path.join(base, 'resources', 'app', 'out', 'vs', 'workbench', cssName);
 const extName = "backgroundCover";
 
 //执行清理

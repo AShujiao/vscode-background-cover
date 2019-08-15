@@ -1,12 +1,13 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import version from './version';
+import * as vscode from 'vscode';
 
-
+const cssName: string = vscode.version >= "1.38" ? 'workbench.desktop.main.css' : 'workbench.main.css';
 export class FileDom {
 
 	// 文件路径
-	private filePath = path.join(path.dirname((require.main as NodeModule).filename), 'vs', 'workbench', 'workbench.main.css');
+	private filePath = path.join(path.dirname((require.main as NodeModule).filename), 'vs', 'workbench', cssName);
 	private extName = "backgroundCover";
 	private imagePath: string = '';
 	private imageOpacity: number = 1;
