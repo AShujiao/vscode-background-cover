@@ -24,6 +24,7 @@
     ],
     "license": "ISC",
     "main": "./out/extension",
+    "extensionKind": "ui",
     "contributes": {
         "commands": [
             {

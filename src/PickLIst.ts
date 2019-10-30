@@ -43,7 +43,7 @@ export class PickList {
 				imageType: 2
 			},
 			{
-				label: '$(settings)   Background opacity      ',
+				label: '$(settings)    Background opacity      ',
 				description: '更新图片不透明度',
 				imageType: 5
 			},
@@ -53,20 +53,20 @@ export class PickList {
 				imageType: 6
 			},
 			{
-				label: '$(eye-closed)   Closing background      ',
+				label: '$(eye-closed)    Closing background      ',
 				description: '关闭背景图',
 				imageType: 7
 			},
 		];
 		if (config.autoStatus) {
 			items.push({
-				label: '$(sync)     OFF start replacement   ',
+				label: '$(sync)    OFF start replacement   ',
 				description: '关闭启动自动更换',
 				imageType: 10
 			})
 		} else {
 			items.push({
-				label: '$(sync)     ON start replacement   ',
+				label: '$(sync)    ON start replacement   ',
 				description: '开启启动自动更换',
 				imageType: 11
 			})
