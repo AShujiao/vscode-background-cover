@@ -122,6 +122,10 @@ Add a picture you like to cover the entire vscode..
 #### ver 2.2.2 (2019/08/15)
 	1.适配1.38版本CSS路径
     2.优化代码
+
+#### ver 2.2.3 (2019/10/30)
+	1.菜单列表文字对齐
+    2.定义扩展类型为"ui"
 ---
 ### Thanks 感谢
 
