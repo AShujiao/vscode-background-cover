@@ -129,6 +129,7 @@ Add a picture you like to cover the entire vscode..
 
 #### ver 2.2.4 (2020/07/28)
 	1.修复卸载钩子失效的问题
+    2.最低支持版本改为1.38.0
 ---
 ### Thanks 感谢
 
