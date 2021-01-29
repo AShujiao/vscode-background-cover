@@ -92,8 +92,8 @@ Add a picture you like to cover the entire vscode..
 
 ---
 
-    Q:How to get the administrator authority?
-    Q:怎么获取管理员权限呢？ =。=
+    Q:How to open vscode with administrator permission??
+    Q:怎么使用管理员权限打开VSCode呢？ =。=
 
     A:In windows,click right button on the vscode's icon,then check the [run with the administrator authority].
     A:在windows环境中，可以右键单击vscode的图标，选择【以管理员身份运行】。
@@ -130,6 +130,7 @@ Add a picture you like to cover the entire vscode..
 #### ver 2.2.4 (2020/07/28)
 	1.修复卸载钩子失效的问题
     2.最低支持版本改为1.38.0
+    
 ---
 ### Thanks 感谢
 
