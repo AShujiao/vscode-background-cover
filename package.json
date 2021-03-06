@@ -2,7 +2,7 @@
     "name": "background-cover",
     "displayName": "background-cover",
     "description": "Add a picture you like to cover the entire vscode..",
-    "version": "2.2.4",
+    "version": "2.2.5",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.38.0"
@@ -24,7 +24,9 @@
     ],
     "license": "ISC",
     "main": "./out/extension",
-    "extensionKind": ["ui"],
+    "extensionKind": [
+        "ui"
+    ],
     "contributes": {
         "commands": [
             {
@@ -89,9 +91,13 @@
         "check": "tslint -p ./"
     },
     "devDependencies": {
+        "@types/mime-types": "^2.1.0",
         "@types/mocha": "^5.2.7",
         "@types/node": "^12.0.8",
         "typescript": "3.5",
         "vscode": "^1.1.34"
+    },
+    "dependencies": {
+        "mime-types": "^2.1.29"
     }
 }

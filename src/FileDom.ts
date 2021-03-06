@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import version from './version';
 import * as vscode from 'vscode';
+import * as mimeTypes from 'mime-types';
 
 const cssName: string = vscode.version >= "1.38" ? 'workbench.desktop.main.css' : 'workbench.main.css';
 export class FileDom {
@@ -40,6 +41,8 @@ export class FileDom {
 		opacity = 0.79 + (0.2 - ((opacity * 2) / 10));
 
 		let imagePath = this.imagePath.replace(/\\/g, '/');
+		let imageData = new Buffer(fs.readFileSync(imagePath)).toString("base64");
+		let imageBase64 = `data:${mimeTypes.lookup(imagePath)};base64,${imageData}`;
 
 		return `
 		/*ext-${this.extName}-start*/
@@ -48,7 +51,7 @@ export class FileDom {
 			background-size:cover;
 			background-repeat: no-repeat;
 			opacity:${opacity};
-			background-image:url('${imagePath}');
+			background-image:url('${imageBase64}');
 		}
 		/*ext-${this.extName}-end*/
 		`;
