@@ -24,6 +24,9 @@ export class PickList {
 	// 当前配置的背景图透明度
 	private opacity: number;
 
+	// 图片类型 1:本地文件，2：https
+	private imageFileType: number;
+
 	// 初始下拉列表
 	public static createItemLIst() {
 		let config: vscode.WorkspaceConfiguration =
@@ -108,9 +111,10 @@ export class PickList {
 	private constructor(
 		config: vscode.WorkspaceConfiguration,
 		pickList?: vscode.QuickPick<ImgItem>) {
-		this.config = config;
-		this.imgPath = config.imagePath;
-		this.opacity = config.opacity;
+		this.config        = config;
+		this.imgPath       = config.imagePath;
+		this.opacity       = config.opacity;
+		this.imageFileType = 1;
 		if (pickList) {
 			this.quickPick = pickList;
 			this.quickPick.onDidAccept(
@@ -307,8 +311,12 @@ export class PickList {
 				let isUrl = (value.substr(0, 8).toLowerCase() === 'https://');
 				if (!fsStatus && !isUrl) {
 					vscode.window.showWarningMessage(
-						'Please enter the correct file format path! / 请输入正确的文件格式路径！');
+						'No access to the file or the file does not exist! / 无权限访问文件或文件不存在！');
 					return false;
+				}
+				// 如果为https连接图片，则更新图片类型
+				if(isUrl){
+					this.imageFileType = 2;
 				}
 			} else {
 				let isOpacity = parseFloat(value);
@@ -390,6 +398,10 @@ export class PickList {
 		if (uninstall) {
 			result = dom.uninstall();
 		} else {
+			// 是否需要转base64
+			if(this.imageFileType == 1){
+				dom.imageToBase64();
+			}
 			result = dom.install();
 		}
 		if (result && this.quickPick) {

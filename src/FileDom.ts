@@ -39,8 +39,6 @@ export class FileDom {
 		opacity = opacity <= 0.1 ? 0.1 : opacity >= 1 ? 1 : opacity;
 		opacity = 0.79 + (0.2 - ((opacity * 2) / 10));
 
-		let imagePath = this.imagePath.replace(/\\/g, '/');
-
 		return `
 		/*ext-${this.extName}-start*/
 		/*ext.${this.extName}.ver.${version}*/
@@ -48,7 +46,7 @@ export class FileDom {
 			background-size:cover;
 			background-repeat: no-repeat;
 			opacity:${opacity};
-			background-image:url('${imagePath}');
+			background-image:url('${this.imagePath}');
 		}
 		/*ext-${this.extName}-end*/
 		`;
@@ -61,6 +59,23 @@ export class FileDom {
     */
 	private getContent(): string {
 		return fs.readFileSync(this.filePath, 'utf-8');
+	}
+
+	/**
+    * 本地图片文件转base64
+    * @var mixed
+    */
+	public imageToBase64(){
+		try{
+			let extname    = path.extname(this.imagePath);
+			extname        = extname.substr(1);
+			this.imagePath = fs.readFileSync(path.resolve(this.imagePath)).toString('base64');
+			this.imagePath = `data:image/${extname};base64,${this.imagePath}`;
+		}catch(e){
+			return false;
+		}
+		
+		return true;
 	}
 
 	/**
