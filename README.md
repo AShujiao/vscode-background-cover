@@ -99,37 +99,12 @@ Add a picture you like to cover the entire vscode..
     A:在windows环境中，可以右键单击vscode的图标，选择【以管理员身份运行】。
 
 ---
-## 更新日志
-[日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
+## 最近更新日志
+[完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 2.0.0 (2019/06/05)
-	1.重写功能，添加独立配置，使用更方便
-    2.不再通过监听设置进行更新背景
-    3.去除默认背景图
-
-#### ver 2.0.1 (2019/06/10)
-	1.下拉列表添加图标、文字对齐
-
-#### ver 2.1.0 (2019/06/14)
-	1.添加每次启动时随机自动更换背景图功能（请先添加目录后开启）
-
-#### ver 2.2.0 (2019/06/20)
-	1.添加快捷键ctrl + shift + F7 随机更新背景并重启
-
-#### ver 2.2.1 (2019/07/18)
-	1.支持更多的图片格式
-
-#### ver 2.2.2 (2019/08/15)
-	1.适配1.38版本CSS路径
-    2.优化代码
-
-#### ver 2.2.3 (2019/10/30)
-	1.菜单列表文字对齐
-    2.定义扩展类型为"ui"
-
-#### ver 2.2.4 (2020/07/28)
-	1.修复卸载钩子失效的问题
-    2.最低支持版本改为1.38.0
+#### ver 2.2.5 (2020/03/08)
+	1.本地图片文件转base64(修复1.54.1版本后不支持本地文件的问题)
+    2.图片读取失败提示语优化
     
 ---
 ### Thanks 感谢
@@ -145,6 +120,7 @@ Add a picture you like to cover the entire vscode..
 [<img alt="shalldie" src="https://avatars3.githubusercontent.com/u/9987486?s=460&v=4" width="117">](https://github.com/shalldie)
 [<img alt="HOT3" src="https://avatars0.githubusercontent.com/u/43977240?s=400&v=4" width="117">](https://github.com/hot3)
 [<img alt="rogeraabbccdd" src="https://avatars0.githubusercontent.com/u/15815422?s=460&v=4" width="117">](https://github.com/rogeraabbccdd)
+[<img alt="kuresaru" src="https://avatars.githubusercontent.com/u/31172177?s=460&u=f44be019cc56fdf6d2ae9bbc7e12addb064c0b1b&v=4" width="117">](https://github.com/kuresaru)
 
 ### Information 相关信息
 
