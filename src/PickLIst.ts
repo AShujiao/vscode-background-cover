@@ -18,13 +18,13 @@ export class PickList {
 	// 当前配置
 	private config: vscode.WorkspaceConfiguration;
 
-	// 当前配置的背景图路径
-	private imgPath: string;
+	// 当前同步的背景图链接或数据
+	private imageUrlOrData: string;
 
 	// 当前配置的背景图透明度
 	private opacity: number;
 
-	// 图片类型 1:本地文件，2：https
+	// 图片类型 1:base64，2：https
 	private imageFileType: number;
 
 	// 初始下拉列表
@@ -112,7 +112,7 @@ export class PickList {
 		config: vscode.WorkspaceConfiguration,
 		pickList?: vscode.QuickPick<ImgItem>) {
 		this.config        = config;
-		this.imgPath       = config.imagePath;
+		this.imageUrlOrData     = config.imageUrl;
 		this.opacity       = config.opacity;
 		this.imageFileType = 1;
 		if (pickList) {
@@ -328,7 +328,7 @@ export class PickList {
 			}
 
 			this.setConfigValue(
-				(type === 1 ? 'imagePath' : 'opacity'),
+				(type === 1 ? 'imageUrl' : 'opacity'),
 				(type === 1 ? value : parseFloat(value)), true);
 		})
 	}
@@ -338,7 +338,7 @@ export class PickList {
 		if (!path) {
 			return vsHelp.showInfo('Unfetched Picture Path / 未获取到图片路径');
 		}
-		this.setConfigValue('imagePath', path);
+		this.setConfigValue('imageUrl', path);
 	}
 
 	// 文件、目录选择
@@ -363,7 +363,7 @@ export class PickList {
 			return this.imgList(fileUri.fsPath);
 		}
 		if (type === 1) {
-			return this.setConfigValue('imagePath', fileUri.fsPath);
+			return this.setConfigValue('imageUrl', fileUri.fsPath);
 		}
 
 		return false;
@@ -371,18 +371,23 @@ export class PickList {
 
 	// 更新配置
 	private setConfigValue(name: string, value: any, updateDom: Boolean = true) {
-		// 更新变量
-		this.config.update(name, value, vscode.ConfigurationTarget.Global);
+		// 设置类变量
 		switch (name) {
 			case 'opacity':
 				this.opacity = value;
 				break;
-			case 'imagePath':
-				this.imgPath = value;
+			case 'imageUrl':
+				// 本地文件转换成Base64数据 保存进设置后可以云同步
+				if (this.imageFileType == 1) {
+					value = this.imageFileToBase64Data(value);
+				}
+				this.imageUrlOrData = value;
 				break;
 			default:
 				break;
 		}
+		// 更新变量
+		this.config.update(name, value, vscode.ConfigurationTarget.Global);
 		// 是否需要更新Dom
 		if (updateDom) {
 			this.updateDom();
@@ -393,17 +398,8 @@ export class PickList {
 
 	// 更新、卸载css
 	private updateDom(uninstall: boolean = false) {
-		let dom: FileDom = new FileDom(this.imgPath, this.opacity);
-		let result = false;
-		if (uninstall) {
-			result = dom.uninstall();
-		} else {
-			// 是否需要转base64
-			if(this.imageFileType == 1){
-				dom.imageToBase64();
-			}
-			result = dom.install();
-		}
+		let dom: FileDom = new FileDom(this.imageUrlOrData, this.opacity);
+		let result = uninstall ? dom.uninstall() : dom.install();
 		if (result && this.quickPick) {
 			this.quickPick.placeholder = 'Reloading takes effect? / 重新加载生效？';
 			this.quickPick.items = [
@@ -416,6 +412,22 @@ export class PickList {
 			];
 			this.quickPick.ignoreFocusOut = true;
 			this.quickPick.show();
+		}
+	}
+
+	/**
+	* 本地图片文件转base64
+	* @param imageFilePath 需要转换的本地图片路径
+	* @returns 返回编码后的(^data:)数据 打开失败返回undefined
+	*/
+	public imageFileToBase64Data(imageFilePath: string): string | undefined {
+		try {
+			let extname = path.extname(imageFilePath).substr(1);
+			let imageBase64 = fs.readFileSync(path.resolve(imageFilePath)).toString('base64');
+			let imageData = `data:image/${extname};base64,${imageBase64}`;
+			return imageData;
+		} catch (e) {
+			return undefined;
 		}
 	}
 }

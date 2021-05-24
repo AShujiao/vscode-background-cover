@@ -9,12 +9,16 @@ export class FileDom {
 	// 文件路径
 	private filePath = path.join(path.dirname((require.main as NodeModule).filename), 'vs', 'workbench', cssName);
 	private extName = "backgroundCover";
-	private imagePath: string = '';
+	private imageDataOrUrl: string = '';
 	private imageOpacity: number = 1;
 
-
-	constructor(imagePath: string, opacity: number) {
-		this.imagePath = imagePath;
+	/**
+	 * CSS文件操作类
+	 * @param imageDataOrUrl 需要设置的图片数据(^data:)或链接(^https:) 因权限原因不再传入任何(^file:)地址
+	 * @param opacity 需要设置的图片透明度
+	 */
+	constructor(imageDataOrUrl: string, opacity: number) {
+		this.imageDataOrUrl = imageDataOrUrl;
 		this.imageOpacity = opacity;
 	}
 
@@ -46,7 +50,7 @@ export class FileDom {
 			background-size:cover;
 			background-repeat: no-repeat;
 			opacity:${opacity};
-			background-image:url('${this.imagePath}');
+			background-image:url('${this.imageDataOrUrl}');
 		}
 		/*ext-${this.extName}-end*/
 		`;
@@ -54,36 +58,19 @@ export class FileDom {
 
 
 	/**
-    * 获取文件内容
-    * @var mixed
-    */
+	* 获取文件内容
+	* @var mixed
+	*/
 	private getContent(): string {
 		return fs.readFileSync(this.filePath, 'utf-8');
 	}
 
 	/**
-    * 本地图片文件转base64
-    * @var mixed
-    */
-	public imageToBase64(){
-		try{
-			let extname    = path.extname(this.imagePath);
-			extname        = extname.substr(1);
-			this.imagePath = fs.readFileSync(path.resolve(this.imagePath)).toString('base64');
-			this.imagePath = `data:image/${extname};base64,${this.imagePath}`;
-		}catch(e){
-			return false;
-		}
-		
-		return true;
-	}
-
-	/**
-    * 设置文件内容
-    *
-    * @private
-    * @param {string} content
-    */
+	* 设置文件内容
+	*
+	* @private
+	* @param {string} content
+	*/
 	private saveContent(content: string): void {
 		fs.writeFileSync(this.filePath, content, 'utf-8');
 	}

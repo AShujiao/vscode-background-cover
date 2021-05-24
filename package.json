@@ -2,7 +2,7 @@
     "name": "background-cover",
     "displayName": "background-cover",
     "description": "Add a picture you like to cover the entire vscode..",
-    "version": "2.2.5",
+    "version": "2.3.0-SNAPSHOT",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.38.0"
@@ -54,10 +54,10 @@
                     "default": 0.2,
                     "description": "Background opacity (0 - 1) / 背景透明度(0 - 1)"
                 },
-                "backgroundCover.imagePath": {
+                "backgroundCover.imageUrl": {
                     "type": "string",
                     "default": "",
-                    "description": "Background image path / 背景图片路径"
+                    "description": "Background image url or data (used to sync config) / 背景图片链接或数据(用于同步设置)"
                 },
                 "backgroundCover.randomImageFolder": {
                     "type": "string",
