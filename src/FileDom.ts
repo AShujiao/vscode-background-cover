@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import version from './version';
 import * as vscode from 'vscode';
+import * as crypto from 'crypto';
 
 const cssName: string = vscode.version >= "1.38" ? 'workbench.desktop.main.css' : 'workbench.main.css';
 export class FileDom {
@@ -9,17 +10,15 @@ export class FileDom {
 	// 文件路径
 	private filePath = path.join(path.dirname((require.main as NodeModule).filename), 'vs', 'workbench', cssName);
 	private extName = "backgroundCover";
-	private imageDataOrUrl: string = '';
-	private imageOpacity: number = 1;
 
 	/**
-	 * CSS文件操作类
+	 * CSS文件操作类 只是读取操作时无需构造参数
 	 * @param imageDataOrUrl 需要设置的图片数据(^data:)或链接(^https:) 因权限原因不再传入任何(^file:)地址
 	 * @param opacity 需要设置的图片透明度
 	 */
-	constructor(imageDataOrUrl: string, opacity: number) {
-		this.imageDataOrUrl = imageDataOrUrl;
-		this.imageOpacity = opacity;
+	constructor(
+		private imageDataOrUrl: string = '', 
+		private imageOpacity: number = 1) {
 	}
 
 
@@ -36,6 +35,15 @@ export class FileDom {
 		return true;
 	}
 
+	/**
+	 * 取正在生效的背景图数据的md5
+	 * @returns md5小写文本或undefined
+	 */
+	public getCurrentDataHash(): string | undefined {
+		let find = new RegExp(`/\\*ext\\.${this.extName}\\.dataHash\\.([0-9a-f]{32})\\*/`).exec(this.getContent());
+		return find ? find[1] : undefined;
+	}
+
 	private getCss(): string {
 
 		// 重新计算透明度
@@ -43,9 +51,14 @@ export class FileDom {
 		opacity = opacity <= 0.1 ? 0.1 : opacity >= 1 ? 1 : opacity;
 		opacity = 0.79 + (0.2 - ((opacity * 2) / 10));
 
+		// 计算数据md5校验
+		let hash = crypto.createHash('md5').update(this.imageDataOrUrl, 'utf8').digest('hex').toLowerCase();
+
+		// 生成css内容
 		return `
 		/*ext-${this.extName}-start*/
 		/*ext.${this.extName}.ver.${version}*/
+		/*ext.${this.extName}.dataHash.${hash}*/
 		body{
 			background-size:cover;
 			background-repeat: no-repeat;

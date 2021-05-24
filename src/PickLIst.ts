@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import * as vscode from 'vscode';
 
 import { FileDom } from './FileDom';
@@ -83,12 +84,28 @@ export class PickList {
 	 */
 	public static autoUpdateBackground() {
 		let config = vscode.workspace.getConfiguration('backgroundCover');
-		if (!config.randomImageFolder || !config.autoStatus) {
-			return false;
+		if (config.randomImageFolder && config.autoStatus) {
+			// 每次启动时自动更换背景图
+			PickList.itemList = new PickList(config);
+			PickList.itemList.autoUpdateBackground();
+		} else if (config.imageUrl && (config.imageUrl as string).length > 0) {
+			// 启动时不自动更换 且已设置静态背景 检查当前正在生效的背景图片是否是设置的图片
+			let current = new FileDom().getCurrentDataHash();
+			let target = crypto.createHash('md5').update(config.imageUrl, 'utf8').digest('hex').toLowerCase();
+			if (current !== target) {
+				// 正在生效的背景图片不是设置的图片 (可能是code升级覆盖或从云同步下载)
+				vscode.window.showWarningMessage(
+					'检测到当前背景图片与设置不一致, 是否立即重启更新?',
+					'是', '否').then(val => {
+						if (val === '是') {
+							PickList.itemList = new PickList(config);
+							PickList.itemList.installDom();
+							PickList.itemList = undefined;
+							vscode.commands.executeCommand('workbench.action.reloadWindow');
+						}
+				});
+			}
 		}
-		PickList.itemList = new PickList(config);
-		PickList.itemList.autoUpdateBackground();
-		return PickList.itemList = undefined;
 	}
 
 	/**
@@ -112,7 +129,7 @@ export class PickList {
 		config: vscode.WorkspaceConfiguration,
 		pickList?: vscode.QuickPick<ImgItem>) {
 		this.config        = config;
-		this.imageUrlOrData     = config.imageUrl;
+		this.imageUrlOrData = config.imageUrl;
 		this.opacity       = config.opacity;
 		this.imageFileType = 1;
 		if (pickList) {
@@ -370,8 +387,8 @@ export class PickList {
 	}
 
 	// 更新配置
-	private setConfigValue(name: string, value: any, updateDom: Boolean = true) {
-		// 设置类变量
+	private setConfigValue(name: 'opacity' | 'imageUrl' | 'randomImageFolder' | 'autoStatus', 
+						   value: any, updateDom: Boolean = true) {
 		switch (name) {
 			case 'opacity':
 				this.opacity = value;
@@ -395,6 +412,15 @@ export class PickList {
 		return true;
 	}
 
+	/**
+	 * 写入背景图片 (在启动检查时被调用)
+	 * @returns 是否成功
+	 */
+	public installDom() {
+		let dom: FileDom = new FileDom(this.imageUrlOrData, this.opacity);
+		let result = dom.install();
+		return result;
+	}
 
 	// 更新、卸载css
 	private updateDom(uninstall: boolean = false) {
@@ -420,7 +446,7 @@ export class PickList {
 	* @param imageFilePath 需要转换的本地图片路径
 	* @returns 返回编码后的(^data:)数据 打开失败返回undefined
 	*/
-	public imageFileToBase64Data(imageFilePath: string): string | undefined {
+	private imageFileToBase64Data(imageFilePath: string): string | undefined {
 		try {
 			let extname = path.extname(imageFilePath).substr(1);
 			let imageBase64 = fs.readFileSync(path.resolve(imageFilePath)).toString('base64');
