@@ -37,7 +37,7 @@ export class FileDom {
 		// 重新计算透明度
 		let opacity = this.imageOpacity;
 		opacity = opacity <= 0.1 ? 0.1 : opacity >= 1 ? 1 : opacity;
-		opacity = 0.79 + (0.2 - ((opacity * 2) / 10));
+		opacity = 0.59 + (0.4 - ((opacity * 4) / 10));
 
 		return `
 		/*ext-${this.extName}-start*/
