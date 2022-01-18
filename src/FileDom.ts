@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import version from './version';
 import * as vscode from 'vscode';
+import { exec } from 'child_process';
 
 const cssName: string = vscode.version >= "1.38" ? 'workbench.desktop.main.css' : 'workbench.main.css';
 export class FileDom {
@@ -119,4 +120,65 @@ export class FileDom {
 			return false;
 		}
 	}
+
+	/**
+     * 在 MacOS 上写入样式，需要注意权限问题
+     */
+     public installMac(): boolean {
+        let content: any = this.getCss().replace(/\s*$/, '');
+        if (content === '') {
+            return false;
+        }
+        let newContent = this.getContent();
+        newContent = this.clearCssContent(newContent);
+        newContent += content;
+        fs.writeFile(this.filePath, newContent, { encoding: 'utf-8' }, (error) => {
+            if (error) {
+                // console.log('EACCES: permission denied', error?.message);
+                // 对文件没有读写权限则提示输入管理员密码以继续写入样式
+                let option: vscode.InputBoxOptions = {
+                    ignoreFocusOut: true,
+                    password: false,
+                    placeHolder: 'Please enter the root password for access / 请输入 ROOT 密码用于获取权限',
+                    prompt: '请输入管理员密码',
+                }
+                vscode.window.showInputBox(option).then((value) => {
+                    if (!value) {
+                        vscode.window.showWarningMessage(
+                            'Please enter password / 请输入密码！'
+                        );
+                        return;
+                    }
+                    // 回调中无法返回标识，所以授权后异步写入样式并自动重启程序
+                    this.saveContentMac(value, newContent);
+                });
+            }
+        });
+        return true;
+    }
+
+    /**
+     * 执行授权命令并写入样式
+     * 
+     * @param password 管理员秘密
+     * @param content 待写入的样式
+     */
+    public saveContentMac(password: string, content: string) {
+        // SUDO+密码对css文件进行’读与写‘授权
+        exec(
+            `echo "${password}" | sudo -S chmod a+rwx "${this.filePath}"`,
+            (error) => {
+                // console.log('Chmod error:', error?.message);
+                if (error) {
+                    vscode.window.showWarningMessage(
+                        `${error.name}: 密码可能输入有误，请重新尝试！`
+                    );
+                }
+                // 写入样式并自动重启程序
+                fs.writeFileSync(this.filePath, content, 'utf-8');
+                vscode.commands.executeCommand('workbench.action.reloadWindow');
+            }
+        );
+    }
+
 }

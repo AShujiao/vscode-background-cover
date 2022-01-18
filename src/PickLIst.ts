@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
@@ -26,6 +27,9 @@ export class PickList {
 
 	// 图片类型 1:本地文件，2：https
 	private imageFileType: number;
+
+	// 当前系统标识
+	private osType: number; 
 
 	// 初始下拉列表
 	public static createItemLIst() {
@@ -115,6 +119,22 @@ export class PickList {
 		this.imgPath       = config.imagePath;
 		this.opacity       = config.opacity;
 		this.imageFileType = 1;
+
+		switch (os.type()) {
+			case 'Windows_NT':
+				this.osType = 1;
+				break;
+			case 'Darwin':
+				this.osType = 2;
+				break;
+			case 'Linux':
+				this.osType = 3;
+				break;
+			default:
+				this.osType = -1;
+				break
+		}
+
 		if (pickList) {
 			this.quickPick = pickList;
 			this.quickPick.onDidAccept(
@@ -402,7 +422,11 @@ export class PickList {
 			if(this.imageFileType == 1){
 				dom.imageToBase64();
 			}
-			result = dom.install();
+			if (this.osType === 1) {
+				result = dom.install();
+			} else if (this.osType === 2) {
+				result = dom.installMac();
+			}
 		}
 		if (result && this.quickPick) {
 			this.quickPick.placeholder = 'Reloading takes effect? / 重新加载生效？';
