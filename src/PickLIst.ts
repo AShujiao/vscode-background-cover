@@ -131,7 +131,7 @@ export class PickList {
 				this.osType = 3;
 				break;
 			default:
-				this.osType = -1;
+				this.osType = 1;
 				break
 		}
 
@@ -426,6 +426,8 @@ export class PickList {
 				result = dom.install();
 			} else if (this.osType === 2) {
 				result = dom.installMac();
+			} else if (this.osType === 3) {
+				result = dom.install(); // 暂未做对应处理
 			}
 		}
 		if (result && this.quickPick) {

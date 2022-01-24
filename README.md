@@ -131,6 +131,7 @@ Add a picture you like to cover the entire vscode..
 [<img alt="HOT3" src="https://avatars0.githubusercontent.com/u/43977240?s=400&v=4" width="117">](https://github.com/hot3)
 [<img alt="rogeraabbccdd" src="https://avatars0.githubusercontent.com/u/15815422?s=460&v=4" width="117">](https://github.com/rogeraabbccdd)
 [<img alt="kuresaru" src="https://avatars.githubusercontent.com/u/31172177?s=460&u=f44be019cc56fdf6d2ae9bbc7e12addb064c0b1b&v=4" width="117">](https://github.com/kuresaru)
+[<img alt="kuresaru" src="https://avatars.githubusercontent.com/u/47267800?v=4" width="117">](https://github.com/lauset)
 
 ### Information 相关信息
 
