@@ -36,40 +36,40 @@ export class PickList {
 		list.placeholder = 'Please choose configuration! / 请选择相关配置！';
 		let items: ImgItem[] = [
 			{
-				label: '$(file-media)    Select pictures               ',
+				label: '$(file-media)    Select Pictures               ',
 				description: '选择一张背景图',
 				imageType: 1
 			},
 			{
-				label: '$(file-directory)    Add directory                ',
+				label: '$(file-directory)    Add Directory                ',
 				description: '添加图片目录',
 				imageType: 2
 			},
 			{
-				label: '$(settings)    Background opacity      ',
+				label: '$(settings)    Background Opacity      ',
 				description: '更新图片不透明度',
 				imageType: 5
 			},
 			{
-				label: '$(pencil)    Input : path/https          ',
+				label: '$(pencil)    Input : Path/Https          ',
 				description: '输入图片路径：本地/https',
 				imageType: 6
 			},
 			{
-				label: '$(eye-closed)    Closing background      ',
+				label: '$(eye-closed)    Closing Background      ',
 				description: '关闭背景图',
 				imageType: 7
 			},
 		];
 		if (config.autoStatus) {
 			items.push({
-				label: '$(sync)    OFF start replacement   ',
+				label: '$(sync)    OFF Start Replacement   ',
 				description: '关闭启动自动更换',
 				imageType: 10
 			})
 		} else {
 			items.push({
-				label: '$(sync)    ON start replacement   ',
+				label: '$(sync)    ON Start Replacement   ',
 				description: '开启启动自动更换',
 				imageType: 11
 			})
