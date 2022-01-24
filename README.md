@@ -99,11 +99,22 @@ Add a picture you like to cover the entire vscode..
     A:在windows环境中，可以右键单击vscode的图标，选择【以管理员身份运行】。
 
 ---
+
+    Q:How do I start administrator privileges in MacOS?
+    Q:在MacOS中怎么启动管理员权限呢？ >_<
+
+    A:You can open the application installation package on your computer and find the CSS file in the program for permission modification. Or after selecting the picture in the plug-in, if you do not have write permission, you will be asked to enter the administrator password to obtain the corresponding permission.
+    A:你可以打开电脑上的应用安装包，找到程序内的CSS文件进行权限修改。或者在该插件中选择图片之后，如果没有写入权限的话则会要求你输入管理员密码来获取对应的权限。
+
+---
+
 ## 最近更新日志
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 2.2.6 (2021/07/10)
-	1.将图片不透明度最低值改为0.59
+#### ver 2.2.8 (2022/01/19)
+
+    1.MacOS下可通过输入密码来获取权限
+    2.依赖更新
     
 ---
 ### Thanks 感谢
@@ -128,3 +139,5 @@ Add a picture you like to cover the entire vscode..
 
 
 **Enjoy!**
+
+The world is worth fighting for.
