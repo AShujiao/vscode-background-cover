@@ -25,11 +25,11 @@ Add a picture you like to cover the entire vscode..
 ---
 
 
->使用此扩展请以管理员身份运行vscode
+> **使用此扩展请以管理员身份运行vscode**
 
 >请通过插件配置命令或底部按钮进行配置（不要手动修改配置参数）
 
->Use this extension to run vscode as an administrator
+> **Use this extension to run vscode as an administrator**
 
 >Please configure it through the plug-in configuration command or the bottom button (do not modify the configuration parameters manually)
 
@@ -111,7 +111,7 @@ Add a picture you like to cover the entire vscode..
 ## 最近更新日志
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 2.2.8 (2022/01/19)
+#### ver 2.2.8 (2022/01/24)
 
     1.MacOS下可通过输入密码来获取权限
     2.依赖更新
