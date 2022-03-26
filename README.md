@@ -111,10 +111,9 @@ Add a picture you like to cover the entire vscode..
 ## 最近更新日志
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 2.2.8 (2022/01/24)
+#### ver 2.2.9 (2022/03/26)
 
-    1.MacOS下可通过输入密码来获取权限
-    2.依赖更新
+    1.优化目录不支持大写图片格式的问题
     
 ---
 ### Thanks 感谢
@@ -124,14 +123,16 @@ Add a picture you like to cover the entire vscode..
 
     底层部分代码来自 [shalldie](https://github.com/shalldie) ：[vscode-background](https://marketplace.visualstudio.com/items?itemName=shalldie.background)
 
-## Contributors 贡献者
+## Contributors 
+* 对于扩展的贡献者默认都会展示在此列表中，如果不愿意展示此处也可以进行提交pr移除   
 [<img alt="AShujiao" src="https://avatars2.githubusercontent.com/u/14969576?s=460&v=4" width="117">](https://github.com/AShujiao)
 [<img alt="yjhmelody" src="https://avatars0.githubusercontent.com/u/16250688?s=460&v=4" width="117">](https://github.com/yjhmelody)
 [<img alt="shalldie" src="https://avatars3.githubusercontent.com/u/9987486?s=460&v=4" width="117">](https://github.com/shalldie)
 [<img alt="HOT3" src="https://avatars0.githubusercontent.com/u/43977240?s=400&v=4" width="117">](https://github.com/hot3)
 [<img alt="rogeraabbccdd" src="https://avatars0.githubusercontent.com/u/15815422?s=460&v=4" width="117">](https://github.com/rogeraabbccdd)
 [<img alt="kuresaru" src="https://avatars.githubusercontent.com/u/31172177?s=460&u=f44be019cc56fdf6d2ae9bbc7e12addb064c0b1b&v=4" width="117">](https://github.com/kuresaru)
-[<img alt="kuresaru" src="https://avatars.githubusercontent.com/u/47267800?v=4" width="117">](https://github.com/lauset)
+[<img alt="lauset" src="https://avatars.githubusercontent.com/u/47267800?v=4" width="117">](https://github.com/lauset)
+[<img alt="wuqirui" src="https://avatars.githubusercontent.com/u/53338059?v=4" width="117">](https://github.com/hhdqirui)
 
 ### Information 相关信息
 
