@@ -273,8 +273,8 @@ export class PickList {
 		}
 		// 获取目录下的所有图片
 		let files: string[] = fs.readdirSync(path.resolve(pathUrl)).filter((s) => {
-			return s.endsWith('.png') || s.endsWith('.jpg') || s.endsWith('.jpeg') ||
-				s.endsWith('.gif') || s.endsWith('.webp') || s.endsWith('.bmp');
+			return s.endsWith('.png') || s.endsWith('.PNG') || s.endsWith('.jpg') || s.endsWith('.JPG')
+				|| s.endsWith('.jpeg') || s.endsWith('.gif') || s.endsWith('.webp') || s.endsWith('.bmp');
 		});
 
 		return files;
