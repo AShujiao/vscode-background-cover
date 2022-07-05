@@ -67,7 +67,7 @@ export class PickList {
 		];
 		if (config.autoStatus) {
 			items.push({
-				label: '$(sync)    OFF Start Replacement   ',
+				label: '$(sync)    OFF Start Replacement  ',
 				description: '关闭启动自动更换',
 				imageType: 10
 			})
@@ -78,6 +78,12 @@ export class PickList {
 				imageType: 11
 			})
 		}
+		// 更多
+		items.push({
+			label: '$(three-bars)    More                              ',
+			description: '更多',
+			imageType: 12
+		})
 		list.items = items;
 		PickList.itemList = new PickList(config, list);
 	}
@@ -193,9 +199,55 @@ export class PickList {
 				}
 				this.quickPick.hide();
 				break;
+			case 12:
+				this.moreMenu();
+				break;
+			case 13:
+				this.gotoPath(path);
+				break;
 			default:
 				break;
 		}
+	}
+
+	private gotoPath(path?: string){
+		if (path == undefined){
+			return vscode.window.showWarningMessage('无效菜单');
+		}
+		let tmpUri : string = path
+		vscode.env.openExternal(vscode.Uri.parse(tmpUri))
+	}
+
+	private moreMenu(){
+		let items: ImgItem[] = [
+			{
+				label: '$(github)    Repository               ',
+				description: '仓库地址',
+				imageType: 13,
+				path : "https://github.com/AShujiao/vscode-background-cover"
+			},
+			{
+				label: '$(issues)    Issues                       ',
+				description: '有疑问就来提问',
+				imageType: 13,
+				path : "https://github.com/AShujiao/vscode-background-cover/issues"
+			},
+			{
+				label: '$(star)    Star                           ',
+				description: '给作者点个Star吧',
+				imageType: 13,
+				path : "https://github.com/AShujiao/vscode-background-cover"
+			},
+			{
+				label: '$(heart)    Help                          ',
+				description: '嘘寒问暖，不如打笔巨款O(∩_∩)O哈哈~      ',
+				imageType: 13,
+				path : "https://github.com/AShujiao/vscode-background-cover"
+			}
+		];
+
+		this.quickPick.items = items;
+		this.quickPick.show();
 	}
 
 	//释放资源
