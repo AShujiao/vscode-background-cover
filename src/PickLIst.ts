@@ -242,7 +242,7 @@ export class PickList {
 				label: '$(heart)    Help                          ',
 				description: '嘘寒问暖，不如打笔巨款O(∩_∩)O哈哈~      ',
 				imageType: 13,
-				path : "https://github.com/AShujiao/vscode-background-cover"
+				path : "https://github.com/AShujiao/AShujiao/issues/1"
 			}
 		];
 
