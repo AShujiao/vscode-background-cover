@@ -17,9 +17,7 @@ Add a picture you like to cover the entire vscode..
 <a href="https://github.com/vscode-extension/vscode-background-cover">
 <img src="https://img.shields.io/github/stars/vscode-extension/vscode-background-cover.svg?style=social" alt="stars">
 </a>
-<img src="https://vsmarketplacebadge.apphb.com/downloads-short/manasxx.background-cover.svg?label=background-cover" alt="downloads">
-<img src="https://vsmarketplacebadge.apphb.com/rating-star/manasxx.background-cover.svg?label=background-cover" alt="star">
-<a href="https://marketplace.visualstudio.com/items?itemName=manasxx.background-cover"><img src="https://vsmarketplacebadge.apphb.com/version/manasxx.background-cover.svg?label=background-cover" alt="Version"></a>  
+
 </p>
 
 ---
@@ -111,9 +109,9 @@ Add a picture you like to cover the entire vscode..
 ## 最近更新日志
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 2.3.0 (2022/07/05)
+#### ver 2.3.2 (2023/03/07)
 
-    1.添加更多菜单项
+    1.优化菜单
     
 ---
 ### Thanks 感谢
@@ -139,6 +137,11 @@ Add a picture you like to cover the entire vscode..
 * [GitHub](https://github.com/AShujiao/vscode-background-cover)
 * [Visual Studio|Marketplace](https://marketplace.visualstudio.com/items?itemName=manasxx.background-cover)
 
+
+**赞助**
+> 如果这个插件能够帮助到您，不介意的话，请作者喝一杯咖啡吧:) 
+ 
+[<img alt="lauset" src="https://zuhaowan-video.oss-cn-beijing.aliyuncs.com/1587571200/177327269-5cd91cdc-ffeb-4e1d-9193-abe5d2bb6b95.jpg" width="300">](https://github.com/lauset)
 
 **Enjoy!**
 

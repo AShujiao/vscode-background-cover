@@ -205,6 +205,9 @@ export class PickList {
 			case 13:
 				this.gotoPath(path);
 				break;
+			case 14:
+				this.gotoFilePath(path);
+				break;
 			default:
 				break;
 		}
@@ -215,7 +218,20 @@ export class PickList {
 			return vscode.window.showWarningMessage('无效菜单');
 		}
 		let tmpUri : string = path
+		
 		vscode.env.openExternal(vscode.Uri.parse(tmpUri))
+	}
+
+	private gotoFilePath(path?: string){
+		if (path == undefined){
+			return vscode.window.showWarningMessage('无效菜单');
+		}
+		let tmpUri : string = path
+		let extPath = vscode.extensions.getExtension("manasxx.background-cover")?.extensionPath
+		let tmpPath = "file:///"+extPath+tmpUri
+		let tmpurl = vscode.Uri.parse(tmpPath)
+		
+		vscode.commands.executeCommand('vscode.openFolder', tmpurl);
 	}
 
 	private moreMenu(){
@@ -239,10 +255,10 @@ export class PickList {
 				path : "https://github.com/AShujiao/vscode-background-cover"
 			},
 			{
-				label: '$(heart)    Help                          ',
-				description: '嘘寒问暖，不如打笔巨款O(∩_∩)O哈哈~      ',
-				imageType: 13,
-				path : "https://github.com/AShujiao/AShujiao/issues/1"
+				label: '$(heart)    Support                    ',
+				description: '请作者喝一杯咖啡吧~      ',
+				imageType: 14,
+				path : "//resources//support.jpg"
 			}
 		];
 
