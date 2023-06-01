@@ -79,11 +79,31 @@ export class PickList {
 			})
 		}
 		// 更多
-		items.push({
-			label: '$(three-bars)    More                              ',
-			description: '更多',
-			imageType: 12
-		})
+		items.push(
+			{
+				label: '$(three-bars)    More                              ',
+				description: '更多',
+				imageType: 12
+			},
+			{
+				label: '$(heart)    Support                          ',
+				description: '请作者喝一杯咖啡吧~ (承接外包噢!)      ',
+				imageType: 14,
+				path : "//resources//support.jpg"
+			},
+			{
+				label: '$(terminal-linux)    QQ                                 ',
+				description: 'QQ二维码     ',
+				imageType: 14,
+				path : "//resources//qq.jpg"
+			},
+			{
+				label: '$(organization)    Wechat                           ',
+				description: '微信群聊一起嗨！      ',
+				imageType: 14,
+				path : "//resources//wx.jpg"
+			}
+		)
 		list.items = items;
 		PickList.itemList = new PickList(config, list);
 	}
@@ -253,12 +273,6 @@ export class PickList {
 				description: '给作者点个Star吧',
 				imageType: 13,
 				path : "https://github.com/AShujiao/vscode-background-cover"
-			},
-			{
-				label: '$(heart)    Support                    ',
-				description: '请作者喝一杯咖啡吧~      ',
-				imageType: 14,
-				path : "//resources//support.jpg"
 			}
 		];
 
