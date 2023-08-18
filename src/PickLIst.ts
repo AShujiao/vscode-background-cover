@@ -38,6 +38,7 @@ export class PickList {
 		let list: vscode.QuickPick<ImgItem> =
 			vscode.window.createQuickPick<ImgItem>();
 		list.placeholder = 'Please choose configuration! / 请选择相关配置！';
+		list.totalSteps = 2
 		let items: ImgItem[] = [
 			{
 				label: '$(file-media)    Select Pictures               ',
@@ -79,12 +80,34 @@ export class PickList {
 			})
 		}
 		// 更多
-		items.push({
-			label: '$(three-bars)    More                              ',
-			description: '更多',
-			imageType: 12
-		})
+		items.push(
+			{
+				label: '',
+				description: '',
+				imageType: 0,
+				kind: vscode.QuickPickItemKind.Separator
+			},
+			{
+				label: '$(github)    Github                            ',
+				description: 'Github信息',
+				imageType: 12,
+			},
+			{
+				label: '$(heart)    Support                          ',
+				description: '请作者喝一杯咖啡吧~ (承接外包噢!)      ',
+				imageType: 14,
+				path : "//resources//support.jpg"
+			},
+			{
+				label: '$(organization)    Wechat                           ',
+				description: '微信群聊~ (内置chatgpt)      ',
+				imageType: 14,
+				path : "//resources//wx.jpg"
+			}
+		)
 		list.items = items;
+		list.title = "背景图设置";
+		
 		PickList.itemList = new PickList(config, list);
 	}
 
@@ -253,12 +276,6 @@ export class PickList {
 				description: '给作者点个Star吧',
 				imageType: 13,
 				path : "https://github.com/AShujiao/vscode-background-cover"
-			},
-			{
-				label: '$(heart)    Support                    ',
-				description: '请作者喝一杯咖啡吧~      ',
-				imageType: 14,
-				path : "//resources//support.jpg"
 			}
 		];
 
@@ -321,6 +338,12 @@ export class PickList {
 					description: '随机自动选择       ctrl+shift+F7',
 					imageType: 4,
 					path: path.join(randomPath, randomFile)
+				});
+				items.push({
+					label: '',
+					description: '',
+					imageType: 0,
+					kind: vscode.QuickPickItemKind.Separator
 				});
 				items = items.concat(files.map(
 					(e) => new ImgItem('$(tag) ' + e, e, 4, path.join(randomPath, e))));
