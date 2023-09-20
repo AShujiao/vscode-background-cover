@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import version from './version';
 import * as vscode from 'vscode';
-import { ExecException, exec } from 'child_process';
+import { exec } from 'child_process';
 import vsHelp from './vsHelp';
 
 const cssName: string = vscode.version >= "1.38" ? 'workbench.desktop.main.css' : 'workbench.main.css';
