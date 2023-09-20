@@ -109,9 +109,10 @@ Add a picture you like to cover the entire vscode..
 ## 最近更新日志
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 2.3.4 (2023/08/18)
+#### ver 2.3.5 (2023/09/20)
 
-    1.更换二维码图片
+    1.增加更新背景图异常提示
+    2.首次打开弹出加群提醒
     
 ---
 ### Thanks 感谢

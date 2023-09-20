@@ -229,7 +229,7 @@ export class PickList {
 				this.gotoPath(path);
 				break;
 			case 14:
-				this.gotoFilePath(path);
+				PickList.gotoFilePath(path);
 				break;
 			default:
 				break;
@@ -245,7 +245,7 @@ export class PickList {
 		vscode.env.openExternal(vscode.Uri.parse(tmpUri))
 	}
 
-	private gotoFilePath(path?: string){
+	public static gotoFilePath(path?: string){
 		if (path == undefined){
 			return vscode.window.showWarningMessage('无效菜单');
 		}
