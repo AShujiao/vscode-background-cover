@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { PickList } from './PickLIst';
 
 const vsHelp = {
     /**
@@ -22,6 +23,14 @@ const vsHelp = {
             .then(function (item) {
                 if (!item) { return; }
                 vscode.commands.executeCommand('workbench.action.reloadWindow');
+            });
+    },
+
+    showInfoWxChat(content: any): Thenable<void> {
+        return vscode.window.showInformationMessage(content, { title: "OK" })
+            .then(function (item) {
+                if (!item) { return; }
+                PickList.gotoFilePath('//resources//wx.jpg');
             });
     }
 }

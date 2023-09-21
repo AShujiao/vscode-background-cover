@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import version from './version';
 import * as vscode from 'vscode';
 import { exec } from 'child_process';
+import vsHelp from './vsHelp';
 
 const cssName: string = vscode.version >= "1.38" ? 'workbench.desktop.main.css' : 'workbench.main.css';
 export class FileDom {
@@ -29,7 +30,14 @@ export class FileDom {
 		let newContent = this.getContent();
 		newContent = this.clearCssContent(newContent);
 		newContent += content;
-		this.saveContent(newContent);
+		try{
+			this.saveContent(newContent);
+		}catch(ex:any){
+			vsHelp.showInfo('更新背景图片异常，请确保以管理员身份运行或对该文件赋予写入权限！ / Unexpected update of background image, please make sure to run as administrator or grant write permission to the file!                        \n ' + ex.message);
+
+			return false;
+		}
+		
 		return true;
 	}
 

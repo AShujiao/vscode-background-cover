@@ -3,6 +3,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import { PickList } from './PickLIst';
+import vsHelp from './vsHelp';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -18,6 +19,16 @@ export function activate(context: vscode.ExtensionContext) {
 	let startCommand = vscode.commands.registerCommand('extension.backgroundCover.start', () => { PickList.createItemLIst() });
 	context.subscriptions.push(startCommand);
 	context.subscriptions.push(randomCommand);
+
+	 // 首次打开-提示语
+	let openVersion:string|undefined           = context.globalState.get('ext_version');
+	let ex:vscode.Extension<any>|undefined = vscode.extensions.getExtension('manasxx.background-cover');
+	let version:string           = ex ? ex.packageJSON['version'] : '';
+	let title:string = ex ?  ex.packageJSON['one_title'] : '';
+	if(openVersion != version && title != ""){
+		context.globalState.update('ext_version',version);
+		vsHelp.showInfoWxChat('🐶🐷🐔🦊加入开发者微信群聊🐯🐮🐹🐽❓');
+	}
 }
 
 // this method is called when your extension is deactivated
