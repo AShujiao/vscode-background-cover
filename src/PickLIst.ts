@@ -155,7 +155,7 @@ export class PickList {
 		this.config        = config;
 		this.imgPath       = config.imagePath;
 		this.opacity       = config.opacity;
-		this.sizeModel     = config.sizeModel;
+		this.sizeModel     = config.sizeModel || 'cover';
 		this.imageFileType = 1;
 
 		switch (os.type()) {
@@ -319,10 +319,10 @@ export class PickList {
 				path : "contain"
 			},
 			{
-				label: '$(diff-modified)    not_center                      ',
+				label: '$(diff-modified)    not(center)                     ',
 				description: '无适应(居中)' + (this.sizeModel == 'not_center' ? '$(check)' : ''),
 				imageType: 16,
-				path : "not"
+				path : "not_center"
 			},
 			{
 				label: '$(layout)    not(right_bottom)          ',
