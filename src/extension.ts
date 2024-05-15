@@ -27,7 +27,7 @@ export function activate(context: vscode.ExtensionContext) {
 	let title:string = ex ?  ex.packageJSON['one_title'] : '';
 	if(openVersion != version && title != ""){
 		context.globalState.update('ext_version',version);
-		vsHelp.showInfoWxChat('🐶🐷🐔🦊加入开发者微信群聊🐯🐮🐹🐽❓');
+		vsHelp.showInfoWxChat('🐷已更新到2.4.0：支持设置图片填充方式及图片位置 --- 🐷\r🐶🐷🐔🦊加入开发者微信群聊🐯🐮🐹🐽❓');
 	}
 }
 

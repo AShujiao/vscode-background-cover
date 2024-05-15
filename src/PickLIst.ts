@@ -31,6 +31,9 @@ export class PickList {
 	// 当前系统标识
 	private osType: number; 
 
+	// 当前配置的背景图尺寸模式
+	private sizeModel: string;
+
 	// 初始下拉列表
 	public static createItemLIst() {
 		let config: vscode.WorkspaceConfiguration =
@@ -54,6 +57,11 @@ export class PickList {
 				label: '$(settings)    Background Opacity      ',
 				description: '更新图片不透明度',
 				imageType: 5
+			},
+			{
+				label: '$(layout)    Size Mode                      ',
+				description: '尺寸适应模式 / size adaptive mode',
+				imageType: 15
 			},
 			{
 				label: '$(pencil)    Input : Path/Https          ',
@@ -83,7 +91,7 @@ export class PickList {
 		items.push(
 			{
 				label: '',
-				description: '',
+				description: '--------------------',
 				imageType: 0,
 				kind: vscode.QuickPickItemKind.Separator
 			},
@@ -147,6 +155,7 @@ export class PickList {
 		this.config        = config;
 		this.imgPath       = config.imagePath;
 		this.opacity       = config.opacity;
+		this.sizeModel     = config.sizeModel || 'cover';
 		this.imageFileType = 1;
 
 		switch (os.type()) {
@@ -231,6 +240,12 @@ export class PickList {
 			case 14:
 				PickList.gotoFilePath(path);
 				break;
+			case 15:
+				this.sizeModelView();
+				break;
+			case 16:
+				this.setSizeModel(path);
+				break;
 			default:
 				break;
 		}
@@ -277,6 +292,74 @@ export class PickList {
 				imageType: 13,
 				path : "https://github.com/AShujiao/vscode-background-cover"
 			}
+		];
+
+		this.quickPick.items = items;
+		this.quickPick.show();
+	}
+
+	private sizeModelView(){
+		let items: ImgItem[] = [
+			{
+				label: '$(diff-ignored)    cover (default)               ',
+				description: '填充(默认) ' + (this.sizeModel == 'cover' ? '$(check)' : ''),
+				imageType: 16,
+				path : "cover"
+			},
+			{
+				label: '$(layout-menubar)    repeat                            ',
+				description: '平铺' + (this.sizeModel == 'repeat' ? '$(check)' : ''),
+				imageType: 16,
+				path : "repeat"
+			},
+			{
+				label: '$(diff-added)    contain                           ',
+				description: '拉伸' + (this.sizeModel == 'contain' ? '$(check)' : ''),
+				imageType: 16,
+				path : "contain"
+			},
+			{
+				label: '$(diff-modified)    not(center)                     ',
+				description: '无适应(居中)' + (this.sizeModel == 'not_center' ? '$(check)' : ''),
+				imageType: 16,
+				path : "not_center"
+			},
+			{
+				label: '$(layout)    not(right_bottom)          ',
+				description: '无适应(右下角)' + (this.sizeModel == 'not_right_bottom' ? '$(check)' : ''),
+				imageType: 16,
+				path : "not_right_bottom"
+			},
+			{
+				label: '$(layout)    not(right_top)                ',
+				description: '无适应(右上角)' + (this.sizeModel == 'not_right_top' ? '$(check)' : ''),
+				imageType: 16,
+				path : "not_right_top"
+			},
+			{
+				label: '$(layout)    not(left)                          ',
+				description: '无适应(靠左)' + (this.sizeModel == 'not_left' ? '$(check)' : ''),
+				imageType: 16,
+				path : "not_left"
+			},
+			{
+				label: '$(layout)    not(right)                        ',
+				description: '无适应(靠右)' + (this.sizeModel == 'not_right' ? '$(check)' : ''),
+				imageType: 16,
+				path : "not_right"
+			},
+			{
+				label: '$(layout)    not(top)                          ',
+				description: '无适应(靠上)' + (this.sizeModel == 'not_top' ? '$(check)' : ''),
+				imageType: 16,
+				path : "not_top"
+			},
+			{
+				label: '$(layout)    not(bottom)                    ',
+				description: '无适应(靠下)' + (this.sizeModel == 'not_bottom' ? '$(check)' : ''),
+				imageType: 16,
+				path : "not_bottom"
+			},
 		];
 
 		this.quickPick.items = items;
@@ -445,6 +528,13 @@ export class PickList {
 		})
 	}
 
+	private setSizeModel(value?: string){
+		if (!value) {
+			return vsHelp.showInfo('No parameter value was obtained / 未获取到参数值');
+		}
+		this.setConfigValue('sizeModel', value, true);
+	}
+
 	// 更新配置
 	private updateBackgound(path?: string) {
 		if (!path) {
@@ -492,6 +582,9 @@ export class PickList {
 			case 'imagePath':
 				this.imgPath = value;
 				break;
+			case 'sizeModel':
+				this.sizeModel = value;
+				break;
 			default:
 				break;
 		}
@@ -505,7 +598,7 @@ export class PickList {
 
 	// 更新、卸载css
 	private updateDom(uninstall: boolean = false) {
-		let dom: FileDom = new FileDom(this.imgPath, this.opacity);
+		let dom: FileDom = new FileDom(this.imgPath, this.opacity, this.sizeModel);
 		let result = false;
 		if (uninstall) {
 			result = dom.uninstall();

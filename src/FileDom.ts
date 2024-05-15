@@ -13,11 +13,16 @@ export class FileDom {
 	private extName = "backgroundCover";
 	private imagePath: string = '';
 	private imageOpacity: number = 1;
+	private sizeModel: string = 'cover';
 
 
-	constructor(imagePath: string, opacity: number) {
+	constructor(imagePath: string, opacity: number, sizeModel: string = 'cover') {
 		this.imagePath = imagePath;
 		this.imageOpacity = opacity;
+		if(sizeModel == ""){
+			sizeModel = "cover";
+		}
+		this.sizeModel = sizeModel;
 	}
 
 
@@ -47,14 +52,59 @@ export class FileDom {
 		let opacity = this.imageOpacity;
 		opacity = opacity <= 0.1 ? 0.1 : opacity >= 1 ? 1 : opacity;
 		opacity = 0.59 + (0.4 - ((opacity * 4) / 10));
+		
+		// 图片填充方式
+		let sizeModelVal = this.sizeModel;
+		let repeatVal    = "no-repeat";
+		let positionVal  = "center";
+		switch(this.sizeModel){
+			case "cover":
+				sizeModelVal = "cover";
+				break;
+			case "contain":
+				sizeModelVal = "100% 100%";
+				break;
+			case "repeat":
+				sizeModelVal = "auto";
+				repeatVal = "repeat";
+				break;
+			case "not_center":
+				sizeModelVal = "auto";
+				break;
+			case "not_right_bottom":
+				sizeModelVal = "auto";
+				positionVal = "right 96%";
+				break;
+			case "not_right_top":
+				sizeModelVal = "auto";
+				positionVal = "right 30px";
+				break;
+			case "not_left":
+				sizeModelVal = "auto";
+				positionVal = "left";
+				break;
+			case "not_right":
+				sizeModelVal = "auto";
+				positionVal = "right";
+				break;
+			case "not_top":
+				sizeModelVal = "auto";
+				positionVal = "top";
+				break;
+			case "not_bottom":
+				sizeModelVal = "auto";
+				positionVal = "bottom";
+				break;
+				
+		}
 
 		return `
 		/*ext-${this.extName}-start*/
 		/*ext.${this.extName}.ver.${version}*/
 		body{
-			background-size: cover;
-			background-repeat: no-repeat;
-			background-position: center;
+			background-size: ${sizeModelVal};
+			background-repeat: ${repeatVal};
+			background-position: ${positionVal};
 			opacity:${opacity};
 			background-image:url('${this.imagePath}');
 		}

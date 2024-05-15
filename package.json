@@ -2,7 +2,7 @@
     "name": "background-cover",
     "displayName": "background-cover",
     "description": "Add a picture you like to cover the entire vscode..",
-    "version": "2.3.6",
+    "version": "2.4.0",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.38.0"
@@ -69,6 +69,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Automatically change background each time you start / 每次启动时随机自动更换背景"
+                },
+                "backgroundCover.sizeModel": {
+                    "type": "string",
+                    "default": "cover",
+                    "description": "Background image size adaptive mode / 图片尺寸适应模式"
                 }
             }
         }
