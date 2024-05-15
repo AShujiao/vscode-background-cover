@@ -19,6 +19,9 @@ export class FileDom {
 	constructor(imagePath: string, opacity: number, sizeModel: string = 'cover') {
 		this.imagePath = imagePath;
 		this.imageOpacity = opacity;
+		if(sizeModel == ""){
+			sizeModel = "cover";
+		}
 		this.sizeModel = sizeModel;
 	}
 

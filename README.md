@@ -37,7 +37,8 @@ Add a picture you like to cover the entire vscode..
 
 ![](https://user-images.githubusercontent.com/14969576/59507703-68952700-8ede-11e9-9633-5b9351c5bbb8.gif)
 ![](https://user-images.githubusercontent.com/14969576/59507145-b90b8500-8edc-11e9-9bf4-a7b9d1d8ae00.png)
-
+![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/5533db3e-9a2b-46e5-a41d-df103141d0cd)
+![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/20172d72-5384-4bfe-bceb-ec582cfb1698)
 ## Warns 警告：
 
 > **本插件是通过修改 vscode 的 css 文件的方式运行**  
