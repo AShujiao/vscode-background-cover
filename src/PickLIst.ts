@@ -605,7 +605,7 @@ export class PickList {
 		} else {
 			// 是否需要转base64
 			if(this.imageFileType == 1){
-				dom.imageToBase64();
+				dom.localImgToVsc();
 			}
 			if (this.osType === 1) {
 				result = dom.install();

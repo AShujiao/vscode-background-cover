@@ -138,6 +138,12 @@ export class FileDom {
 		return true;
 	}
 
+
+    public localImgToVsc() {
+		var url =  "vscode-file://vscode-app/" + this.imagePath
+		this.imagePath = vscode.Uri.parse(url).toString();
+    }
+
 	/**
     * 设置文件内容
     *
