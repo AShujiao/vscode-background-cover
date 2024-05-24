@@ -4,6 +4,7 @@
   <br>
   VS Code - Background Cover
   <br>
+
   <br>
 </h1>
 
@@ -21,7 +22,7 @@ Add a picture you like to cover the entire vscode..
 </p>
 
 ---
-
+  [集成在线图库](https://vs.20988.xyz/d/24-vscodebei-jing-tu-tu-ku)
 
 > **使用此扩展请以管理员身份运行vscode**
 
