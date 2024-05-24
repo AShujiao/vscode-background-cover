@@ -155,8 +155,15 @@ export class PickList {
 	}
 
 	public static updateImgPath(path:string) {
+		// 检测图片地址格式
+		let isUrl = (path.substr(0, 8).toLowerCase() === 'https://');
+		if(!isUrl){
+			vsHelp.showInfo("非https格式图片，不支持配置！ / Non HTTPS format image, configuration not supported!")
+			return false
+		}
 		let config = vscode.workspace.getConfiguration('backgroundCover');
 		PickList.itemList = new PickList(config);
+		PickList.itemList.imageFileType = 2;
 		PickList.itemList.updateBackgound(path);
 	}
 
@@ -168,7 +175,11 @@ export class PickList {
 		this.imgPath       = config.imagePath;
 		this.opacity       = config.opacity;
 		this.sizeModel     = config.sizeModel || 'cover';
+		// imgPath是否为https
 		this.imageFileType = 1;
+		if(this.imgPath.substr(0, 8).toLowerCase() === 'https://'){
+			this.imageFileType = 2;
+		}
 
 		switch (os.type()) {
 			case 'Windows_NT':
@@ -633,18 +644,31 @@ export class PickList {
 				result = dom.install(); // 暂未做对应处理
 			}
 		}
-		if (result && this.quickPick) {
-			this.quickPick.placeholder = 'Reloading takes effect? / 重新加载生效？';
-			this.quickPick.items = [
-				{
-					label: '$(check)   YES',
-					description: '立即重新加载窗口生效',
-					imageType: 8
-				},
-				{ label: '$(x)   NO', description: '稍后手动重启', imageType: 9 }
-			];
-			this.quickPick.ignoreFocusOut = true;
-			this.quickPick.show();
+		if (result) {
+			if(this.quickPick){
+				this.quickPick.placeholder = 'Reloading takes effect? / 重新加载生效？';
+				this.quickPick.items = [
+					{
+						label: '$(check)   YES',
+						description: '立即重新加载窗口生效',
+						imageType: 8
+					},
+					{ label: '$(x)   NO', description: '稍后手动重启', imageType: 9 }
+				];
+				this.quickPick.ignoreFocusOut = true;
+				this.quickPick.show();
+			}else{
+				// 弹出提示框确认是否重启
+				vscode.window.showInformationMessage(
+					'"' + this.imgPath + '"' + ' | Reloading takes effect? / 重新加载生效？', 'YES', 'NO').then(
+						(value) => {
+							if (value === 'YES') {
+								vscode.commands.executeCommand(
+									'workbench.action.reloadWindow');
+							}
+						});
+			}
+			
 		}
 	}
 }

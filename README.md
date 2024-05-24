@@ -34,11 +34,11 @@ Add a picture you like to cover the entire vscode..
 
 
 ## It looks like:
-
-![](https://user-images.githubusercontent.com/14969576/59507703-68952700-8ede-11e9-9633-5b9351c5bbb8.gif)
-![](https://user-images.githubusercontent.com/14969576/59507145-b90b8500-8edc-11e9-9bf4-a7b9d1d8ae00.png)
 ![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/5533db3e-9a2b-46e5-a41d-df103141d0cd)
 ![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/20172d72-5384-4bfe-bceb-ec582cfb1698)
+![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/dcbb7870-8342-4069-9dd8-026d3b903420)
+![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/26066847-050b-4e72-8b2d-f44ffcb063f8)
+![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/57e5e908-4464-409a-8b67-c8a6edf5b431)
 ## Warns 警告：
 
 > **本插件是通过修改 vscode 的 css 文件的方式运行**  
@@ -110,9 +110,13 @@ Add a picture you like to cover the entire vscode..
 ## 最近更新日志
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 2.4.0 (2024/05/15)
+#### ver 2.5.0 (2024/05/26)
 
-    1.支持设置图片填充方式及图片位置
+    1.支持在线图片快速设置背景！！！
+	2.在线社区集成进vscode左侧栏，发布图片、设置默认页
+	3.社区支持注册（需邮箱激活）
+	4.社区支持回复主题，上传图片、添加第三方图片（用于设置背景图）
+	5.社区支持发布个人主题（私人图库）（需要作者审核）
     
 ---
 ### Thanks 感谢

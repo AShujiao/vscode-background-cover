@@ -32,6 +32,15 @@ const vsHelp = {
                 if (!item) { return; }
                 PickList.gotoFilePath('//resources//wx.jpg');
             });
+    },
+
+    showWebview(content: any): Thenable<void> {
+        return vscode.window.showInformationMessage(content, { title: "OK" })
+        .then(function (item) {
+            if (!item) { return; }
+            vscode.commands.executeCommand('workbench.view.extension.backgroundCover-explorer');
+        });
+        
     }
 }
 

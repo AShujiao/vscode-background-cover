@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 import { PickList } from './PickLIst';
 import vsHelp from './vsHelp';
 import ReaderViewProvider from './readerView';
+import { setContext } from './global';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -22,7 +23,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(randomCommand);
 
 	// webview
-	const readerViewProvider = new ReaderViewProvider(context.extensionUri);
+	const readerViewProvider = new ReaderViewProvider();
 	vscode.window.registerWebviewViewProvider('backgroundCover.readerView', readerViewProvider, {
 	  webviewOptions: {
 		retainContextWhenHidden: true,
@@ -38,8 +39,9 @@ export function activate(context: vscode.ExtensionContext) {
 	let title:string = ex ?  ex.packageJSON['one_title'] : '';
 	if(openVersion != version && title != ""){
 		context.globalState.update('ext_version',version);
-		vsHelp.showInfoWxChat('🐷已更新到2.4.0：支持设置图片填充方式及图片位置 --- 🐷\r🐶🐷🐔🦊加入开发者微信群聊🐯🐮🐹🐽❓');
+		vsHelp.showWebview('🐷已更新到2.5.0：集成在线图库 --- 🐷\r🐶🐷🐔🦊立即体验！！🐯🐮🐹🐽❓');
 	}
+	setContext(context);
 }
 
 // this method is called when your extension is deactivated

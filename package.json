@@ -2,7 +2,7 @@
     "name": "background-cover",
     "displayName": "background-cover",
     "description": "Add a picture you like to cover the entire vscode..",
-    "version": "2.4.0",
+    "version": "2.5.0",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.38.0"
@@ -90,6 +90,11 @@
                     "type": "string",
                     "default": "cover",
                     "description": "Background image size adaptive mode / 图片尺寸适应模式"
+                },
+                "backgroundCover.defaultOnlinePage": {
+                    "type": "string",
+                    "default": "https://vs.20988.xyz/d/24-vscodebei-jing-tu-tu-ku",
+                    "description": "Online images default page / 在线图库默认页面"
                 }
             }
         },
