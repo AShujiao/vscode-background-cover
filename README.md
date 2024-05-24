@@ -35,6 +35,7 @@ Add a picture you like to cover the entire vscode..
 
 
 ## It looks like:
+![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/df3089cd-d370-4b41-ac0b-777038dd6323)
 ![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/5533db3e-9a2b-46e5-a41d-df103141d0cd)
 ![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/20172d72-5384-4bfe-bceb-ec582cfb1698)
 ![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/dcbb7870-8342-4069-9dd8-026d3b903420)
