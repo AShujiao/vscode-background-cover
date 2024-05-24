@@ -102,15 +102,21 @@ export class PickList {
 			},
 			{
 				label: '$(heart)    Support                          ',
-				description: '请作者喝一杯咖啡吧~ (承接外包噢!)      ',
+				description: '请作者喝一杯咖啡吧~       ',
 				imageType: 14,
 				path : "//resources//support.jpg"
 			},
 			{
 				label: '$(organization)    Wechat                           ',
-				description: '微信群聊~ (内置chatgpt)      ',
+				description: '微信群聊~      ',
 				imageType: 14,
 				path : "//resources//wx.jpg"
+			},
+			{
+				label: '$(ports-open-browser-icon)    Online images                ',
+				description: '在线图库',
+				imageType: 17,
+				path : "https://vs.20988.xyz/d/24-bei-jing-tu-tu-ku"
 			}
 		)
 		list.items = items;
@@ -146,6 +152,12 @@ export class PickList {
 		PickList.itemList.autoUpdateBackground();
 		PickList.itemList = undefined;
 		return vscode.commands.executeCommand('workbench.action.reloadWindow');
+	}
+
+	public static updateImgPath(path:string) {
+		let config = vscode.workspace.getConfiguration('backgroundCover');
+		PickList.itemList = new PickList(config);
+		PickList.itemList.updateBackgound(path);
 	}
 
 	// 列表构造方法
@@ -246,6 +258,10 @@ export class PickList {
 			case 16:
 				this.setSizeModel(path);
 				break;
+			case 17:
+				// 打开viewsContainers
+				vscode.commands.executeCommand('workbench.view.extension.backgroundCover-explorer');
+				break;
 			default:
 				break;
 		}
@@ -271,6 +287,8 @@ export class PickList {
 		
 		vscode.commands.executeCommand('vscode.openFolder', tmpurl);
 	}
+
+
 
 	private moreMenu(){
 		let items: ImgItem[] = [
@@ -536,7 +554,7 @@ export class PickList {
 	}
 
 	// 更新配置
-	private updateBackgound(path?: string) {
+	public updateBackgound(path?: string) {
 		if (!path) {
 			return vsHelp.showInfo('Unfetched Picture Path / 未获取到图片路径');
 		}

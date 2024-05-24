@@ -4,6 +4,7 @@
 import * as vscode from 'vscode';
 import { PickList } from './PickLIst';
 import vsHelp from './vsHelp';
+import ReaderViewProvider from './readerView';
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
@@ -19,6 +20,16 @@ export function activate(context: vscode.ExtensionContext) {
 	let startCommand = vscode.commands.registerCommand('extension.backgroundCover.start', () => { PickList.createItemLIst() });
 	context.subscriptions.push(startCommand);
 	context.subscriptions.push(randomCommand);
+
+	// webview
+	const readerViewProvider = new ReaderViewProvider(context.extensionUri);
+	vscode.window.registerWebviewViewProvider('backgroundCover.readerView', readerViewProvider, {
+	  webviewOptions: {
+		retainContextWhenHidden: true,
+	  },
+	});
+	vscode.commands.registerCommand('backgroundCover.refreshEntry',() => readerViewProvider.refresh());
+	vscode.commands.registerCommand('backgroundCover.home',() => readerViewProvider.home());
 
 	 // 首次打开-提示语
 	let openVersion:string|undefined           = context.globalState.get('ext_version');

@@ -37,6 +37,22 @@
             {
                 "command": "extension.backgroundCover.refresh",
                 "title": "backgroundCover - refresh"
+            },
+            {
+                "command": "backgroundCover.refreshEntry",
+                "title": "刷新",
+                "icon": {
+                    "light": "resources/light/refresh.svg",
+                    "dark": "resources/dark/refresh.svg"
+                }
+            },
+            {
+                "command": "backgroundCover.home",
+                "title": "首页",
+                "icon": {
+                    "light": "resources/light/home.svg",
+                    "dark": "resources/dark/home.svg"
+                }
             }
         ],
         "keybindings": [
@@ -76,6 +92,38 @@
                     "description": "Background image size adaptive mode / 图片尺寸适应模式"
                 }
             }
+        },
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "backgroundCover-explorer",
+                    "title": "backgroundCover",
+                    "icon": "resources/big.svg"
+                }
+            ]
+        },
+        "views": {
+            "backgroundCover-explorer": [
+                {
+                    "id": "backgroundCover.readerView",
+                    "type": "webview",
+                    "name": "backgroundCover"
+                }
+            ]
+        },
+        "menus": {
+            "view/title": [
+                {
+                    "command": "backgroundCover.refreshEntry",
+                    "when": "view == backgroundCover.readerView",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "backgroundCover.home",
+                    "when": "view == backgroundCover.readerView",
+                    "group": "navigation@0"
+                }
+            ]
         }
     },
     "bugs": {
