@@ -126,8 +126,6 @@ Add a picture you like to cover the entire vscode..
 * [vscode-background](https://github.com/shalldie/vscode-background)
 * [feature_restart_random_image](https://github.com/AShujiao/vscode-background-cover/pull/2)
 
-    底层部分代码来自 [shalldie](https://github.com/shalldie) ：[vscode-background](https://marketplace.visualstudio.com/items?itemName=shalldie.background)
-
 ## Contributors 
 * 对于扩展的贡献者默认都会展示在此列表中，如果不愿意展示此处也可以进行提交pr移除   
 [<img alt="AShujiao" src="https://avatars2.githubusercontent.com/u/14969576?s=460&v=4" width="117">](https://github.com/AShujiao)
