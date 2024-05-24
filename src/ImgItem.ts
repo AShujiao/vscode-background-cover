@@ -1,14 +1,17 @@
-import * as vscode from 'vscode';
+import {
+	QuickPickItem,
+	QuickPickItemKind,
+  } from 'vscode';
 /**
  * imgItem / 图片List类
  */
-export class ImgItem implements vscode.QuickPickItem {
+export class ImgItem implements QuickPickItem {
 
 	label: string;
 	description: string;
 	imageType: number;
 	path?: string | undefined;
-	kind?: vscode.QuickPickItemKind | undefined;
+	kind?: QuickPickItemKind | undefined;
 
 	constructor(label: string, description: string, type: number, path?: string | undefined) {
 		this.label = label;

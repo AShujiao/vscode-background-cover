@@ -1,11 +1,16 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import version from './version';
-import * as vscode from 'vscode';
+import {
+	Uri,
+	window,
+	InputBoxOptions,
+	commands,
+  } from 'vscode';
 import { exec } from 'child_process';
 import vsHelp from './vsHelp';
 
-const cssName: string = vscode.version >= "1.38" ? 'workbench.desktop.main.css' : 'workbench.main.css';
+const cssName: string = version >= "1.38" ? 'workbench.desktop.main.css' : 'workbench.main.css';
 export class FileDom {
 
 	// 文件路径
@@ -141,7 +146,7 @@ export class FileDom {
 
     public localImgToVsc() {
 		var url =  "vscode-file://vscode-app/" + this.imagePath
-		this.imagePath = vscode.Uri.parse(url).toString();
+		this.imagePath = Uri.parse(url).toString();
     }
 
 	/**
@@ -200,15 +205,15 @@ export class FileDom {
             if (error) {
                 // console.log('EACCES: permission denied', error?.message);
                 // 对文件没有读写权限则提示输入管理员密码以继续写入样式
-                let option: vscode.InputBoxOptions = {
+                let option: InputBoxOptions = {
                     ignoreFocusOut: true,
                     password: false,
                     placeHolder: 'Please enter the root password for access / 请输入 ROOT 密码用于获取权限',
                     prompt: '请输入管理员密码',
                 }
-                vscode.window.showInputBox(option).then((value) => {
+                window.showInputBox(option).then((value) => {
                     if (!value) {
-                        vscode.window.showWarningMessage(
+                        window.showWarningMessage(
                             'Please enter password / 请输入密码！'
                         );
                         return;
@@ -234,13 +239,13 @@ export class FileDom {
             (error) => {
                 // console.log('Chmod error:', error?.message);
                 if (error) {
-                    vscode.window.showWarningMessage(
+                    window.showWarningMessage(
                         `${error.name}: 密码可能输入有误，请重新尝试！`
                     );
                 }
                 // 写入样式并自动重启程序
                 fs.writeFileSync(this.filePath, content, 'utf-8');
-                vscode.commands.executeCommand('workbench.action.reloadWindow');
+                commands.executeCommand('workbench.action.reloadWindow');
             }
         );
     }

@@ -1,11 +1,13 @@
-import * as vscode from 'vscode';
+import {
+	ExtensionContext,
+  } from 'vscode';
 
-let _context: vscode.ExtensionContext;
+let _context: ExtensionContext;
 
-export function setContext(context: vscode.ExtensionContext) {
+export function setContext(context: ExtensionContext) {
     _context = context;
 }
 
-export function getContext(): vscode.ExtensionContext {
+export function getContext(): ExtensionContext {
     return _context;
 }

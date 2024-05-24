@@ -1,5 +1,4 @@
 import {
-  Uri,
   WebviewView,
   WebviewViewProvider,
   WebviewViewResolveContext,

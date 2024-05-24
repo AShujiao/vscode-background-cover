@@ -1,7 +1,20 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import * as vscode from 'vscode';
+import {
+	QuickPick,
+	Disposable,
+	QuickPickItemKind,
+	workspace,
+	WorkspaceConfiguration,
+	window,
+	commands,
+	env,
+	Uri,
+	extensions,
+	InputBoxOptions,
+	ConfigurationTarget,
+  } from 'vscode';
 
 import { FileDom } from './FileDom';
 import { ImgItem } from './ImgItem';
@@ -12,12 +25,12 @@ export class PickList {
 	public static itemList: PickList | undefined;
 
 	// 下拉列表
-	private readonly quickPick: vscode.QuickPick<ImgItem> | any;
+	private readonly quickPick: QuickPick<ImgItem> | any;
 
-	private _disposables: vscode.Disposable[] = [];
+	private _disposables: Disposable[] = [];
 
 	// 当前配置
-	private config: vscode.WorkspaceConfiguration;
+	private config: WorkspaceConfiguration;
 
 	// 当前配置的背景图路径
 	private imgPath: string;
@@ -36,10 +49,10 @@ export class PickList {
 
 	// 初始下拉列表
 	public static createItemLIst() {
-		let config: vscode.WorkspaceConfiguration =
-			vscode.workspace.getConfiguration('backgroundCover');
-		let list: vscode.QuickPick<ImgItem> =
-			vscode.window.createQuickPick<ImgItem>();
+		let config: WorkspaceConfiguration =
+			workspace.getConfiguration('backgroundCover');
+		let list: QuickPick<ImgItem> =
+			window.createQuickPick<ImgItem>();
 		list.placeholder = 'Please choose configuration! / 请选择相关配置！';
 		list.totalSteps = 2
 		let items: ImgItem[] = [
@@ -93,7 +106,7 @@ export class PickList {
 				label: '',
 				description: '--------------------',
 				imageType: 0,
-				kind: vscode.QuickPickItemKind.Separator
+				kind: QuickPickItemKind.Separator
 			},
 			{
 				label: '$(github)    Github                            ',
@@ -129,7 +142,7 @@ export class PickList {
 	 *  自动更新背景
 	 */
 	public static autoUpdateBackground() {
-		let config = vscode.workspace.getConfiguration('backgroundCover');
+		let config = workspace.getConfiguration('backgroundCover');
 		if (!config.randomImageFolder || !config.autoStatus) {
 			return false;
 		}
@@ -142,16 +155,16 @@ export class PickList {
 	 *  随机更新一张背景
 	 */
 	public static randomUpdateBackground() {
-		let config = vscode.workspace.getConfiguration('backgroundCover');
+		let config = workspace.getConfiguration('backgroundCover');
 		if (!config.randomImageFolder) {
-			vscode.window.showWarningMessage(
+			window.showWarningMessage(
 				'Please add a directory! / 请添加目录！');
 			return false;
 		}
 		PickList.itemList = new PickList(config);
 		PickList.itemList.autoUpdateBackground();
 		PickList.itemList = undefined;
-		return vscode.commands.executeCommand('workbench.action.reloadWindow');
+		return commands.executeCommand('workbench.action.reloadWindow');
 	}
 
 	public static updateImgPath(path:string) {
@@ -161,7 +174,7 @@ export class PickList {
 			vsHelp.showInfo("非https格式图片，不支持配置！ / Non HTTPS format image, configuration not supported!")
 			return false
 		}
-		let config = vscode.workspace.getConfiguration('backgroundCover');
+		let config = workspace.getConfiguration('backgroundCover');
 		PickList.itemList = new PickList(config);
 		PickList.itemList.imageFileType = 2;
 		PickList.itemList.updateBackgound(path);
@@ -169,8 +182,8 @@ export class PickList {
 
 	// 列表构造方法
 	private constructor(
-		config: vscode.WorkspaceConfiguration,
-		pickList?: vscode.QuickPick<ImgItem>) {
+		config: WorkspaceConfiguration,
+		pickList?: QuickPick<ImgItem>) {
 		this.config        = config;
 		this.imgPath       = config.imagePath;
 		this.opacity       = config.opacity;
@@ -234,7 +247,7 @@ export class PickList {
 				this.updateDom(true);  // 关闭背景图片展示
 				break;
 			case 8:
-				vscode.commands.executeCommand(
+				commands.executeCommand(
 					'workbench.action.reloadWindow');  // 重新加载窗口，使设置生效
 				break;
 			case 9:
@@ -246,7 +259,7 @@ export class PickList {
 				break;
 			case 11:
 				if (!this.config.randomImageFolder) {
-					vscode.window.showWarningMessage(
+					window.showWarningMessage(
 						'Please add a directory! / 请添加目录后再来开启！');
 				} else {
 					this.setConfigValue('autoStatus', true, false);
@@ -271,7 +284,7 @@ export class PickList {
 				break;
 			case 17:
 				// 打开viewsContainers
-				vscode.commands.executeCommand('workbench.view.extension.backgroundCover-explorer');
+				commands.executeCommand('workbench.view.extension.backgroundCover-explorer');
 				break;
 			default:
 				break;
@@ -280,23 +293,23 @@ export class PickList {
 
 	private gotoPath(path?: string){
 		if (path == undefined){
-			return vscode.window.showWarningMessage('无效菜单');
+			return window.showWarningMessage('无效菜单');
 		}
 		let tmpUri : string = path
 		
-		vscode.env.openExternal(vscode.Uri.parse(tmpUri))
+		env.openExternal(Uri.parse(tmpUri))
 	}
 
 	public static gotoFilePath(path?: string){
 		if (path == undefined){
-			return vscode.window.showWarningMessage('无效菜单');
+			return window.showWarningMessage('无效菜单');
 		}
 		let tmpUri : string = path
-		let extPath = vscode.extensions.getExtension("manasxx.background-cover")?.extensionPath
+		let extPath = extensions.getExtension("manasxx.background-cover")?.extensionPath
 		let tmpPath = "file:///"+extPath+tmpUri
-		let tmpurl = vscode.Uri.parse(tmpPath)
+		let tmpurl = Uri.parse(tmpPath)
 		
-		vscode.commands.executeCommand('vscode.openFolder', tmpurl);
+		commands.executeCommand('openFolder', tmpurl);
 	}
 
 
@@ -455,7 +468,7 @@ export class PickList {
 					label: '',
 					description: '',
 					imageType: 0,
-					kind: vscode.QuickPickItemKind.Separator
+					kind: QuickPickItemKind.Separator
 				});
 				items = items.concat(files.map(
 					(e) => new ImgItem('$(tag) ' + e, e, 4, path.join(randomPath, e))));
@@ -515,17 +528,17 @@ export class PickList {
 			type === 2 ? '设置图片不透明度：0-1' : '请输入图片路径，支持本地及https';
 
 
-		let option: vscode.InputBoxOptions = {
+		let option: InputBoxOptions = {
 			ignoreFocusOut: true,
 			password: false,
 			placeHolder: placeString,
 			prompt: promptString
 		};
 
-		vscode.window.showInputBox(option).then(value => {
+		window.showInputBox(option).then(value => {
 			//未输入值返回false
 			if (!value) {
-				vscode.window.showWarningMessage(
+				window.showWarningMessage(
 					'Please enter configuration parameters / 请输入配置参数！');
 				return;
 			}
@@ -534,7 +547,7 @@ export class PickList {
 				let fsStatus = fs.existsSync(path.resolve(value));
 				let isUrl = (value.substr(0, 8).toLowerCase() === 'https://');
 				if (!fsStatus && !isUrl) {
-					vscode.window.showWarningMessage(
+					window.showWarningMessage(
 						'No access to the file or the file does not exist! / 无权限访问文件或文件不存在！');
 					return false;
 				}
@@ -546,7 +559,7 @@ export class PickList {
 				let isOpacity = parseFloat(value);
 
 				if (isOpacity < 0 || isOpacity > 1 || isNaN(isOpacity)) {
-					vscode.window.showWarningMessage('Opacity ranges in：0 - 1！');
+					window.showWarningMessage('Opacity ranges in：0 - 1！');
 					return false;
 				}
 			}
@@ -578,7 +591,7 @@ export class PickList {
 		let isFiles = type === 2 ? false : true;
 		let filters =
 			type === 1 ? { 'Images': ['png', 'jpg', 'gif', 'jpeg','jfif'] } : undefined;
-		let folderUris = await vscode.window.showOpenDialog({
+		let folderUris = await window.showOpenDialog({
 			canSelectFolders: isFolders,
 			canSelectFiles: isFiles,
 			canSelectMany: false,
@@ -603,7 +616,7 @@ export class PickList {
 	// 更新配置
 	private setConfigValue(name: string, value: any, updateDom: Boolean = true) {
 		// 更新变量
-		this.config.update(name, value, vscode.ConfigurationTarget.Global);
+		this.config.update(name, value, ConfigurationTarget.Global);
 		switch (name) {
 			case 'opacity':
 				this.opacity = value;
@@ -659,11 +672,11 @@ export class PickList {
 				this.quickPick.show();
 			}else{
 				// 弹出提示框确认是否重启
-				vscode.window.showInformationMessage(
+				window.showInformationMessage(
 					'"' + this.imgPath + '"' + ' | Reloading takes effect? / 重新加载生效？', 'YES', 'NO').then(
 						(value) => {
 							if (value === 'YES') {
-								vscode.commands.executeCommand(
+								commands.executeCommand(
 									'workbench.action.reloadWindow');
 							}
 						});
