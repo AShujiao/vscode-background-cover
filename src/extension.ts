@@ -46,7 +46,7 @@ export function activate(context: ExtensionContext) {
 	let title:string = ex ?  ex.packageJSON['one_title'] : '';
 	if(openVersion != version && title != ""){
 		context.globalState.update('ext_version',version);
-		vsHelp.showWebview('🐷已更新到2.5.0：集成在线图库 --- 🐷\r🐶🐷🐔🦊立即体验！！🐯🐮🐹🐽❓');
+		vsHelp.showWebview('🐷已更新到2.5.1：集成在线图库 --- 🐷\r🐶🐷🐔🦊立即体验！！🐯🐮🐹🐽❓');
 	}
 	setContext(context);
 }

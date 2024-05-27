@@ -147,6 +147,7 @@ export class PickList {
 			return false;
 		}
 		PickList.itemList = new PickList(config);
+		PickList.itemList.imageFileType = 1;
 		PickList.itemList.autoUpdateBackground();
 		return PickList.itemList = undefined;
 	}
@@ -162,6 +163,7 @@ export class PickList {
 			return false;
 		}
 		PickList.itemList = new PickList(config);
+		PickList.itemList.imageFileType = 1;
 		PickList.itemList.autoUpdateBackground();
 		PickList.itemList = undefined;
 		return commands.executeCommand('workbench.action.reloadWindow');
@@ -671,15 +673,19 @@ export class PickList {
 				this.quickPick.ignoreFocusOut = true;
 				this.quickPick.show();
 			}else{
-				// 弹出提示框确认是否重启
-				window.showInformationMessage(
-					'"' + this.imgPath + '"' + ' | Reloading takes effect? / 重新加载生效？', 'YES', 'NO').then(
-						(value) => {
-							if (value === 'YES') {
-								commands.executeCommand(
-									'workbench.action.reloadWindow');
-							}
-						});
+
+				// 通过在线图库更新提示弹窗
+				if(this.imageFileType == 2){
+					// 弹出提示框确认是否重启
+					window.showInformationMessage(
+						'"' + this.imgPath + '"' + ' | Reloading takes effect? / 重新加载生效？', 'YES', 'NO').then(
+							(value) => {
+								if (value === 'YES') {
+									commands.executeCommand(
+										'workbench.action.reloadWindow');
+								}
+							});
+				}
 			}
 			
 		}
