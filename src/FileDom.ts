@@ -28,6 +28,9 @@ export class FileDom {
 			sizeModel = "cover";
 		}
 		this.sizeModel = sizeModel;
+		if(imagePath.substr(0, 8).toLowerCase() !== 'https://'){
+			this.localImgToVsc();
+		}
 	}
 
 
@@ -144,7 +147,7 @@ export class FileDom {
 	}
 
 
-    public localImgToVsc() {
+    private localImgToVsc() {
 		var url =  "vscode-file://vscode-app/" + this.imagePath
 		this.imagePath = Uri.parse(url).toString();
     }
