@@ -112,15 +112,10 @@ Add a picture you like to cover the entire vscode..
 ## 最近更新日志
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 2.5.0 (2024/05/26)
+#### ver 2.5.2 (2024/06/24)
 
-    1.支持在线图片快速设置背景！！！
-	2.在线社区集成进vscode左侧栏，发布图片、设置默认页
-	3.社区支持注册（需邮箱激活）
-	4.社区支持回复主题，上传图片、添加第三方图片（用于设置背景图）
-	5.社区支持发布个人主题（私人图库）（需要作者审核）
-  6.修复开启自动更换的异常 （2.5.1/2024.05.27）
-    
+  1.修复图片无法显示的bug
+  
 ---
 ### Thanks 感谢
 
