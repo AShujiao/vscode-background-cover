@@ -35,7 +35,7 @@ export class FileDom {
 			if(osType == 'Darwin'){
 				this.imageToBase64();
 			}else{
-				this.localImgToVsc();
+				this.localImgToVsc(osType);
 			}
 			
 		}
@@ -155,8 +155,10 @@ export class FileDom {
 	}
 
 
-    private localImgToVsc() {
-		var url =  "vscode-file://vscode-app/" + this.imagePath
+    private localImgToVsc(ostype: string) {
+		var separator = ostype == "Linux" ? "" : "/";
+		
+		var url =  "vscode-file://vscode-app" + separator + this.imagePath
 		this.imagePath = Uri.parse(url).toString();
     }
 
