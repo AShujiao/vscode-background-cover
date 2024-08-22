@@ -306,7 +306,7 @@ export class PickList {
 		let tmpPath = "file:///" + extPath + tmpUri
 		let tmpurl = Uri.parse( tmpPath )
 
-		commands.executeCommand( 'openFolder', tmpurl );
+		commands.executeCommand( 'vscode.openFolder', tmpurl );
 	}
 
 
