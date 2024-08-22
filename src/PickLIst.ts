@@ -588,7 +588,7 @@ export class PickList {
 		let isFolders = type === 1 ? false : true;
 		let isFiles = type === 2 ? false : true;
 		let filters =
-			type === 1 ? { 'Images': ['png', 'jpg', 'gif', 'jpeg', 'jfif'] } : undefined;
+			type === 1 ? { 'Images': ['png', 'jpg', 'gif', 'jpeg', 'jfif', 'webp', 'bmp'] } : undefined;
 		let folderUris = await window.showOpenDialog( {
 			canSelectFolders: isFolders,
 			canSelectFiles: isFiles,
