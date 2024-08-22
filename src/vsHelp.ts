@@ -1,6 +1,8 @@
 import {
 	window,
 	commands,
+    Uri,
+    env,
   } from 'vscode';
 import { PickList } from './PickLIst';
 
@@ -34,6 +36,19 @@ const vsHelp = {
             .then(function (item) {
                 if (!item) { return; }
                 PickList.gotoFilePath('//resources//wx.jpg');
+            });
+    },
+
+    showInfoSupport(content: any): Thenable<void> {
+        return window.showInformationMessage(content, { title: "详情" }, { title: "赞助" })
+            .then(function (item) {
+                if (!item) { return; }
+                if (item.title === '详情') {
+                    env.openExternal( Uri.parse( "https://vs.20988.xyz/d/66-ai-xin-juan-zeng/3" ) )
+                }else{
+                    PickList.gotoFilePath('//resources//support.jpg');
+                }
+                
             });
     },
 

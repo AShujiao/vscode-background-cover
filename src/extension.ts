@@ -46,7 +46,7 @@ export function activate(context: ExtensionContext) {
 	let title:string = ex ?  ex.packageJSON['one_title'] : '';
 	if(openVersion != version && title != ""){
 		context.globalState.update('ext_version',version);
-		vsHelp.showWebview('🐷已更新到2.5.4：修复Linux系统本地图片无法使用的问题--- 🐷\r🐶🐷🐔🦊立即体验！！🐯🐮🐹🐽❓');
+		vsHelp.showInfoSupport('🐷已更新到2.5.4：修复Linux系统本地图片无法使用的问题\r🐶是否愿意帮助在线图库社区运营🐶❓');
 	}
 	setContext(context);
 }
