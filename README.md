@@ -112,9 +112,9 @@ Add a picture you like to cover the entire vscode..
 ## 最近更新日志
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 2.5.4 (2024/08/22)
+#### ver 2.5.5 (2024/10/05)
 
-  1.修复Linux系统本地图片无法使用的问题
+  1.修复vsc1.94.0版本导致的异常
   
 ---
 ### Thanks 感谢

@@ -7,6 +7,7 @@ import {
 	window,
 	InputBoxOptions,
 	commands,
+	env,
   } from 'vscode';
 import { exec } from 'child_process';
 import vsHelp from './vsHelp';
@@ -15,7 +16,7 @@ const cssName: string = version >= "1.38" ? 'workbench.desktop.main.css' : 'work
 export class FileDom {
 
 	// 文件路径
-	private filePath = path.join(path.dirname((require.main as NodeModule).filename), 'vs', 'workbench', cssName);
+	private filePath = path.join(env.appRoot, "out", "vs", "workbench", cssName);;//path.join(path.dirname((require.main as NodeModule).filename), 'vs', 'workbench', cssName);
 	private extName = "backgroundCover";
 	private imagePath: string = '';
 	private imageOpacity: number = 1;
