@@ -18,17 +18,21 @@ export class FileDom {
 	// 文件路径
 	private filePath = path.join(env.appRoot, "out", "vs", "workbench", cssName);;//path.join(path.dirname((require.main as NodeModule).filename), 'vs', 'workbench', cssName);
 	private extName = "backgroundCover";
-	private imagePath: string = '';
-	private imageOpacity: number = 1;
-	private sizeModel: string = 'cover';
+	private imagePath: string = ''; // 背景图路径
+	private imageOpacity: number = 1; // 透明度
+	private sizeModel: string = 'cover'; // 图片位置
+	private blur: number = 0; // 模糊度
+	private blendModel: string = ''; // multiply = 浅色模式使用, lighten = 深色模式使用
 
 
-	constructor(imagePath: string, opacity: number, sizeModel: string = 'cover') {
+	constructor(imagePath: string, opacity: number, sizeModel: string = 'cover', blur: number = 0, blendModel:string = '') {
 		this.imagePath = imagePath;
 		this.imageOpacity = opacity;
 		if(sizeModel == ""){
 			sizeModel = "cover";
 		}
+		this.blur = blur;
+		this.blendModel = blendModel;
 		this.sizeModel = sizeModel;
 		if(imagePath.substr(0, 8).toLowerCase() !== 'https://'){
 			// mac对vscodefile协议支持存在异常，所以mac下使用base64
@@ -65,10 +69,9 @@ export class FileDom {
 
 	private getCss(): string {
 
-		// 重新计算透明度
+		// 透明度最大0.8
 		let opacity = this.imageOpacity;
-		opacity = opacity <= 0.1 ? 0.1 : opacity >= 1 ? 1 : opacity;
-		opacity = 0.59 + (0.4 - ((opacity * 4) / 10));
+		opacity = opacity > 0.8 ? 0.8 : opacity;
 		
 		// 图片填充方式
 		let sizeModelVal = this.sizeModel;
@@ -118,12 +121,22 @@ export class FileDom {
 		return `
 		/*ext-${this.extName}-start*/
 		/*ext.${this.extName}.ver.${version}*/
-		body{
+		body::before{
+			content: "";
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			position: absolute;
 			background-size: ${sizeModelVal};
 			background-repeat: ${repeatVal};
 			background-position: ${positionVal};
 			opacity:${opacity};
 			background-image:url('${this.imagePath}');
+			z-index: 2;
+			pointer-events: none;
+			filter: blur(${this.blur}px);
+			mix-blend-mode: ${this.blendModel};
 		}
 		/*ext-${this.extName}-end*/
 		`;
