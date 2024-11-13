@@ -1,78 +1,169 @@
-import * as path from 'path';
+
 import * as fs from 'fs';
-import version from './version';
+import * as path from 'path';
 import * as os from 'os';
-import {
-	Uri,
-	window,
-	InputBoxOptions,
-	commands,
-	env,
-  } from 'vscode';
-import { exec } from 'child_process';
-import vsHelp from './vsHelp';
+import { env, Uri, window} from 'vscode';
+import * as lockfile from 'lockfile';
+import version from './version';
+import { SudoPromptHelper } from './SudoPromptHelper';
 
-const cssName: string = version >= "1.38" ? 'workbench.desktop.main.css' : 'workbench.main.css';
+
+
+
+enum SystemType {
+    WINDOWS = 'Windows_NT',
+    MACOS = 'Darwin',
+    LINUX = 'Linux'
+}
+
 export class FileDom {
+    private readonly filePath: string;
+    private readonly extName = "backgroundCover";
+    private imagePath: string;
+    private readonly imageOpacity: number;
+    private readonly sizeModel: string;
+    private readonly blur: number;
+    private readonly blendModel: string;
+    private readonly systemType: string;
 
-	// 文件路径
-	private filePath = path.join(env.appRoot, "out", "vs", "workbench", cssName);;//path.join(path.dirname((require.main as NodeModule).filename), 'vs', 'workbench', cssName);
-	private extName = "backgroundCover";
-	private imagePath: string = ''; // 背景图路径
-	private imageOpacity: number = 1; // 透明度
-	private sizeModel: string = 'cover'; // 图片位置
-	private blur: number = 0; // 模糊度
-	private blendModel: string = ''; // multiply = 浅色模式使用, lighten = 深色模式使用
+    constructor(
+        imagePath: string,
+        opacity: number,
+        sizeModel: string = 'cover',
+        blur: number = 0,
+        blendModel: string = ''
+    ) {
+        this.filePath = path.join(env.appRoot, "out", "vs", "workbench", "workbench.desktop.main.css");
+        this.imagePath = imagePath;
+        this.imageOpacity = Math.min(opacity, 0.8);
+        this.sizeModel = sizeModel || "cover";
+        this.blur = blur;
+        this.blendModel = blendModel;
+        this.systemType = os.type();
 
+        this.initializeImage();
+    }
 
-	constructor(imagePath: string, opacity: number, sizeModel: string = 'cover', blur: number = 0, blendModel:string = '') {
-		this.imagePath = imagePath;
-		this.imageOpacity = opacity;
-		if(sizeModel == ""){
-			sizeModel = "cover";
-		}
-		this.blur = blur;
-		this.blendModel = blendModel;
-		this.sizeModel = sizeModel;
-		if(imagePath.substr(0, 8).toLowerCase() !== 'https://'){
-			// mac对vscodefile协议支持存在异常，所以mac下使用base64
-			var osType = os.type()
-			if(osType == 'Darwin'){
-				this.imageToBase64();
-			}else{
-				this.localImgToVsc(osType);
-			}
-			
-		}
-	}
+    private async initializeImage(): Promise<void> {
+        if (!this.imagePath.toLowerCase().startsWith('https://')) {
+            if (this.systemType === SystemType.MACOS) {
+                await this.imageToBase64();
+            } else {
+                this.localImgToVsc();
+            }
+        }
+    }
 
+    public async install(): Promise<boolean> {
 
-	public install(): boolean {
-		let content: any = this.getCss().replace(/\s*$/, ''); // 去除末尾空白
-		if (content === '') {
-			return false;
-		}
-		// 添加代码到文件中，并尝试删除原来已经添加的
-		let newContent = this.getContent();
-		newContent = this.clearCssContent(newContent);
-		newContent += content;
-		try{
-			this.saveContent(newContent);
-		}catch(ex:any){
-			vsHelp.showInfo('更新背景图片异常，请确保以管理员身份运行或对该文件赋予写入权限！ / Unexpected update of background image, please make sure to run as administrator or grant write permission to the file!                        \n ' + ex.message);
+        const lockPath = os.tmpdir() + '/vscode-background.lock';
 
-			return false;
-		}
-		
-		return true;
-	}
+        try {
+            // 加锁
+            await new Promise((resolve, reject) => {
+                lockfile.lock(lockPath, { retries: 10, retryWait: 100 }, (err:any) => {
+                    if (err) reject(err);
+                    else resolve(null);
+                });
+            });
 
-	private getCss(): string {
+            const content = this.getCss().trim();
+            if (!content) return false;
 
+            const newContent = this.clearCssContent(this.getContent()) + content;
+
+            switch (this.systemType) {
+                case SystemType.WINDOWS:
+                    return await this.installWindows(newContent);
+                case SystemType.MACOS:
+                    return await this.installMacOS(newContent);
+                case SystemType.LINUX:
+                    return await this.installLinux(newContent);
+                default:
+                    throw new Error('Unsupported operating system');
+            }
+        } catch (error: any) {
+            await window.showErrorMessage(`Installation failed: ${error.message}`);
+            return false;
+        } finally {
+            // 解锁
+            lockfile.unlock(lockPath, (err:any) => {
+                if (err) console.error(`Failed to unlock ${lockPath}:`, err);
+            });
+        }
+    }
+
+    private async installWindows(content: string): Promise<boolean> {
+        try {
+            await this.saveContent(content);
+            return true;
+        } catch (error) {
+            // 权限不足时，修改文件权限,使用cmd命令
+            await SudoPromptHelper.exec(`takeown /f "${this.filePath}" /a`);
+            await SudoPromptHelper.exec(`icacls "${this.filePath}" /grant Users:F`);
+            await this.saveContent(content);
+            return true;
+        }
+    }
+
+    private async installMacOS(content: string): Promise<boolean> {
+        try {
+            await this.saveContent(content);
+            return true;
+        } catch {
+            // const password = await window.showInputBox({
+            //     password: true,
+            //     placeHolder: '请输入管理员密码以获取写入权限',
+            //     ignoreFocusOut: true
+            // });
+
+            // if (!password) {
+            //     throw new Error('未提供管理员密码');
+            // }
+
+            //await SudoPromptHelper.exec(`echo "${password}" | sudo -S chmod a+rwx "${this.filePath}"`);
+            await SudoPromptHelper.exec(`chmod a+rwx "${this.filePath}"`);
+            await this.saveContent(content);
+            return true;
+        }
+    }
+
+    private async installLinux(content: string): Promise<boolean> {
+        try {
+            await this.saveContent(content);
+            return true;
+        } catch {
+            await SudoPromptHelper.exec(`chmod 666 "${this.filePath}"`);
+            await this.saveContent(content);
+            return true;
+        }
+    }
+
+    public async uninstall(): Promise<boolean> {
+        try {
+            const content = this.clearCssContent(this.getContent());
+            await this.saveContent(content);
+            //await commands.executeCommand('workbench.action.reloadWindow');
+            return true;
+        } catch (error) {
+            await window.showErrorMessage(`卸载失败: ${error}`);
+            return false;
+        }
+    }
+
+    private getContent(): string {
+        return fs.readFileSync(this.filePath, 'utf-8');
+    }
+
+    private async saveContent(content: string): Promise<void> {
+        await fs.promises.writeFile(this.filePath, content, 'utf-8');
+    }
+
+    private getCss(): string {
 		// 透明度最大0.8
 		let opacity = this.imageOpacity;
 		opacity = opacity > 0.8 ? 0.8 : opacity;
-		
+
 		// 图片填充方式
 		let sizeModelVal = this.sizeModel;
 		let repeatVal    = "no-repeat";
@@ -140,141 +231,26 @@ export class FileDom {
 		}
 		/*ext-${this.extName}-end*/
 		`;
-	}
-
-
-	/**
-    * 获取文件内容
-    * @var mixed
-    */
-	private getContent(): string {
-		return fs.readFileSync(this.filePath, 'utf-8');
-	}
-
-	/**
-    * 本地图片文件转base64
-    * @var mixed
-    */
-	public imageToBase64(){
-		try{
-			let extname    = path.extname(this.imagePath);
-			extname        = extname.substr(1);
-			this.imagePath = fs.readFileSync(path.resolve(this.imagePath)).toString('base64');
-			this.imagePath = `data:image/${extname};base64,${this.imagePath}`;
-		}catch(e){
-			return false;
-		}
-		
-		return true;
-	}
-
-
-    private localImgToVsc(ostype: string) {
-		var separator = ostype == "Linux" ? "" : "/";
-		
-		var url =  "vscode-file://vscode-app" + separator + this.imagePath
-		this.imagePath = Uri.parse(url).toString();
     }
 
-	/**
-    * 设置文件内容
-    *
-    * @private
-    * @param {string} content
-    */
-	private saveContent(content: string): void {
-		fs.writeFileSync(this.filePath, content, 'utf-8');
-	}
-
-	/**
-	* 清理已经添加的代码
-	*
-	* @private
-	* @param {string} content
-	* @returns {string}
-	*/
-	private clearCssContent(content: string): string {
-		let re = new RegExp("\\/\\*ext-" + this.extName + "-start\\*\\/[\\s\\S]*?\\/\\*ext-" + this.extName + "-end\\*" + "\\/", "g");
-		content = content.replace(re, '');
-		content = content.replace(/\s*$/, '');
-		return content;
-	}
-
-	/**
-	* 卸载
-	*
-	* @private
-	*/
-	public uninstall(): boolean {
-		try {
-			let content = this.getContent();
-			content = this.clearCssContent(content);
-			this.saveContent(content);
-			return true;
-		} catch (ex) {
-			//console.log(ex);
-			return false;
-		}
-	}
-
-	/**
-     * 在 MacOS 上写入样式，需要注意权限问题
-     */
-     public installMac(): boolean {
-        let content: any = this.getCss().replace(/\s*$/, '');
-        if (content === '') {
+    private async imageToBase64(): Promise<boolean> {
+        try {
+            const extname = path.extname(this.imagePath).substr(1);
+            const imageBuffer = await fs.promises.readFile(path.resolve(this.imagePath));
+            this.imagePath = `data:image/${extname};base64,${imageBuffer.toString('base64')}`;
+            return true;
+        } catch {
             return false;
         }
-        let newContent = this.getContent();
-        newContent = this.clearCssContent(newContent);
-        newContent += content;
-        fs.writeFile(this.filePath, newContent, { encoding: 'utf-8' }, (error) => {
-            if (error) {
-                // console.log('EACCES: permission denied', error?.message);
-                // 对文件没有读写权限则提示输入管理员密码以继续写入样式
-                let option: InputBoxOptions = {
-                    ignoreFocusOut: true,
-                    password: false,
-                    placeHolder: 'Please enter the root password for access / 请输入 ROOT 密码用于获取权限',
-                    prompt: '请输入管理员密码',
-                }
-                window.showInputBox(option).then((value) => {
-                    if (!value) {
-                        window.showWarningMessage(
-                            'Please enter password / 请输入密码！'
-                        );
-                        return;
-                    }
-                    // 回调中无法返回标识，所以授权后异步写入样式并自动重启程序
-                    this.saveContentMac(value, newContent);
-                });
-            }
-        });
-        return true;
     }
 
-    /**
-     * 执行授权命令并写入样式
-     * 
-     * @param password 管理员秘密
-     * @param content 待写入的样式
-     */
-    public saveContentMac(password: string, content: string) {
-        // SUDO+密码对css文件进行’读与写‘授权
-        exec(
-            `echo "${password}" | sudo -S chmod a+rwx "${this.filePath}"`,
-            (error) => {
-                // console.log('Chmod error:', error?.message);
-                if (error) {
-                    window.showWarningMessage(
-                        `${error.name}: 密码可能输入有误，请重新尝试！`
-                    );
-                }
-                // 写入样式并自动重启程序
-                fs.writeFileSync(this.filePath, content, 'utf-8');
-                commands.executeCommand('workbench.action.reloadWindow');
-            }
-        );
+    private localImgToVsc(): void {
+        const separator = this.systemType === SystemType.LINUX ? "" : "/";
+        this.imagePath = Uri.parse(`vscode-file://vscode-app${separator}${this.imagePath}`).toString();
     }
 
+    private clearCssContent(content: string): string {
+        const regex = new RegExp(`\\/\\*ext-${this.extName}-start\\*\\/[\\s\\S]*?\\/\\*ext-${this.extName}-end\\*\\/`, 'g');
+        return content.replace(regex, '').trim();
+    }
 }

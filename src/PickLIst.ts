@@ -1,5 +1,4 @@
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import {
 	QuickPick,
@@ -42,9 +41,6 @@ export class PickList {
 	// 图片类型 1:本地文件，2：https
 	private imageFileType: number;
 
-	// 当前系统标识
-	private osType: number;
-
 	// 当前配置的背景图尺寸模式
 	private sizeModel: string;
 
@@ -77,12 +73,12 @@ export class PickList {
 				imageType: 5
 			},
 			{
-				label: '$(settings)    Background Blur      ',
+				label: '$(settings)    Background Blur            ',
 				description: '模糊度',
 				imageType: 18
 			},
 			{
-				label: '$(settings)    Blend Model      ',
+				label: '$(settings)    Blend Model                  ',
 				description: '混合模式',
 				imageType: 19
 			},
@@ -172,7 +168,8 @@ export class PickList {
 						PickList.itemList.updateDom();
 						return commands.executeCommand( 'workbench.action.reloadWindow' );
 					}
-				} );
+				} 
+			);
 	}
 
 	/**
@@ -228,22 +225,6 @@ export class PickList {
 		this.imageFileType = 0;
 		this.blur = config.blur;
 		this.blendModel = config.blendModel;
-
-
-		switch ( os.type() ) {
-			case 'Windows_NT':
-				this.osType = 1;
-				break;
-			case 'Darwin':
-				this.osType = 2;
-				break;
-			case 'Linux':
-				this.osType = 3;
-				break;
-			default:
-				this.osType = 1;
-				break
-		}
 
 		if ( pickList ) {
 			this.quickPick = pickList;
@@ -766,56 +747,54 @@ export class PickList {
 
 
 	// 更新、卸载css
-	private updateDom( uninstall: boolean = false ) {
+	private async updateDom(uninstall: boolean = false): Promise<void> {
 		// 混合模式为自动时，获取当前主题模式
 		let colorThemeKind = this.blendModel;
-		if(this.blendModel == 'auto'){
+		if (this.blendModel === 'auto') {
 			colorThemeKind = this.autoBlendModel();
 		}
 
 		// 写入文件
-		let dom: FileDom = new FileDom( this.imgPath, this.opacity, this.sizeModel, this.blur, colorThemeKind );
+		const dom = new FileDom(this.imgPath, this.opacity, this.sizeModel, this.blur, colorThemeKind);
 		let result = false;
-		if ( uninstall ) {
-			result = dom.uninstall();
-		} else {
-			if ( this.osType === 1 ) {
-				result = dom.install();
-			} else if ( this.osType === 2 ) {
-				result = dom.installMac();
-			} else if ( this.osType === 3 ) {
-				result = dom.install(); // 暂未做对应处理
-			}
-		}
-		if ( result ) {
-			if ( this.quickPick ) {
-				this.quickPick.placeholder = 'Reloading takes effect? / 重新加载生效？';
-				this.quickPick.items = [
-					{
-						label: '$(check)   YES',
-						description: '立即重新加载窗口生效',
-						imageType: 8
-					},
-					{ label: '$(x)   NO', description: '稍后手动重启', imageType: 9 }
-				];
-				this.quickPick.ignoreFocusOut = true;
-				this.quickPick.show();
-			} else {
 
-				// 通过在线图库更新提示弹窗
-				if ( this.imageFileType == 2 ) {
-					// 弹出提示框确认是否重启
-					window.showInformationMessage(
-						'"' + this.imgPath + '"' + ' | Reloading takes effect? / 重新加载生效？', 'YES', 'NO' ).then(
-							( value ) => {
-								if ( value === 'YES' ) {
-									commands.executeCommand(
-										'workbench.action.reloadWindow' );
-								}
-							} );
+		try {
+			if (uninstall) {
+				result = await dom.uninstall();
+			} else {
+				result = await dom.install();
+			}
+
+			if (result) {
+				if (this.quickPick) {
+					this.quickPick.placeholder = 'Reloading takes effect? / 重新加载生效？';
+					this.quickPick.items = [
+						{
+							label: '$(check)   YES',
+							description: '立即重新加载窗口生效',
+							imageType: 8
+						},
+						{ label: '$(x)   NO', description: '稍后手动重启', imageType: 9 }
+					];
+					this.quickPick.ignoreFocusOut = true;
+					this.quickPick.show();
+				} else {
+					// 通过在线图库更新提示弹窗
+					if (this.imageFileType === 2) {
+						// 弹出提示框确认是否重启
+						const value = await window.showInformationMessage(
+							`"${this.imgPath}" | Reloading takes effect? / 重新加载生效？`,
+							'YES',
+							'NO'
+						);
+						if (value === 'YES') {
+							await commands.executeCommand('workbench.action.reloadWindow');
+						}
+					}
 				}
 			}
-
+		} catch (error: any) {
+			await window.showErrorMessage(`更新失败: ${error.message}`);
 		}
 	}
 }
