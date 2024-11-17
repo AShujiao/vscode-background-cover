@@ -160,8 +160,7 @@ export class PickList {
 		}
 
 		// 弹出提示框确认是否重启
-		window.showInformationMessage(
-			'主题模式发生变更，是否更新背景混合模式？', 'YES', 'NO' ).then(
+		window.showInformationMessage('主题模式发生变更，是否更新背景混合模式？', 'YES', 'NO' ).then(
 				( value ) => {
 					if ( value === 'YES' ) {
 						PickList.itemList = new PickList( config );

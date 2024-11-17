@@ -6,6 +6,8 @@ import { env, Uri, window} from 'vscode';
 import * as lockfile from 'lockfile';
 import version from './version';
 import { SudoPromptHelper } from './SudoPromptHelper';
+//const fse = require('fs-extra')
+import * as fse from 'fs-extra';
 
 
 
@@ -33,7 +35,7 @@ export class FileDom {
         blur: number = 0,
         blendModel: string = ''
     ) {
-        this.filePath = path.join(env.appRoot, "out", "vs", "workbench", "workbench.desktop.main.css");
+        this.filePath = path.join(env.appRoot, "out", "vs", "workbench", "workbench.desktop.main.js");
         this.imagePath = imagePath;
         this.imageOpacity = Math.min(opacity, 0.8);
         this.sizeModel = sizeModel || "cover";
@@ -56,6 +58,16 @@ export class FileDom {
 
     public async install(): Promise<boolean> {
 
+        // 文件是否存在
+        const isExist = await fse.pathExists(this.filePath);
+        if (!isExist) {
+            await window.showErrorMessage(`文件不存在，提醒开发者修复吧！`);
+            return false
+        }
+
+
+
+
         const lockPath = os.tmpdir() + '/vscode-background.lock';
 
         try {
@@ -67,10 +79,18 @@ export class FileDom {
                 });
             });
 
-            const content = this.getCss().trim();
+            const content = this.getJs().trim();
             if (!content) return false;
 
-            const newContent = this.clearCssContent(this.getContent()) + content;
+            const bakContent = this.clearCssContent(this.getContent())
+            // 备份文件
+            // let bakFilePath = this.filePath + '.bak';
+            // const bakFile = await fse.pathExists(bakFilePath);
+            // if(!bakFile){
+            //     await fse.createFile(bakFilePath);
+            // }
+
+            const newContent = bakContent + content;
 
             switch (this.systemType) {
                 case SystemType.WINDOWS:
@@ -111,17 +131,6 @@ export class FileDom {
             await this.saveContent(content);
             return true;
         } catch {
-            // const password = await window.showInputBox({
-            //     password: true,
-            //     placeHolder: '请输入管理员密码以获取写入权限',
-            //     ignoreFocusOut: true
-            // });
-
-            // if (!password) {
-            //     throw new Error('未提供管理员密码');
-            // }
-
-            //await SudoPromptHelper.exec(`echo "${password}" | sudo -S chmod a+rwx "${this.filePath}"`);
             await SudoPromptHelper.exec(`chmod a+rwx "${this.filePath}"`);
             await this.saveContent(content);
             return true;
@@ -156,7 +165,25 @@ export class FileDom {
     }
 
     private async saveContent(content: string): Promise<void> {
-        await fs.promises.writeFile(this.filePath, content, 'utf-8');
+        try {
+            // 追加新内容到原文件
+            await fse.writeFile(this.filePath,content, {encoding: 'utf-8'});
+          } catch (err) {
+            console.error('操作失败:', err);
+          }
+        //await fs.promises.writeFile(this.filePath, content, 'utf-8');
+    }
+
+    private getJs(): string {
+        let css = this.getCss();
+        return `
+        /*ext-${this.extName}-start*/
+		/*ext.${this.extName}.ver.${version}*/
+        const style = document.createElement('style');
+        style.textContent = \`${css}\`;
+        document.head.appendChild(style);
+        /*ext-${this.extName}-end*/
+        `;
     }
 
     private getCss(): string {
@@ -210,8 +237,6 @@ export class FileDom {
 		}
 
 		return `
-		/*ext-${this.extName}-start*/
-		/*ext.${this.extName}.ver.${version}*/
 		body::before{
 			content: "";
 			top: 0;
@@ -229,7 +254,6 @@ export class FileDom {
 			filter: blur(${this.blur}px);
 			mix-blend-mode: ${this.blendModel};
 		}
-		/*ext-${this.extName}-end*/
 		`;
     }
 
