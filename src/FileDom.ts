@@ -8,9 +8,13 @@ import version from './version';
 import { SudoPromptHelper } from './SudoPromptHelper';
 //const fse = require('fs-extra')
 import * as fse from 'fs-extra';
+import { getContext } from './global';
 
 
-
+const jsName: string = 'workbench.desktop.main.js';
+const cssName: string = 'workbench.desktop.main.css';
+const jsFilePath = path.join(env.appRoot, "out", "vs", "workbench", jsName);
+const cssFilePath = path.join(env.appRoot, "out", "vs", "workbench", cssName);
 
 enum SystemType {
     WINDOWS = 'Windows_NT',
@@ -27,6 +31,7 @@ export class FileDom {
     private readonly blur: number;
     private readonly blendModel: string;
     private readonly systemType: string;
+    private upCssContent: string = '';
 
     constructor(
         imagePath: string,
@@ -35,13 +40,13 @@ export class FileDom {
         blur: number = 0,
         blendModel: string = ''
     ) {
-        this.filePath = path.join(env.appRoot, "out", "vs", "workbench", "workbench.desktop.main.js");
-        this.imagePath = imagePath;
+        this.filePath     = jsFilePath;
+        this.imagePath    = imagePath;
         this.imageOpacity = Math.min(opacity, 0.8);
-        this.sizeModel = sizeModel || "cover";
-        this.blur = blur;
-        this.blendModel = blendModel;
-        this.systemType = os.type();
+        this.sizeModel    = sizeModel || "cover";
+        this.blur         = blur;
+        this.blendModel   = blendModel;
+        this.systemType   = os.type();
 
         this.initializeImage();
     }
@@ -66,6 +71,21 @@ export class FileDom {
         }
 
 
+        // 获取全局变量是否已经清除
+        let vsContext = getContext();
+        let isClear = vsContext.globalState.get('ext_backgroundCover_clear');
+        if(!isClear){
+            // 验证旧版css文件是否需要清除
+            const cssContent = this.getContent(cssFilePath);
+            if(this.getPatchContent(cssContent)){
+                // 清除旧版css文件
+                this.upCssContent = this.clearCssContent(cssContent);
+            }else{
+                // 不存在旧版css文件，设置全局变量
+                vsContext.globalState.update('ext_backgroundCover_clear',true);
+            }
+        }
+        
 
 
         const lockPath = os.tmpdir() + '/vscode-background.lock';
@@ -82,7 +102,8 @@ export class FileDom {
             const content = this.getJs().trim();
             if (!content) return false;
 
-            const bakContent = this.clearCssContent(this.getContent())
+            const bakContent = this.clearCssContent(this.getContent(this.filePath))
+
             // 备份文件
             // let bakFilePath = this.filePath + '.bak';
             // const bakFile = await fse.pathExists(bakFilePath);
@@ -150,7 +171,7 @@ export class FileDom {
 
     public async uninstall(): Promise<boolean> {
         try {
-            const content = this.clearCssContent(this.getContent());
+            const content = this.clearCssContent(this.getContent(this.filePath));
             await this.saveContent(content);
             //await commands.executeCommand('workbench.action.reloadWindow');
             return true;
@@ -160,14 +181,19 @@ export class FileDom {
         }
     }
 
-    private getContent(): string {
-        return fs.readFileSync(this.filePath, 'utf-8');
+    private getContent(filePath:string): string {
+        return fs.readFileSync(filePath, 'utf-8');
     }
 
     private async saveContent(content: string): Promise<void> {
         try {
             // 追加新内容到原文件
             await fse.writeFile(this.filePath,content, {encoding: 'utf-8'});
+            // 清除旧版css文件
+            if(this.upCssContent){
+                await fse.writeFile(cssFilePath,this.upCssContent, {encoding: 'utf-8'});
+                this.upCssContent = '';
+            }
           } catch (err) {
             console.error('操作失败:', err);
           }
@@ -276,5 +302,14 @@ export class FileDom {
     private clearCssContent(content: string): string {
         const regex = new RegExp(`\\/\\*ext-${this.extName}-start\\*\\/[\\s\\S]*?\\/\\*ext-${this.extName}-end\\*\\/`, 'g');
         return content.replace(regex, '').trim();
+    }
+
+    // 获取文件里是否存在补丁样式代码
+    public getPatchContent(content:string): boolean {
+        const match = content.match(/\/\*ext-backgroundCover-start\*\/[\s\S]*?\/\*ext-backgroundCover-end\*\//g);
+        if(match){
+            return true;
+        }
+        return false;
     }
 }
