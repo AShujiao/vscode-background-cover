@@ -19,6 +19,8 @@ import {
 import { FileDom } from './FileDom';
 import { ImgItem } from './ImgItem';
 import vsHelp from './vsHelp';
+import { getContext } from './global';
+import bleandHelper from './bleandHelper';
 
 
 
@@ -47,7 +49,6 @@ export class PickList {
 
 	private blur: number;
 
-	private blendModel: string;
 
 	// 初始下拉列表
 	public static createItemLIst() {
@@ -155,14 +156,16 @@ export class PickList {
 	 */
 	public static autoUpdateBlendModel(autoKind:ColorThemeKind) {
 		let config = workspace.getConfiguration( 'backgroundCover' );
-
-		if(config.blendModel != 'auto'){
-			return;
-		}
-
 		//是否存在背景图片
 		if(config.imagePath == ''){
 			return;
+		}
+
+		let context = getContext();
+		let blendStr = context.globalState.get('backgroundCoverBlendModel');
+		let nowBlenaStr = bleandHelper.autoBlendModel();
+		if(blendStr == nowBlenaStr){
+			return false;
 		}
 
 		// 弹出提示框确认是否重启
@@ -170,8 +173,11 @@ export class PickList {
 				( value ) => {
 					if ( value === 'YES' ) {
 						PickList.itemList = new PickList( config );
-						PickList.itemList.updateDom();
-						return commands.executeCommand( 'workbench.action.reloadWindow' );
+						PickList.itemList.updateDom(false, nowBlenaStr as string).then(()=>{
+								commands.executeCommand( 'workbench.action.reloadWindow' );
+							}
+						)
+						
 					}
 				} 
 			);
@@ -230,7 +236,6 @@ export class PickList {
 		this.sizeModel = config.sizeModel || 'cover';
 		this.imageFileType = 0;
 		this.blur = config.blur;
-		this.blendModel = config.blendModel;
 
 		if ( pickList ) {
 			this.quickPick = pickList;
@@ -311,12 +316,6 @@ export class PickList {
 				break;
 			case 18:
 				this.showInputBox( 3 );  // 修改模糊度
-				break;
-			case 19:
-				this.blendModelView();
-				break;
-			case 20:
-				this.setBlendModel( path );
 				break;
 			default:
 				break;
@@ -434,33 +433,6 @@ export class PickList {
 				imageType: 16,
 				path: "not_bottom"
 			},
-		];
-
-		this.quickPick.items = items;
-		this.quickPick.show();
-	}
-
-
-	private blendModelView() {
-		let items: ImgItem[] = [
-			{
-				label: '$(diff-ignored)    auto (default)               ',
-				description: '自适应(默认) ' + ( this.blendModel == 'auto' ? '$(check)' : '' ),
-				imageType: 20,
-				path: "auto"
-			},
-			{
-				label: '$(layout-menubar)    multiply                        ',
-				description: '浅色模式' + ( this.blendModel == 'multiply' ? '$(check)' : '' ),
-				imageType: 20,
-				path: "multiply"
-			},
-			{
-				label: '$(diff-added)    lighten                          ',
-				description: '深色模式' + ( this.blendModel == 'lighten' ? '$(check)' : '' ),
-				imageType: 20,
-				path: "lighten"
-			}
 		];
 
 		this.quickPick.items = items;
@@ -657,13 +629,6 @@ export class PickList {
 		this.setConfigValue( 'sizeModel', value, true );
 	}
 
-	private setBlendModel( value?: string ) {
-		if ( !value ) {
-			return vsHelp.showInfo( 'No parameter value was obtained / 未获取到参数值' );
-		}
-		this.setConfigValue( 'blendModel', value, true );
-	}
-
 	public setImageFileType( value: number ) {
 		this.imageFileType = value;
 	
@@ -722,9 +687,6 @@ export class PickList {
 			case 'blur':
 				this.blur = value;
 				break;
-			case 'blendModel':
-				this.blendModel = value;
-				break;
 			default:
 				break;
 		}
@@ -735,30 +697,19 @@ export class PickList {
 		return true;
 	}
 
-	private autoBlendModel() :string{
-		let blendStr = '';
-		let themeKind = window.activeColorTheme.kind;
-		if (themeKind === ColorThemeKind.Dark) {
-			blendStr = 'lighten'
-		} else if (themeKind === ColorThemeKind.Light) {
-			// console.log('浅色模式');
-			blendStr = 'multiply'
-		} else {
-			// console.log('高对比模式');
-			blendStr = 'lighten'
-		}
 
-		return blendStr
-	}
 
 
 	// 更新、卸载css
-	private async updateDom(uninstall: boolean = false): Promise<void> {
-		// 混合模式为自动时，获取当前主题模式
-		let colorThemeKind = this.blendModel;
-		if (this.blendModel === 'auto') {
-			colorThemeKind = this.autoBlendModel();
+	private async updateDom(uninstall: boolean = false, colorThemeKind:string = ""): Promise<void> {
+		// 自动修改混合模式
+		if(colorThemeKind == ""){
+			colorThemeKind     = bleandHelper.autoBlendModel();
 		}
+		
+
+		let context = getContext();
+		context.globalState.update('backgroundCoverBlendModel',colorThemeKind);
 
 		// 写入文件
 		const dom = new FileDom(this.imgPath, this.opacity, this.sizeModel, this.blur, colorThemeKind);
