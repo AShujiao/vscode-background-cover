@@ -21,6 +21,7 @@ import { ImgItem } from './ImgItem';
 import vsHelp from './vsHelp';
 
 
+
 export class PickList {
 	public static itemList: PickList | undefined;
 
@@ -159,6 +160,11 @@ export class PickList {
 			return;
 		}
 
+		//是否存在背景图片
+		if(config.imagePath == ''){
+			return;
+		}
+
 		// 弹出提示框确认是否重启
 		window.showInformationMessage('主题模式发生变更，是否更新背景混合模式？', 'YES', 'NO' ).then(
 				( value ) => {
@@ -211,6 +217,7 @@ export class PickList {
 		PickList.itemList = new PickList( config );
 		PickList.itemList.setImageFileType( 2 );
 		PickList.itemList.updateBackgound( path );
+		
 	}
 
 	// 列表构造方法
@@ -438,18 +445,18 @@ export class PickList {
 		let items: ImgItem[] = [
 			{
 				label: '$(diff-ignored)    auto (default)               ',
-				description: '自动(默认) ' + ( this.blendModel == 'auto' ? '$(check)' : '' ),
+				description: '自适应(默认) ' + ( this.blendModel == 'auto' ? '$(check)' : '' ),
 				imageType: 20,
 				path: "auto"
 			},
 			{
-				label: '$(layout-menubar)    multiply                            ',
+				label: '$(layout-menubar)    multiply                        ',
 				description: '浅色模式' + ( this.blendModel == 'multiply' ? '$(check)' : '' ),
 				imageType: 20,
 				path: "multiply"
 			},
 			{
-				label: '$(diff-added)    lighten                           ',
+				label: '$(diff-added)    lighten                          ',
 				description: '深色模式' + ( this.blendModel == 'lighten' ? '$(check)' : '' ),
 				imageType: 20,
 				path: "lighten"
@@ -759,6 +766,7 @@ export class PickList {
 
 		try {
 			if (uninstall) {
+				this.config.update( "imagePath", "", ConfigurationTarget.Global );
 				result = await dom.uninstall();
 			} else {
 				result = await dom.install();

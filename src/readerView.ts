@@ -64,7 +64,7 @@ export default class ReaderViewProvider implements WebviewViewProvider {
                   break;
             }
         },
-        undefined,
+        this,
         this._disposables
     );
   }

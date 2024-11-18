@@ -186,18 +186,13 @@ export class FileDom {
     }
 
     private async saveContent(content: string): Promise<void> {
-        try {
-            // 追加新内容到原文件
-            await fse.writeFile(this.filePath,content, {encoding: 'utf-8'});
-            // 清除旧版css文件
-            if(this.upCssContent){
-                await fse.writeFile(cssFilePath,this.upCssContent, {encoding: 'utf-8'});
-                this.upCssContent = '';
-            }
-          } catch (err) {
-            console.error('操作失败:', err);
-          }
-        //await fs.promises.writeFile(this.filePath, content, 'utf-8');
+        // 追加新内容到原文件
+        await fse.writeFile(this.filePath,content, {encoding: 'utf-8'});
+        // 清除旧版css文件
+        if(this.upCssContent){
+            await fse.writeFile(cssFilePath,this.upCssContent, {encoding: 'utf-8'});
+            this.upCssContent = '';
+        }
     }
 
     private getJs(): string {
