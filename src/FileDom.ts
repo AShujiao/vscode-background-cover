@@ -13,8 +13,10 @@ import { getContext } from './global';
 
 const jsName: string = 'workbench.desktop.main.js';
 const cssName: string = 'workbench.desktop.main.css';
+const bakName: string = 'workbench.desktop.main.js.bak';
 const jsFilePath = path.join(env.appRoot, "out", "vs", "workbench", jsName);
 const cssFilePath = path.join(env.appRoot, "out", "vs", "workbench", cssName);
+const bakFilePath = path.join(env.appRoot, "out", "vs", "workbench", bakName);
 
 enum SystemType {
     WINDOWS = 'Windows_NT',
@@ -32,6 +34,8 @@ export class FileDom {
     private readonly blendModel: string;
     private readonly systemType: string;
     private upCssContent: string = '';
+    private bakStatus: boolean = false;
+    private bakJsContent: string = '';
 
     constructor(
         imagePath: string,
@@ -85,8 +89,13 @@ export class FileDom {
                 vsContext.globalState.update('ext_backgroundCover_clear',true);
             }
         }
-        
 
+        // 备份文件是否存在
+        const bakExist = await fse.pathExists(bakFilePath);
+        if (!bakExist) {
+            this.bakStatus = true;
+        }
+        
 
         const lockPath = os.tmpdir() + '/vscode-background.lock';
 
@@ -103,13 +112,9 @@ export class FileDom {
             if (!content) return false;
 
             const bakContent = this.clearCssContent(this.getContent(this.filePath))
-
-            // 备份文件
-            // let bakFilePath = this.filePath + '.bak';
-            // const bakFile = await fse.pathExists(bakFilePath);
-            // if(!bakFile){
-            //     await fse.createFile(bakFilePath);
-            // }
+            if(this.bakStatus){
+                this.bakJsContent = bakContent;
+            }
 
             const newContent = bakContent + content;
 
@@ -192,6 +197,28 @@ export class FileDom {
         if(this.upCssContent){
             await fse.writeFile(cssFilePath,this.upCssContent, {encoding: 'utf-8'});
             this.upCssContent = '';
+        }
+        if(this.bakStatus){
+            await this.bakFile();
+        }
+    }
+
+    private async bakFile(): Promise<void> {
+        try{
+            await fse.writeFile(bakFilePath,this.bakJsContent, {encoding: 'utf-8'});
+        }catch(err){
+            // 权限不足
+            if(os.type() === SystemType.WINDOWS){
+                await SudoPromptHelper.exec(`takeown /f "${bakFilePath}" /a`);
+                await SudoPromptHelper.exec(`icacls "${bakFilePath}" /grant Users:F`);
+                await fse.writeFile(bakFilePath,this.bakJsContent, {encoding: 'utf-8'});
+            }else if(os.type() === SystemType.MACOS){
+                await SudoPromptHelper.exec(`chmod a+rwx "${bakFilePath}"`);
+                await fse.writeFile(bakFilePath,this.bakJsContent, {encoding: 'utf-8'});
+            }else if(os.type() === SystemType.LINUX){
+                await SudoPromptHelper.exec(`chmod 666 "${bakFilePath}"`);
+                await fse.writeFile(bakFilePath,this.bakJsContent, {encoding: 'utf-8'});
+            }
         }
     }
 
