@@ -11,12 +11,13 @@ import * as fse from 'fs-extra';
 import { getContext } from './global';
 
 
-const jsName: string = 'workbench.desktop.main.js';
+const jsName: string  = 'workbench.desktop.main.js';
 const cssName: string = 'workbench.desktop.main.css';
 const bakName: string = 'workbench.desktop.main.js.bak';
-const jsFilePath = path.join(env.appRoot, "out", "vs", "workbench", jsName);
-const cssFilePath = path.join(env.appRoot, "out", "vs", "workbench", cssName);
-const bakFilePath = path.join(env.appRoot, "out", "vs", "workbench", bakName);
+const jsFilePath      = path.join(env.appRoot, "out", "vs", "workbench", jsName);
+const cssFilePath     = path.join(env.appRoot, "out", "vs", "workbench", cssName);
+const bakPath         = path.join(env.appRoot, "out", "vs", "workbench");
+const bakFilePath     = path.join(env.appRoot, "out", "vs", "workbench", bakName);
 
 enum SystemType {
     WINDOWS = 'Windows_NT',
@@ -210,13 +211,14 @@ export class FileDom {
         }catch(err){
             // 权限不足,根据不同系统获取创建文件权限
             if(this.systemType === SystemType.WINDOWS){
-                await SudoPromptHelper.exec(`echo ${this.bakJsContent} > ${bakFilePath}`);
+                await SudoPromptHelper.exec(`takeown /f "${bakPath}" /a`);
+                await SudoPromptHelper.exec(`icacls "${bakPath}" /grant Users:F`);
             }else if(this.systemType === SystemType.MACOS){
-                await SudoPromptHelper.exec(`echo ${this.bakJsContent} | sudo tee ${bakFilePath}`);
+                await SudoPromptHelper.exec(`chmod a+rwx "${bakPath}"`);
             }else if(this.systemType === SystemType.LINUX){
-                await SudoPromptHelper.exec(`echo ${this.bakJsContent} | sudo tee ${bakFilePath}`);
+                await SudoPromptHelper.exec(`chmod 666 "${bakPath}"`);
             }
-            
+            await fse.writeFile(bakFilePath,this.bakJsContent, {encoding: 'utf-8'});
         }
     }
 
