@@ -207,18 +207,15 @@ export class FileDom {
         try{
             await fse.writeFile(bakFilePath,this.bakJsContent, {encoding: 'utf-8'});
         }catch(err){
-            // 权限不足
-            if(os.type() === SystemType.WINDOWS){
-                await SudoPromptHelper.exec(`takeown /f "${bakFilePath}" /a`);
-                await SudoPromptHelper.exec(`icacls "${bakFilePath}" /grant Users:F`);
-                await fse.writeFile(bakFilePath,this.bakJsContent, {encoding: 'utf-8'});
-            }else if(os.type() === SystemType.MACOS){
-                await SudoPromptHelper.exec(`chmod a+rwx "${bakFilePath}"`);
-                await fse.writeFile(bakFilePath,this.bakJsContent, {encoding: 'utf-8'});
-            }else if(os.type() === SystemType.LINUX){
-                await SudoPromptHelper.exec(`chmod 666 "${bakFilePath}"`);
-                await fse.writeFile(bakFilePath,this.bakJsContent, {encoding: 'utf-8'});
+            // 权限不足,根据不同系统获取创建文件权限
+            if(this.systemType === SystemType.WINDOWS){
+                await SudoPromptHelper.exec(`echo ${this.bakJsContent} > ${bakFilePath}`);
+            }else if(this.systemType === SystemType.MACOS){
+                await SudoPromptHelper.exec(`echo ${this.bakJsContent} | sudo tee ${bakFilePath}`);
+            }else if(this.systemType === SystemType.LINUX){
+                await SudoPromptHelper.exec(`echo ${this.bakJsContent} | sudo tee ${bakFilePath}`);
             }
+            
         }
     }
 
