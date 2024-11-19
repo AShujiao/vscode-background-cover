@@ -23,10 +23,14 @@ Add a picture you like to cover the entire vscode..
 
 ## Warns 警告：
 
+> **升级到2.6.0后如果出现背景重叠的情况，请关闭vsc重新打开即可。因为旧版本的重载不生效导致的**
+
+> **If the background overlaps after the upgrade to 2.6.0, close the vsc and turn it on again. This is because the older version of the overloading did not take effect**
+
 > **本插件是通过修改 vscode 的 css 文件的方式运行**  
 > 所以会在初次安装，或者 vscode 升级的时候，出现以下提示，请选择 【不再提示】:
 
-> 如果出现无法打开并且尝试多次都不能正常运行，请手动还原文件:   
+> **如果出现无法打开并且尝试多次都不能正常运行，请手动还原文件**   
 
 * 目录 : Microsoft VS Code\resources\app\out\vs\workbench\
 * workbench.desktop.main.js.bak => workbench.desktop.main.js
@@ -35,7 +39,7 @@ Add a picture you like to cover the entire vscode..
 > **This extension works by editting the vscode's css file.**  
 > So, a information appears while the first time to install or vscode update.U can click the [never show again] to avoid it.
 
-> If it does not open and does not work after multiple attempts, restore the file manually:
+> **If it does not open and does not work after multiple attempts, restore the file manually**
 * path : Microsoft VS Code\resources\app\out\vs\workbench\
 * workbench.desktop.main.js.bak => workbench.desktop.main.js
 
@@ -127,11 +131,12 @@ Add a picture you like to cover the entire vscode..
 
 #### ver 2.6.0 (2024/11/12)
 
-  1.增加背景模糊效果
-  2.自动获取文件写入权限（无需管理员身份运行）
-  3.监听主题变化，自动触发适配背景提醒
-  4.增加备份源文件，方便异常手动恢复
-  5.部分代码优化
+  1.底层实现方式由css改为js（修复重载不生效的问题）
+  2.增加背景模糊效果
+  3.自动获取文件写入权限（无需管理员身份运行）
+  4.监听主题变化，自动触发适配背景提醒
+  5.增加备份源文件，方便异常手动恢复
+  6.部分代码优化
   
 ---
 ### Thanks 感谢

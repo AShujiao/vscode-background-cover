@@ -77,8 +77,9 @@ export class FileDom {
 
         // 获取全局变量是否已经清除
         let vsContext = getContext();
-        let isClear = vsContext.globalState.get('ext_backgroundCover_clear');
-        if(!isClear){
+        let clearCssNum = Number(vsContext.globalState.get('ext_backgroundCover_clear')) || 0;
+        // 尝试5次清除旧版css文件
+        if(clearCssNum <= 5){
             // 验证旧版css文件是否需要清除
             const cssContent = this.getContent(cssFilePath);
             if(this.getPatchContent(cssContent)){
@@ -86,7 +87,7 @@ export class FileDom {
                 this.upCssContent = this.clearCssContent(cssContent);
             }else{
                 // 不存在旧版css文件，设置全局变量
-                vsContext.globalState.update('ext_backgroundCover_clear',true);
+                vsContext.globalState.update('ext_backgroundCover_clear',clearCssNum + 1);
             }
         }
 
