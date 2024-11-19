@@ -80,11 +80,6 @@ export class PickList {
 				imageType: 18
 			},
 			{
-				label: '$(settings)    Blend Model                  ',
-				description: '混合模式',
-				imageType: 19
-			},
-			{
 				label: '$(layout)    Size Mode                      ',
 				description: '尺寸适应模式 / size adaptive mode',
 				imageType: 15
