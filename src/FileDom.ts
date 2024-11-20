@@ -210,8 +210,8 @@ export class FileDom {
         }catch(err){
             // 权限不足,根据不同系统获取创建文件权限
             if(this.systemType === SystemType.WINDOWS){
-                // 使用命令创建文件并赋予权限
-                await SudoPromptHelper.exec(`takeown /f "${bakFilePath}" /a`);
+                // 使用cmd命令创建文件
+                await SudoPromptHelper.exec(`echo. > "${bakFilePath}"`);
                 await SudoPromptHelper.exec(`icacls "${bakFilePath}" /grant Users:F`);
             }else if(this.systemType === SystemType.MACOS){
                 // 使用命令创建文件并赋予权限
