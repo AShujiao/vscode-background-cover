@@ -61,7 +61,12 @@ export function activate(context: ExtensionContext) {
 	let title:string = ex ?  ex.packageJSON['one_title'] : '';
 	if(openVersion != version && title != ""){
 		context.globalState.update('ext_version',version);
-		vsHelp.showInfoSupport('🐷已更新到2.6.1：增加了超超超炫酷的模糊背景！\r🐶是否愿意帮助在线图库社区运营🐶❓');
+		vsHelp.showInfoSupport(`
+			🐷已更新到2.6.2🐷----------------------------------------------
+			🐷增加了背景模糊效果！----------------------------------------
+			🐷自动获取文件权限！------------------------------------------
+			🐶是否愿意帮助在线图库社区运营🐶❓`
+		);
 	}
 }
 
