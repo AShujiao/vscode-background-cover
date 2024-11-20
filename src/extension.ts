@@ -1,3 +1,9 @@
+/*
+ * @Description: 
+ * @Author: czw
+ * @Date: 2023-08-25 10:00:03
+ * @FilePath: \vscode-background-cover\src\extension.ts
+ */
 'use strict';
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
@@ -17,6 +23,7 @@ import { setContext } from './global';
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: ExtensionContext) {
+	setContext(context);
 	// 创建底部按钮
 	let backImgBtn = window.createStatusBarItem(StatusBarAlignment.Right, -999);
 	backImgBtn.text = '$(file-media)';
@@ -24,6 +31,8 @@ export function activate(context: ExtensionContext) {
 	backImgBtn.tooltip = 'Switch background image / 切换背景图';
 	PickList.autoUpdateBackground();
 	backImgBtn.show();
+
+
 	let randomCommand = commands.registerCommand('extension.backgroundCover.refresh', () => { PickList.randomUpdateBackground(); });
 	let startCommand = commands.registerCommand('extension.backgroundCover.start', () => { PickList.createItemLIst() });
 	context.subscriptions.push(startCommand);
@@ -39,6 +48,12 @@ export function activate(context: ExtensionContext) {
 	commands.registerCommand('backgroundCover.refreshEntry',() => readerViewProvider.refresh());
 	commands.registerCommand('backgroundCover.home',() => readerViewProvider.home());
 
+
+	// 监听主题变化
+	window.onDidChangeActiveColorTheme((event) => {
+        PickList.autoUpdateBlendModel(event.kind);
+    });
+
 	 // 首次打开-提示语
 	let openVersion:string|undefined           = context.globalState.get('ext_version');
 	let ex:Extension<any>|undefined = extensions.getExtension('manasxx.background-cover');
@@ -46,9 +61,8 @@ export function activate(context: ExtensionContext) {
 	let title:string = ex ?  ex.packageJSON['one_title'] : '';
 	if(openVersion != version && title != ""){
 		context.globalState.update('ext_version',version);
-		vsHelp.showInfoSupport('🐷已更新到2.5.4：修复Linux系统本地图片无法使用的问题\r🐶是否愿意帮助在线图库社区运营🐶❓');
+		vsHelp.showInfoSupport('🐷已更新到2.6.1：增加了超超超炫酷的模糊背景！\r🐶是否愿意帮助在线图库社区运营🐶❓');
 	}
-	setContext(context);
 }
 
 // this method is called when your extension is deactivated

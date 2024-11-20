@@ -36,6 +36,8 @@ export default class ReaderViewProvider implements WebviewViewProvider {
     }
   }
 
+  private lastMessageTime: number = 0;
+
   public resolveWebviewView(
     webviewView: WebviewView,
     context: WebviewViewResolveContext,
@@ -48,9 +50,16 @@ export default class ReaderViewProvider implements WebviewViewProvider {
     };
 
     this._view.webview.html = this.getHtmlForWebview();
-
     this._view.webview.onDidReceiveMessage(
         message => {
+          const currentTime = Date.now();
+          if (currentTime - this.lastMessageTime < 2000) {
+            // 如果距离上次接收消息的时间小于2秒，则抛弃该消息
+            return;
+          }
+          
+          this.lastMessageTime = currentTime;
+          
             switch (message.command) {
                 case 'set_img':
                     PickList.updateImgPath(message.data.url);
@@ -64,7 +73,7 @@ export default class ReaderViewProvider implements WebviewViewProvider {
                   break;
             }
         },
-        undefined,
+        this,
         this._disposables
     );
   }

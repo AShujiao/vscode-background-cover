@@ -1,11 +1,17 @@
+/*
+ * @Description: 
+ * @Author: czw
+ * @Date: 2023-08-25 10:00:03
+ * @FilePath: \vscode-background-cover\src\uninstall.ts
+ */
 
 import * as path from 'path';
 import * as fs from 'fs';
 
 const base = process.cwd();
 // 文件路径
-const cssName: string = 'workbench.desktop.main.css';
-const filePath = path.join(base, 'resources', 'app', 'out', 'vs', 'workbench', cssName);
+const jsName: string = 'workbench.desktop.main.js';
+const filePath = path.join(base, 'resources', 'app', 'out', 'vs', 'workbench', jsName);
 const extName = "backgroundCover";
 
 //执行清理
