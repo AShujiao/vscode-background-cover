@@ -77,7 +77,7 @@ export class FileDom {
 
         // 获取全局变量是否已经清除
         let vsContext = getContext();
-        let clearCssNum = Number(vsContext.globalState.get('ext_backgroundCover_clear')) || 0;
+        let clearCssNum = Number(vsContext.globalState.get('ext_backgroundCover_clear_v2')) || 0;
         // 尝试5次清除旧版css文件
         if(clearCssNum <= 5){
             // 验证旧版css文件是否需要清除
@@ -87,7 +87,7 @@ export class FileDom {
                 this.upCssContent = this.clearCssContent(cssContent);
             }else{
                 // 不存在旧版css文件，设置全局变量
-                vsContext.globalState.update('ext_backgroundCover_clear',clearCssNum + 1);
+                vsContext.globalState.update('ext_backgroundCover_clear_v2',clearCssNum + 1);
             }
         }
 
@@ -118,17 +118,8 @@ export class FileDom {
             }
 
             const newContent = bakContent + content;
+            return await this.saveContent(newContent);
 
-            switch (this.systemType) {
-                case SystemType.WINDOWS:
-                    return await this.installWindows(newContent);
-                case SystemType.MACOS:
-                    return await this.installMacOS(newContent);
-                case SystemType.LINUX:
-                    return await this.installLinux(newContent);
-                default:
-                    throw new Error('Unsupported operating system');
-            }
         } catch (error: any) {
             await window.showErrorMessage(`Installation failed: ${error.message}`);
             return false;
@@ -140,40 +131,22 @@ export class FileDom {
         }
     }
 
-    private async installWindows(content: string): Promise<boolean> {
-        try {
-            await this.saveContent(content);
-            return true;
-        } catch (error) {
-            // 权限不足时，修改文件权限,使用cmd命令
-            await SudoPromptHelper.exec(`takeown /f "${this.filePath}" /a`);
-            await SudoPromptHelper.exec(`icacls "${this.filePath}" /grant Users:F`);
-            await this.saveContent(content);
-            return true;
+    // 获取文件权限通用方法
+    public async getFilePermission(filePath:string): Promise<void> {
+        switch(this.systemType){
+            case SystemType.WINDOWS:
+                await SudoPromptHelper.exec(`takeown /f "${filePath}" /a`);
+                await SudoPromptHelper.exec(`icacls "${filePath}" /grant Users:F`);
+                break;
+            case SystemType.MACOS:
+                await SudoPromptHelper.exec(`chmod a+rwx "${filePath}"`);
+                break;
+            case SystemType.LINUX:
+                await SudoPromptHelper.exec(`chmod 666 "${filePath}"`);
+                break;
         }
     }
 
-    private async installMacOS(content: string): Promise<boolean> {
-        try {
-            await this.saveContent(content);
-            return true;
-        } catch {
-            await SudoPromptHelper.exec(`chmod a+rwx "${this.filePath}"`);
-            await this.saveContent(content);
-            return true;
-        }
-    }
-
-    private async installLinux(content: string): Promise<boolean> {
-        try {
-            await this.saveContent(content);
-            return true;
-        } catch {
-            await SudoPromptHelper.exec(`chmod 666 "${this.filePath}"`);
-            await this.saveContent(content);
-            return true;
-        }
-    }
 
     public async uninstall(): Promise<boolean> {
         try {
@@ -191,17 +164,36 @@ export class FileDom {
         return fs.readFileSync(filePath, 'utf-8');
     }
 
-    private async saveContent(content: string): Promise<void> {
+    private async saveContent(content: string): Promise<boolean> {
+
         // 追加新内容到原文件
-        await fse.writeFile(this.filePath,content, {encoding: 'utf-8'});
+        try{
+            await fse.writeFile(this.filePath,content, {encoding: 'utf-8'});
+        }catch(err){
+            // 权限不足,根据不同系统获取创建文件权限
+            await this.getFilePermission(this.filePath);
+            await fse.writeFile(this.filePath,content, {encoding: 'utf-8'});
+        }
+        
+        
         // 清除旧版css文件
         if(this.upCssContent){
-            await fse.writeFile(cssFilePath,this.upCssContent, {encoding: 'utf-8'});
+            try{
+                await fse.writeFile(cssFilePath,this.upCssContent, {encoding: 'utf-8'});
+            }catch(err){
+                // 权限不足,根据不同系统获取创建文件权限
+                await this.getFilePermission(cssFilePath);
+                await fse.writeFile(cssFilePath,this.upCssContent, {encoding: 'utf-8'});
+            }
             this.upCssContent = '';
         }
+
+        // 备份文件
         if(this.bakStatus){
             await this.bakFile();
         }
+
+        return true;
     }
 
     private async bakFile(): Promise<void> {
