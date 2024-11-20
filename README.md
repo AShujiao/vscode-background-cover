@@ -23,9 +23,9 @@ Add a picture you like to cover the entire vscode..
 
 ## Warns 警告：
 
-> **升级到2.6.0后如果出现背景重叠的情况，请关闭vsc重新打开即可。因为旧版本的重载不生效导致的**
+> **升级到2.6.1后如果出现背景重叠的情况，请关闭vsc重新打开即可。因为旧版本的重载不生效导致的**
 
-> **If the background overlaps after the upgrade to 2.6.0, close the vsc and turn it on again. This is because the older version of the overloading did not take effect**
+> **If the background overlaps after the upgrade to 2.6.1, close the vsc and turn it on again. This is because the older version of the overloading did not take effect**
 
 > **本插件是通过修改 vscode 的 css 文件的方式运行**  
 > 所以会在初次安装，或者 vscode 升级的时候，出现以下提示，请选择 【不再提示】:
@@ -129,7 +129,7 @@ Add a picture you like to cover the entire vscode..
 ## 最近更新日志
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 2.6.0 (2024/11/12)
+#### ver 2.6.1 (2024/11/12)
 
   1.底层实现方式由css改为js（修复重载不生效的问题）
   2.增加背景模糊效果

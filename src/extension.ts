@@ -23,6 +23,7 @@ import { setContext } from './global';
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: ExtensionContext) {
+	setContext(context);
 	// 创建底部按钮
 	let backImgBtn = window.createStatusBarItem(StatusBarAlignment.Right, -999);
 	backImgBtn.text = '$(file-media)';
@@ -60,9 +61,8 @@ export function activate(context: ExtensionContext) {
 	let title:string = ex ?  ex.packageJSON['one_title'] : '';
 	if(openVersion != version && title != ""){
 		context.globalState.update('ext_version',version);
-		vsHelp.showInfoSupport('🐷已更新到2.6.0：增加了超超超炫酷的模糊背景！\r🐶是否愿意帮助在线图库社区运营🐶❓');
+		vsHelp.showInfoSupport('🐷已更新到2.6.1：增加了超超超炫酷的模糊背景！\r🐶是否愿意帮助在线图库社区运营🐶❓');
 	}
-	setContext(context);
 }
 
 // this method is called when your extension is deactivated
