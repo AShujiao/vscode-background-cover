@@ -637,49 +637,58 @@ export class PickList {
 
 
 	// 更新、卸载css
-	private updateDom( uninstall: boolean = false ) {
-		let dom: FileDom = new FileDom( this.imgPath, this.opacity, this.sizeModel );
-		let result = false;
-		if ( uninstall ) {
-			result = dom.uninstall();
-		} else {
-			if ( this.osType === 1 ) {
-				result = dom.install();
-			} else if ( this.osType === 2 ) {
-				result = dom.installMac();
-			} else if ( this.osType === 3 ) {
-				result = dom.install(); // 暂未做对应处理
-			}
+	private async updateDom(uninstall: boolean = false, colorThemeKind:string = ""): Promise<void> {
+		// 自动修改混合模式
+		if(colorThemeKind == ""){
+			colorThemeKind     = bleandHelper.autoBlendModel();
 		}
-		if ( result ) {
-			if ( this.quickPick ) {
-				this.quickPick.placeholder = 'Reloading takes effect? / 重新加载生效？';
-				this.quickPick.items = [
-					{
-						label: '$(check)   YES',
-						description: '立即重新加载窗口生效',
-						imageType: 8
-					},
-					{ label: '$(x)   NO', description: '稍后手动重启', imageType: 9 }
-				];
-				this.quickPick.ignoreFocusOut = true;
-				this.quickPick.show();
-			} else {
+		
 
-				// 通过在线图库更新提示弹窗
-				if ( this.imageFileType == 2 ) {
-					// 弹出提示框确认是否重启
-					window.showInformationMessage(
-						'"' + this.imgPath + '"' + ' | Reloading takes effect? / 重新加载生效？', 'YES', 'NO' ).then(
-							( value ) => {
-								if ( value === 'YES' ) {
-									commands.executeCommand(
-										'workbench.action.reloadWindow' );
-								}
-							} );
+		let context = getContext();
+		context.globalState.update('backgroundCoverBlendModel',colorThemeKind);
+
+		// 写入文件
+		const dom = new FileDom(this.imgPath, this.opacity, this.sizeModel, this.blur, colorThemeKind);
+		let result = false;
+
+		try {
+			if (uninstall) {
+				this.config.update( "imagePath", "", ConfigurationTarget.Global );
+				result = await dom.uninstall();
+			} else {
+				result = await dom.install();
+			}
+
+			if (result) {
+				if (this.quickPick) {
+					this.quickPick.placeholder = 'Reloading takes effect? / 重新加载生效？';
+					this.quickPick.items = [
+						{
+							label: '$(check)   YES',
+							description: '立即重新加载窗口生效',
+							imageType: 8
+						},
+						{ label: '$(x)   NO', description: '稍后手动重启', imageType: 9 }
+					];
+					this.quickPick.ignoreFocusOut = true;
+					this.quickPick.show();
+				} else {
+					// 通过在线图库更新提示弹窗
+					if (this.imageFileType === 2) {
+						// 弹出提示框确认是否重启
+						const value = await window.showInformationMessage(
+							`"${this.imgPath}" | Reloading takes effect? / 重新加载生效？`,
+							'YES',
+							'NO'
+						);
+						if (value === 'YES') {
+							await commands.executeCommand('workbench.action.reloadWindow');
+						}
+					}
 				}
 			}
-
+		} catch (error: any) {
+			await window.showErrorMessage(`更新失败: ${error.message}`);
 		}
 	}
 }
