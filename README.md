@@ -21,35 +21,52 @@ Add a picture you like to cover the entire vscode..
 
 </p>
 
+## Warns 警告：
+
+> **升级到2.6.2后如果出现背景重叠的情况，请关闭vsc重新打开即可。因为旧版本的重载不生效导致的**
+
+> **If the background overlaps after the upgrade to 2.6.2, close the vsc and turn it on again. This is because the older version of the overloading did not take effect**
+
+> **本插件是通过修改 vscode 的 css 文件的方式运行**  
+> 所以会在初次安装，或者 vscode 升级的时候，出现以下提示，请选择 【不再提示】:
+
+> **如果出现无法打开并且尝试多次都不能正常运行，请手动还原文件**   
+
+* 目录 : Microsoft VS Code\resources\app\out\vs\workbench\
+* workbench.desktop.main.js.bak => workbench.desktop.main.js
+
+>
+> **This extension works by editting the vscode's css file.**  
+> So, a information appears while the first time to install or vscode update.U can click the [never show again] to avoid it.
+
+> **If it does not open and does not work after multiple attempts, restore the file manually**
+* path : Microsoft VS Code\resources\app\out\vs\workbench\
+* workbench.desktop.main.js.bak => workbench.desktop.main.js
+
+![](https://user-images.githubusercontent.com/14969576/47090529-b1b0b080-d255-11e8-8812-d541cb1c3852.png)
+
+
+
 ---
   [集成在线图库](https://vs.20988.xyz/d/24-vscodebei-jing-tu-tu-ku)
 
-> **使用此扩展请以管理员身份运行vscode**
 
 >请通过插件配置命令或底部按钮进行配置（不要手动修改配置参数）
 
-> **Use this extension to run vscode as an administrator**
 
 >Please configure it through the plug-in configuration command or the bottom button (do not modify the configuration parameters manually)
 
 
 
 ## It looks like:
-![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/df3089cd-d370-4b41-ac0b-777038dd6323)
-![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/5533db3e-9a2b-46e5-a41d-df103141d0cd)
+![05](https://github.com/user-attachments/assets/373c373e-e672-4ed4-9b4b-d09eaa457c9d)
+![微信截图_20241119082747](https://github.com/user-attachments/assets/eb94402d-7193-488a-a148-353879a7e71a)
+
 ![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/20172d72-5384-4bfe-bceb-ec582cfb1698)
 ![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/dcbb7870-8342-4069-9dd8-026d3b903420)
 ![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/26066847-050b-4e72-8b2d-f44ffcb063f8)
 ![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/57e5e908-4464-409a-8b67-c8a6edf5b431)
-## Warns 警告：
 
-> **本插件是通过修改 vscode 的 css 文件的方式运行**  
-> 所以会在初次安装，或者 vscode 升级的时候，出现以下提示，请选择 【不再提示】:
->
-> **This extension works by editting the vscode's css file.**  
-> So, a information appears while the first time to install or vscode update.U can click the [never show again] to avoid it.
-
-![](https://user-images.githubusercontent.com/14969576/47090529-b1b0b080-d255-11e8-8812-d541cb1c3852.png)
 
 
 ## Config 配置项
@@ -112,9 +129,14 @@ Add a picture you like to cover the entire vscode..
 ## 最近更新日志
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 2.5.5 (2024/10/05)
+#### ver 2.6.2 (2024/11/12)
 
-  1.修复vsc1.94.0版本导致的异常
+  1.底层实现方式由css改为js（修复重载不生效的问题）
+  2.增加背景模糊效果
+  3.自动获取文件写入权限（无需管理员身份运行）
+  4.监听主题变化，自动触发适配背景提醒
+  5.增加备份源文件，方便异常手动恢复
+  6.部分代码优化
   
 ---
 ### Thanks 感谢

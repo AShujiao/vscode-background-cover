@@ -1,5 +1,4 @@
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import {
 	QuickPick,
@@ -14,11 +13,15 @@ import {
 	extensions,
 	InputBoxOptions,
 	ConfigurationTarget,
+	ColorThemeKind,
 } from 'vscode';
 
 import { FileDom } from './FileDom';
 import { ImgItem } from './ImgItem';
 import vsHelp from './vsHelp';
+import { getContext } from './global';
+import bleandHelper from './bleandHelper';
+
 
 
 export class PickList {
@@ -41,11 +44,11 @@ export class PickList {
 	// 图片类型 1:本地文件，2：https
 	private imageFileType: number;
 
-	// 当前系统标识
-	private osType: number;
-
 	// 当前配置的背景图尺寸模式
 	private sizeModel: string;
+
+	private blur: number;
+
 
 	// 初始下拉列表
 	public static createItemLIst() {
@@ -70,6 +73,11 @@ export class PickList {
 				label: '$(settings)    Background Opacity      ',
 				description: '更新图片不透明度',
 				imageType: 5
+			},
+			{
+				label: '$(settings)    Background Blur            ',
+				description: '模糊度',
+				imageType: 18
 			},
 			{
 				label: '$(layout)    Size Mode                      ',
@@ -141,6 +149,38 @@ export class PickList {
 	/**
 	 *  自动更新背景
 	 */
+	public static autoUpdateBlendModel(autoKind:ColorThemeKind) {
+		let config = workspace.getConfiguration( 'backgroundCover' );
+		//是否存在背景图片
+		if(config.imagePath == ''){
+			return;
+		}
+
+		let context = getContext();
+		let blendStr = context.globalState.get('backgroundCoverBlendModel');
+		let nowBlenaStr = bleandHelper.autoBlendModel();
+		if(blendStr == nowBlenaStr){
+			return false;
+		}
+
+		// 弹出提示框确认是否重启
+		window.showInformationMessage('主题模式发生变更，是否更新背景混合模式？', 'YES', 'NO' ).then(
+				( value ) => {
+					if ( value === 'YES' ) {
+						PickList.itemList = new PickList( config );
+						PickList.itemList.updateDom(false, nowBlenaStr as string).then(()=>{
+								commands.executeCommand( 'workbench.action.reloadWindow' );
+							}
+						)
+						
+					}
+				} 
+			);
+	}
+
+	/**
+	 *  自动更新背景
+	 */
 	public static autoUpdateBackground() {
 		let config = workspace.getConfiguration( 'backgroundCover' );
 		if ( !config.randomImageFolder || !config.autoStatus ) {
@@ -178,6 +218,7 @@ export class PickList {
 		PickList.itemList = new PickList( config );
 		PickList.itemList.setImageFileType( 2 );
 		PickList.itemList.updateBackgound( path );
+		
 	}
 
 	// 列表构造方法
@@ -189,22 +230,7 @@ export class PickList {
 		this.opacity = config.opacity;
 		this.sizeModel = config.sizeModel || 'cover';
 		this.imageFileType = 0;
-
-
-		switch ( os.type() ) {
-			case 'Windows_NT':
-				this.osType = 1;
-				break;
-			case 'Darwin':
-				this.osType = 2;
-				break;
-			case 'Linux':
-				this.osType = 3;
-				break;
-			default:
-				this.osType = 1;
-				break
-		}
+		this.blur = config.blur;
 
 		if ( pickList ) {
 			this.quickPick = pickList;
@@ -282,6 +308,9 @@ export class PickList {
 			case 17:
 				// 打开viewsContainers
 				commands.executeCommand( 'workbench.view.extension.backgroundCover-explorer' );
+				break;
+			case 18:
+				this.showInputBox( 3 );  // 修改模糊度
 				break;
 			default:
 				break;
@@ -516,13 +545,24 @@ export class PickList {
 
 	// 创建一个输入框
 	private showInputBox( type: number ) {
-		if ( type <= 0 || type > 2 ) { return false; }
+		if ( type <= 0 || type > 3 ) { return false; }
 
-		let placeString = type === 2 ?
-			'Opacity ranges：0.00 - 1,current:(' + this.opacity + ')' :
-			'Please enter the image path to support local and HTTPS';
-		let promptString =
-			type === 2 ? '设置图片不透明度：0-1' : '请输入图片路径，支持本地及https';
+		let placeStringArr: string[] = [
+			'',
+			'Please enter the image path to support local and HTTPS',
+			'Opacity ranges：0.00 - 1,current:(' + this.opacity + ')' ,
+			'Set image blur: 0-100',
+		];
+
+		let promptStringArr: string[] = [
+			'',
+			'请输入图片路径，支持本地及https',
+			'设置图片不透明度：0 - 0.8' ,
+			'设置图片模糊度：0 - 100',
+		];
+
+		let placeString = placeStringArr[type];
+		let promptString = promptStringArr[type];
 
 
 		let option: InputBoxOptions = {
@@ -548,18 +588,32 @@ export class PickList {
 						'No access to the file or the file does not exist! / 无权限访问文件或文件不存在！' );
 					return false;
 				}
-			} else {
+			} else if(type == 2) {
 				let isOpacity = parseFloat( value );
 
-				if ( isOpacity < 0 || isOpacity > 1 || isNaN( isOpacity ) ) {
-					window.showWarningMessage( 'Opacity ranges in：0 - 1！' );
+				if ( isOpacity < 0 || isOpacity > 0.8 || isNaN( isOpacity ) ) {
+					window.showWarningMessage( 'Opacity ranges in：0 - 0.8！' );
+					return false;
+				}
+			}else if(type == 3) {
+				let blur = parseFloat( value );
+
+				if ( blur < 0 || blur > 100 || isNaN( blur ) ) {
+					window.showWarningMessage( 'Blur ranges in：0 - 100！' );
 					return false;
 				}
 			}
 
-			this.setConfigValue(
-				( type === 1 ? 'imagePath' : 'opacity' ),
-				( type === 1 ? value : parseFloat( value ) ), true );
+			// set配置
+			let keyArr = [
+				'',
+				'imagePath',
+				'opacity',
+				'blur',
+			];
+			let setKey = keyArr[type]
+
+			this.setConfigValue( setKey, ( type === 1 ? value : parseFloat( value ) ), true );
 		} )
 	}
 
@@ -625,6 +679,9 @@ export class PickList {
 			case 'sizeModel':
 				this.sizeModel = value;
 				break;
+			case 'blur':
+				this.blur = value;
+				break;
 			default:
 				break;
 		}
@@ -634,6 +691,8 @@ export class PickList {
 		}
 		return true;
 	}
+
+
 
 
 	// 更新、卸载css
