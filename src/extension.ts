@@ -62,10 +62,10 @@ export function activate(context: ExtensionContext) {
 	if(openVersion != version && title != ""){
 		context.globalState.update('ext_version',version);
 		vsHelp.showInfoSupport(`
-			🐷已更新到2.6.2🐷----------------------------------------------
-			🐷增加了背景模糊效果！----------------------------------------
-			🐷自动获取文件权限！------------------------------------------
-			🐶是否愿意帮助在线图库社区运营🐶❓`
+			🐷已更新到2.6.3
+			🐶首次获取权限增加引导提示
+			🐶修复快捷键更新背景异常问题
+			❤️是否愿意赞助在线图库运营❓`
 		);
 	}
 }

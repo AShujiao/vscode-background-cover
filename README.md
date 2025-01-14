@@ -23,7 +23,7 @@ Add a picture you like to cover the entire vscode..
 
 ## Warns 警告：
 
-> **升级到2.6.2后如果出现背景重叠的情况，请关闭vsc重新打开即可。因为旧版本的重载不生效导致的**
+> **升级到2.6.2及以上时，如果出现背景重叠的情况，请关闭vsc重新打开即可。因为旧版本的重载不生效导致的**
 
 > **If the background overlaps after the upgrade to 2.6.2, close the vsc and turn it on again. This is because the older version of the overloading did not take effect**
 
@@ -129,14 +129,10 @@ Add a picture you like to cover the entire vscode..
 ## 最近更新日志
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 2.6.2 (2024/11/12)
+#### ver 2.6.3 (2025/01/14)
 
-  1.底层实现方式由css改为js（修复重载不生效的问题）
-  2.增加背景模糊效果
-  3.自动获取文件写入权限（无需管理员身份运行）
-  4.监听主题变化，自动触发适配背景提醒
-  5.增加备份源文件，方便异常手动恢复
-  6.部分代码优化
+  1.首次获取权限备份文件时增加引导提示
+  2.修复使用ctrl + shift + F7 随机更新背景异常的问题
   
 ---
 ### Thanks 感谢
