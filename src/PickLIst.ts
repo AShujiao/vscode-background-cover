@@ -49,6 +49,8 @@ export class PickList {
 
 	private blur: number;
 
+	private randUpdate: boolean = false;
+
 
 	// 初始下拉列表
 	public static createItemLIst() {
@@ -202,9 +204,10 @@ export class PickList {
 			return false;
 		}
 		PickList.itemList = new PickList( config );
+		PickList.itemList.setRandUpdate( true );
 		PickList.itemList.autoUpdateBackground();
 		PickList.itemList = undefined;
-		return commands.executeCommand( 'workbench.action.reloadWindow' );
+		//return commands.executeCommand( 'workbench.action.reloadWindow' );
 	}
 
 	public static updateImgPath( path: string ) {
@@ -692,6 +695,10 @@ export class PickList {
 		return true;
 	}
 
+	public setRandUpdate( value: boolean ) {
+		this.randUpdate = value;
+	}
+
 
 
 
@@ -743,6 +750,17 @@ export class PickList {
 						if (value === 'YES') {
 							await commands.executeCommand('workbench.action.reloadWindow');
 						}
+					}
+
+					// 快捷键更新背景
+					if(this.randUpdate){
+						// 提醒，即将自动重启生效背景
+						window.showInformationMessage(
+							`背景将在1秒后自动更新！ / The background will be automatically updated in 1 second!`
+						);
+						// sleep 1s
+						await new Promise((resolve) => setTimeout(resolve, 1000));
+						await commands.executeCommand('workbench.action.reloadWindow');
 					}
 				}
 			}
