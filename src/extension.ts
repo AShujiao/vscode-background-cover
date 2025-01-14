@@ -59,13 +59,13 @@ export function activate(context: ExtensionContext) {
 	let ex:Extension<any>|undefined = extensions.getExtension('manasxx.background-cover');
 	let version:string           = ex ? ex.packageJSON['version'] : '';
 	let title:string = ex ?  ex.packageJSON['one_title'] : '';
-	if(true){
+	if(openVersion != version && title != ""){
 		context.globalState.update('ext_version',version);
 		vsHelp.showInfoSupport(`
 			🐷已更新到2.6.3
 			🐶首次获取权限增加引导提示
 			🐶修复快捷键更新背景异常问题
-			❤️是否愿意赞助在线图库运营❤️❓`
+			❤️是否愿意赞助在线图库运营❓`
 		);
 	}
 }
