@@ -149,9 +149,28 @@ export class PickList {
 	}
 
 	/**
-	 *  自动更新背景
+	 *  强制更新背景
 	 */
-	public static autoUpdateBlendModel(autoKind:ColorThemeKind) {
+	public static needAutoUpdate(config: WorkspaceConfiguration) {
+		// 检查是否存在背景图片
+		if(config.imagePath == ''){
+			return;
+		}
+
+		let nowBlenaStr = bleandHelper.autoBlendModel();
+
+		PickList.itemList = new PickList( config );
+		PickList.itemList.updateDom(false, nowBlenaStr as string).then(()=>{
+				commands.executeCommand( 'workbench.action.reloadWindow' );
+		}).catch(error => {
+			console.error("Error updating the DOM:", error);
+		});
+	}
+
+	/**
+	 *  主题变更后自动更新背景
+	 */
+	public static autoUpdateBlendModel() {
 		let config = workspace.getConfiguration( 'backgroundCover' );
 		//是否存在背景图片
 		if(config.imagePath == ''){
