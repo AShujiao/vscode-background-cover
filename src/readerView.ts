@@ -62,9 +62,15 @@ export default class ReaderViewProvider implements WebviewViewProvider {
           
             switch (message.command) {
                 case 'set_img':
-                    PickList.updateImgPath(message.data.url);
-                    //window.showInformationMessage(message.data.url);
-                    break;
+                  // 存在linke时，更新默认页
+                  if(message.data.link){
+                    // 设置vscode本地全局变更
+                    let context = getContext();
+                    context.globalState.update('backgroundCoverOnlineDefault', message.data.link);
+                  }
+                  PickList.updateImgPath(message.data.url);
+                  //window.showInformationMessage(message.data.url);
+                  break;
                 case 'set_home':
                   // 设置vscode本地全局变更
                   let context = getContext();
