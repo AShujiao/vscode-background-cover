@@ -67,8 +67,9 @@ export function activate(context: ExtensionContext) {
 	if(openVersion != version && title != ""){
 		context.globalState.update('ext_version',version);
 		vsHelp.showInfoSupport(`
-			🐷已更新到2.6.4
+			🐷已更新到2.6.5
 			🐶更新vscode后增加重新应用背景提醒
+			🐶使用在线图库设置背景后将帖子关联为默认页面
 			❤️是否愿意赞助在线图库运营❓`
 		);
 	}
