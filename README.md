@@ -129,10 +129,9 @@ Add a picture you like to cover the entire vscode..
 ## 最近更新日志
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 2.6.3 (2025/01/14)
+#### ver 2.6.4 (2025/03/05)
 
-  1.首次获取权限备份文件时增加引导提示
-  2.修复使用ctrl + shift + F7 随机更新背景异常的问题
+  1.更新vscode后增加重新应用背景提醒
   
 ---
 ### Thanks 感谢
