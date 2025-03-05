@@ -13,7 +13,6 @@ import {
 	extensions,
 	InputBoxOptions,
 	ConfigurationTarget,
-	ColorThemeKind,
 } from 'vscode';
 
 import { FileDom } from './FileDom';

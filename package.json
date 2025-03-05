@@ -2,7 +2,7 @@
     "name": "background-cover",
     "displayName": "background-cover",
     "description": "Add a picture you like to cover the entire vscode..",
-    "version": "2.6.3",
+    "version": "2.6.4",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.38.0"

@@ -67,7 +67,7 @@ export function activate(context: ExtensionContext) {
 	if(openVersion != version && title != ""){
 		context.globalState.update('ext_version',version);
 		vsHelp.showInfoSupport(`
-			🐷已更新到2.6.3
+			🐷已更新到2.6.4
 			🐶首次获取权限增加引导提示
 			🐶修复快捷键更新背景异常问题
 			❤️是否愿意赞助在线图库运营❓`
