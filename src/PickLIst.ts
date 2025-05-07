@@ -499,23 +499,23 @@ export class PickList {
 		let items: ImgItem[] = [
 			{
 				label: enabled ? 
-					'$(circle-filled)    Disable Particles       ' :
+					'$(circle-filled)    Disable Particles        ' :
 					'$(circle-outline)    Enable Particles        ',
 				description: enabled ? '关闭粒子效果' : '启用粒子效果',
 				imageType: 31
 			},
 			{
-				label: '$(settings)    Particle Opacity           ',
+				label: '$(settings)    Particle Opacity         ',
 				description: '设置粒子透明度',
 				imageType: 32
 			},
 			{
-				label: '$(symbol-color)    Select Color',
+				label: '$(symbol-color)    Select Color               ',
 				description: '选择粒子颜色',
 				imageType: 33
 			},
 			{
-				label: '$(multiple-windows)    Particle Count             ',
+				label: '$(multiple-windows)    Particle Count           ',
 				description: '设置粒子数量',
 				imageType: 34
 			},
@@ -533,6 +533,13 @@ export class PickList {
 
 	private showColorSelection() {
 		let items: ImgItem[] = [];
+
+		// 添加自定义颜色选项
+		items.push({
+			label: '$(pencil)    Custom Color',
+			description: '输入自定义RGB颜色 (例如: 255,255,255)',
+			imageType: 102
+		});
 		
 		// 遍历color.ts中定义的所有颜色
 		const colorList = getColorList();
@@ -544,13 +551,6 @@ export class PickList {
 				path: colorName
 			});
 		}
-		
-		// 添加自定义颜色选项
-		items.push({
-			label: '$(pencil)    Custom Color',
-			description: '输入自定义RGB颜色 (例如: 255,255,255)',
-			imageType: 102
-		});
 		
 		this.quickPick.items = items;
 		this.quickPick.show();
@@ -668,27 +668,27 @@ export class PickList {
 	// 创建一个输入框
 	private showInputBox( type: number ) {
 		if ( type <= 0 || type > 12 ) { return false; }
-
+        let context = getContext();
 		let placeStringArr: string[] = [
 			'',
 			'Please enter the image path to support local and HTTPS',
 			'Opacity ranges：0.00 - 1,current:(' + this.opacity + ')' ,
-			'Set image blur: 0-100',
+			'Set image blur: 0-100,current:(' + this.blur + ')' ,
 			'','','','','','',
-			'粒子透明度 (0 - 1)',
-			'粒子颜色 (例如: #ffffff)',
-			'粒子数量 (1 - 200)'
+			'Particle opacity (0.1 - 1),current:(' + context.globalState.get("backgroundCoverParticleOpacity") + ')' ,
+			'Particle color (e.g.:255,255,255),current:(' + context.globalState.get("backgroundCoverParticleColor") + ')' ,
+			'Particle count (1 - 200),current:(' + context.globalState.get("backgroundCoverParticleCount") + ')'
 		];
 
 		let promptStringArr: string[] = [
 			'',
 			'请输入图片路径，支持本地及https',
-			'设置图片不透明度：0 - 0.8' ,
-			'设置图片模糊度：0 - 100',
+			'设置图片不透明度：0 - 0.8,当前值：' + this.opacity,
+			'设置图片模糊度：0 - 100,当前值：' + this.blur,
 			'','','','','','',
-			'粒子透明度 (0 - 1)',
-			'粒子颜色 (例如: #ffffff)',
-			'粒子数量 (1 - 200)'
+			'粒子透明度 (0.1 - 1),当前值：' + context.globalState.get("backgroundCoverParticleOpacity"),
+			'粒子颜色 (例如:255,255,255),当前值：' + context.globalState.get("backgroundCoverParticleColor"),
+			'粒子数量 (1 - 200),当前值：' + context.globalState.get("backgroundCoverParticleCount")
 		];
 
 		let placeString = placeStringArr[type];
