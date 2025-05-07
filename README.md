@@ -11,9 +11,9 @@
 
 
 <p align="center">
-Add a picture you like to cover the entire vscode..
+Add a picture you like to cover the entire vscode, as well as the particle effect animation that follows the mouse<br/>
 <br/>
-添加一张你喜欢的图片铺满整个vscode..
+添加一张你喜欢的图片铺满整个vscode, 以及鼠标跟随的粒子效果动画
 <br/>
 <a href="https://github.com/vscode-extension/vscode-background-cover">
 <img src="https://img.shields.io/github/stars/vscode-extension/vscode-background-cover.svg?style=social" alt="stars">
@@ -64,9 +64,9 @@ Add a picture you like to cover the entire vscode..
 
 ![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/20172d72-5384-4bfe-bceb-ec582cfb1698)
 ![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/dcbb7870-8342-4069-9dd8-026d3b903420)
-![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/26066847-050b-4e72-8b2d-f44ffcb063f8)
-![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/57e5e908-4464-409a-8b67-c8a6edf5b431)
-
+![Image](https://github.com/user-attachments/assets/078e6d26-412b-4bb8-8113-3ac3972153b1)
+![Image](https://github.com/user-attachments/assets/a8668f9c-6ff1-46f1-b5c2-b606ed327910)
+![Image](https://github.com/user-attachments/assets/0ad0f6e2-a777-45a9-ad02-1fd2caaac1df)
 
 
 ## Config 配置项
@@ -129,10 +129,10 @@ Add a picture you like to cover the entire vscode..
 ## 最近更新日志
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 2.6.5 (2025/03/05)
+#### ver 2.7.0 (2025/05/05)
 
-  1.更新vscode后增加重新应用背景提醒
-  2.使用在线图库设置背景后将帖子关联为默认页面
+  1.🎉新功能：~鼠标跟随粒子效果🎉 （原[vscode-nest](https://github.com/AShujiao/vscode-nest)插件已弃用，集成到本扩展中）  
+  2.部分配置输入框显示当前配置值
   
 ---
 ### Thanks 感谢

@@ -26,7 +26,7 @@ import { setContext } from './global';
 // your extension is activated the very first time the command is executed
 export function activate(context: ExtensionContext) {
 	setContext(context);
-	// 创建底部按钮
+	// 创建底部按钮 - 背景图片配置
 	let backImgBtn = window.createStatusBarItem(StatusBarAlignment.Right, -999);
 	backImgBtn.text = '$(file-media)';
 	backImgBtn.command = 'extension.backgroundCover.start';
@@ -34,11 +34,21 @@ export function activate(context: ExtensionContext) {
 	PickList.autoUpdateBackground();
 	backImgBtn.show();
 
+	// 创建底部按钮 - 粒子效果配置
+	let particleBtn = window.createStatusBarItem(StatusBarAlignment.Right, -999);
+	particleBtn.text = '$(sparkle)';
+	particleBtn.command = 'extension.backgroundCover.nest';
+	particleBtn.tooltip = 'Particle effect / 粒子效果';
+	particleBtn.show();
+
+
 
 	let randomCommand = commands.registerCommand('extension.backgroundCover.refresh', () => { PickList.randomUpdateBackground(); });
 	let startCommand = commands.registerCommand('extension.backgroundCover.start', () => { PickList.createItemLIst() });
+	let particleEffectCommand = commands.registerCommand('extension.backgroundCover.nest', () => { PickList.startNest() });
 	context.subscriptions.push(startCommand);
 	context.subscriptions.push(randomCommand);
+	context.subscriptions.push(particleEffectCommand);
 
 	// webview
 	const readerViewProvider = new ReaderViewProvider();
@@ -67,9 +77,8 @@ export function activate(context: ExtensionContext) {
 	if(openVersion != version && title != ""){
 		context.globalState.update('ext_version',version);
 		vsHelp.showInfoSupport(`
-			🐷已更新到2.6.5
-			🐶更新vscode后增加重新应用背景提醒
-			🐶使用在线图库设置背景后将帖子关联为默认页面
+			🐷已更新到2.7.0
+			🎉新功能：~鼠标跟随粒子效果🎉
 			❤️是否愿意赞助在线图库运营❓`
 		);
 	}
