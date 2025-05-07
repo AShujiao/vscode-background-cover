@@ -11,3 +11,4 @@ export function setContext(context: ExtensionContext) {
 export function getContext(): ExtensionContext {
     return _context;
 }
+

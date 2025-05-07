@@ -20,6 +20,7 @@ import { ImgItem } from './ImgItem';
 import vsHelp from './vsHelp';
 import { getContext } from './global';
 import bleandHelper from './bleandHelper';
+import Color, { getColorList } from './color'; // 导入颜色定义
 
 
 
@@ -51,10 +52,12 @@ export class PickList {
 	private randUpdate: boolean = false;
 
 
+
 	// 初始下拉列表
 	public static createItemLIst() {
 		let config: WorkspaceConfiguration =
 			workspace.getConfiguration( 'backgroundCover' );
+			config.inspect
 		let list: QuickPick<ImgItem> =
 			window.createQuickPick<ImgItem>();
 		list.placeholder = 'Please choose configuration! / 请选择相关配置！';
@@ -111,6 +114,17 @@ export class PickList {
 		}
 		// 更多
 		items.push(
+			{
+				label: '',
+				description: '--------------------',
+				imageType: 0,
+				kind: QuickPickItemKind.Separator
+			},
+			{
+				label: '$(sparkle)    Particle Effects♥️           ',
+				description: '粒子效果设置♥️',
+				imageType: 30
+			},
 			{
 				label: '',
 				description: '--------------------',
@@ -333,6 +347,30 @@ export class PickList {
 			case 18:
 				this.showInputBox( 3 );  // 修改模糊度
 				break;
+			case 30:
+				this.particleEffectSettings();
+				break;
+			case 31:
+				this.toggleParticleEffect();
+				break;
+			case 32:
+				this.showInputBox( 10 ); // 粒子透明度
+				break;
+			case 33:
+				this.showColorSelection(); // 粒子颜色
+				break;
+			case 34:
+				this.showInputBox( 12 ); // 粒子数量
+				break;
+			case 101:
+				if (path) {
+					const colorValue = Color(path); // 获取颜色RGB值
+					this.setContextValue('backgroundCoverParticleColor', colorValue, true);
+				}
+				break;
+			case 102:
+				this.showInputBox(11); // 输入自定义颜色
+				break;
 			default:
 				break;
 		}
@@ -455,6 +493,69 @@ export class PickList {
 		this.quickPick.show();
 	}
 
+	private particleEffectSettings() {
+		let enabled = getContext().globalState.get('backgroundCoverParticleEffect', false);
+		
+		let items: ImgItem[] = [
+			{
+				label: enabled ? 
+					'$(circle-filled)    Disable Particles       ' :
+					'$(circle-outline)    Enable Particles        ',
+				description: enabled ? '关闭粒子效果' : '启用粒子效果',
+				imageType: 31
+			},
+			{
+				label: '$(settings)    Particle Opacity           ',
+				description: '设置粒子透明度',
+				imageType: 32
+			},
+			{
+				label: '$(symbol-color)    Select Color',
+				description: '选择粒子颜色',
+				imageType: 33
+			},
+			{
+				label: '$(multiple-windows)    Particle Count             ',
+				description: '设置粒子数量',
+				imageType: 34
+			},
+
+		];
+
+		this.quickPick.items = items;
+		this.quickPick.show();
+	}
+
+	private toggleParticleEffect() {
+		let currentValue = getContext().globalState.get('backgroundCoverParticleEffect', false);
+		this.setContextValue('backgroundCoverParticleEffect', !currentValue, true);
+	}
+
+	private showColorSelection() {
+		let items: ImgItem[] = [];
+		
+		// 遍历color.ts中定义的所有颜色
+		const colorList = getColorList();
+		for (const colorName of colorList) {
+			items.push({
+				label: `$(symbol-color)    ${colorName}`,
+				description: `设置粒子颜色为 ${colorName}`,
+				imageType: 101, // 使用新的类型标识颜色选择
+				path: colorName
+			});
+		}
+		
+		// 添加自定义颜色选项
+		items.push({
+			label: '$(pencil)    Custom Color',
+			description: '输入自定义RGB颜色 (例如: 255,255,255)',
+			imageType: 102
+		});
+		
+		this.quickPick.items = items;
+		this.quickPick.show();
+	}
+
 	//释放资源
 	private dispose() {
 		PickList.itemList = undefined;
@@ -566,13 +667,17 @@ export class PickList {
 
 	// 创建一个输入框
 	private showInputBox( type: number ) {
-		if ( type <= 0 || type > 3 ) { return false; }
+		if ( type <= 0 || type > 12 ) { return false; }
 
 		let placeStringArr: string[] = [
 			'',
 			'Please enter the image path to support local and HTTPS',
 			'Opacity ranges：0.00 - 1,current:(' + this.opacity + ')' ,
 			'Set image blur: 0-100',
+			'','','','','','',
+			'粒子透明度 (0 - 1)',
+			'粒子颜色 (例如: #ffffff)',
+			'粒子数量 (1 - 200)'
 		];
 
 		let promptStringArr: string[] = [
@@ -580,6 +685,10 @@ export class PickList {
 			'请输入图片路径，支持本地及https',
 			'设置图片不透明度：0 - 0.8' ,
 			'设置图片模糊度：0 - 100',
+			'','','','','','',
+			'粒子透明度 (0 - 1)',
+			'粒子颜色 (例如: #ffffff)',
+			'粒子数量 (1 - 200)'
 		];
 
 		let placeString = placeStringArr[type];
@@ -623,6 +732,24 @@ export class PickList {
 					window.showWarningMessage( 'Blur ranges in：0 - 100！' );
 					return false;
 				}
+			} else if (type === 10) {
+				let particleOpacity = parseFloat(value);
+				if (particleOpacity < 0 || particleOpacity > 1 || isNaN(particleOpacity)) {
+					window.showWarningMessage('粒子透明度范围：0 - 1！');
+					return false;
+				}
+			} else if (type === 11) {
+				// 可以添加简单的颜色格式验证
+				if (!value.includes(',')) {
+					window.showWarningMessage('颜色格式无效，请使用RGB(255,255,255)格式！');
+					return false;
+				}
+			} else if (type === 12) {
+				let particleCount = parseInt(value);
+				if (particleCount < 1 || particleCount > 200 || isNaN(particleCount)) {
+					window.showWarningMessage('粒子数量范围：1 - 200！');
+					return false;
+				}
 			}
 
 			// set配置
@@ -631,10 +758,22 @@ export class PickList {
 				'imagePath',
 				'opacity',
 				'blur',
+				'','','','','','',
+				'backgroundCoverParticleOpacity',
+				'backgroundCoverParticleColor',
+				'backgroundCoverParticleCount'
 			];
 			let setKey = keyArr[type]
 
-			this.setConfigValue( setKey, ( type === 1 ? value : parseFloat( value ) ), true );
+			if (type === 12) { // particle count
+				this.setContextValue(setKey, parseInt(value), true);
+			} else if (type === 11) { // particle color
+				this.setContextValue(setKey, value, true);
+			} else if (type === 10) { // particle opacity
+				this.setContextValue(setKey, parseFloat(value), true);
+			} else {
+				this.setConfigValue(setKey, ( type === 1 ? value : parseFloat( value ) ), true );
+			}
 		} )
 	}
 
@@ -713,6 +852,19 @@ export class PickList {
 		return true;
 	}
 
+
+	// 更新配置
+	private setContextValue( name: string, value: any, updateDom: Boolean = true ) {
+		// 更新变量
+		getContext().globalState.update( name, value );
+
+		// 是否需要更新Dom
+		if ( updateDom ) {
+			this.updateDom();
+		}
+		return true;
+	}
+
 	public setRandUpdate( value: boolean ) {
 		this.randUpdate = value;
 	}
@@ -732,7 +884,7 @@ export class PickList {
 		context.globalState.update('backgroundCoverBlendModel',colorThemeKind);
 
 		// 写入文件
-		const dom = new FileDom(this.imgPath, this.opacity, this.sizeModel, this.blur, colorThemeKind);
+		const dom = new FileDom(this.config,this.imgPath, this.opacity, this.sizeModel, this.blur, colorThemeKind);
 		let result = false;
 
 		try {
