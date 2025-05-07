@@ -55,11 +55,8 @@ export class PickList {
 
 	// 初始下拉列表
 	public static createItemLIst() {
-		let config: WorkspaceConfiguration =
-			workspace.getConfiguration( 'backgroundCover' );
-			config.inspect
-		let list: QuickPick<ImgItem> =
-			window.createQuickPick<ImgItem>();
+		let config: WorkspaceConfiguration = workspace.getConfiguration( 'backgroundCover' );
+		let list: QuickPick<ImgItem> = window.createQuickPick<ImgItem>();
 		list.placeholder = 'Please choose configuration! / 请选择相关配置！';
 		list.totalSteps = 2
 		let items: ImgItem[] = [
@@ -121,8 +118,8 @@ export class PickList {
 				kind: QuickPickItemKind.Separator
 			},
 			{
-				label: '$(sparkle)    Particle Effects♥️           ',
-				description: '粒子效果设置♥️',
+				label: '$(sparkle)    Particle Effects🎉           ',
+				description: '粒子效果设置🎉',
 				imageType: 30
 			},
 			{
@@ -239,6 +236,19 @@ export class PickList {
 		PickList.itemList.setRandUpdate( true );
 		PickList.itemList.autoUpdateBackground();
 		PickList.itemList = undefined;
+		//return commands.executeCommand( 'workbench.action.reloadWindow' );
+	}
+
+	/**
+	 *  随机更新一张背景
+	 */
+	public static startNest() {
+		let config = workspace.getConfiguration( 'backgroundCover' );
+		let list: QuickPick<ImgItem> = window.createQuickPick<ImgItem>();
+		list.placeholder = 'Please choose configuration! / 请选择相关配置！';
+		list.totalSteps = 2
+		PickList.itemList = new PickList( config, list );
+		PickList.itemList.particleEffectSettings();
 		//return commands.executeCommand( 'workbench.action.reloadWindow' );
 	}
 
@@ -493,7 +503,7 @@ export class PickList {
 		this.quickPick.show();
 	}
 
-	private particleEffectSettings() {
+	public particleEffectSettings() {
 		let enabled = getContext().globalState.get('backgroundCoverParticleEffect', false);
 		
 		let items: ImgItem[] = [
@@ -546,7 +556,7 @@ export class PickList {
 		for (const colorName of colorList) {
 			items.push({
 				label: `$(symbol-color)    ${colorName}`,
-				description: `设置粒子颜色为 ${colorName}`,
+				description: ``,
 				imageType: 101, // 使用新的类型标识颜色选择
 				path: colorName
 			});

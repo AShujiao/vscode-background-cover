@@ -1,7 +1,7 @@
 {
     "name": "background-cover",
     "displayName": "background-cover",
-    "description": "Add a picture you like to cover the entire vscode..",
+    "description": "Add a picture you like to cover the entire vscode background. / 添加你喜欢的图片覆盖整个vscode背景",
     "version": "2.7.0",
     "publisher": "manasxx",
     "engines": {
@@ -37,6 +37,10 @@
             {
                 "command": "extension.backgroundCover.refresh",
                 "title": "backgroundCover - refresh"
+            },
+            {
+                "command": "extension.backgroundCover.nest",
+                "title": "backgroundCover - nest"
             },
             {
                 "command": "backgroundCover.refreshEntry",

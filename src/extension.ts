@@ -26,7 +26,7 @@ import { setContext } from './global';
 // your extension is activated the very first time the command is executed
 export function activate(context: ExtensionContext) {
 	setContext(context);
-	// 创建底部按钮
+	// 创建底部按钮 - 背景图片配置
 	let backImgBtn = window.createStatusBarItem(StatusBarAlignment.Right, -999);
 	backImgBtn.text = '$(file-media)';
 	backImgBtn.command = 'extension.backgroundCover.start';
@@ -34,11 +34,21 @@ export function activate(context: ExtensionContext) {
 	PickList.autoUpdateBackground();
 	backImgBtn.show();
 
+	// 创建底部按钮 - 粒子效果配置
+	let particleBtn = window.createStatusBarItem(StatusBarAlignment.Right, -999);
+	particleBtn.text = '$(sparkle)';
+	particleBtn.command = 'extension.backgroundCover.nest';
+	particleBtn.tooltip = 'Particle effect / 粒子效果';
+	particleBtn.show();
+
+
 
 	let randomCommand = commands.registerCommand('extension.backgroundCover.refresh', () => { PickList.randomUpdateBackground(); });
 	let startCommand = commands.registerCommand('extension.backgroundCover.start', () => { PickList.createItemLIst() });
+	let particleEffectCommand = commands.registerCommand('extension.backgroundCover.nest', () => { PickList.startNest() });
 	context.subscriptions.push(startCommand);
 	context.subscriptions.push(randomCommand);
+	context.subscriptions.push(particleEffectCommand);
 
 	// webview
 	const readerViewProvider = new ReaderViewProvider();
