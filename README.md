@@ -137,9 +137,9 @@ Add a picture you like to cover the entire vscode, as well as the particle effec
 ---
 ### Thanks 感谢
 
-* [Canvas-nest.js](https://github.com/hustcc/canvas-nest.js) 一个非常好看的网页粒子背景插件
 * [vscode-background](https://github.com/shalldie/vscode-background)
 * [feature_restart_random_image](https://github.com/AShujiao/vscode-background-cover/pull/2)
+* [Canvas-nest.js](https://github.com/hustcc/canvas-nest.js) 一个非常好看的网页粒子背景插件
 
 ## Contributors 
 * 对于扩展的贡献者默认都会展示在此列表中，如果不愿意展示此处也可以进行提交pr移除   
