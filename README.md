@@ -129,10 +129,9 @@ Add a picture you like to cover the entire vscode, as well as the particle effec
 ## 最近更新日志
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 2.7.0 (2025/05/05)
+#### ver 2.7.1 (2025/12/04)
 
-  1.🎉新功能：~鼠标跟随粒子效果🎉 （原[vscode-nest](https://github.com/AShujiao/vscode-nest)插件已弃用，集成到本扩展中）  
-  2.部分配置输入框显示当前配置值
+  1.图片适应模式增加（居中）模式
   
 ---
 ### Thanks 感谢

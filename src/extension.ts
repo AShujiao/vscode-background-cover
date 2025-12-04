@@ -77,8 +77,8 @@ export function activate(context: ExtensionContext) {
 	if(openVersion != version && title != ""){
 		context.globalState.update('ext_version',version);
 		vsHelp.showInfoSupport(`
-			🐷已更新到2.7.0
-			🎉新功能：~鼠标跟随粒子效果🎉
+			🐷已更新到2.7.1
+			🎉改动：~图片适应模式增加（居中）模式🎉
 			❤️是否愿意赞助在线图库运营❓`
 		);
 	}

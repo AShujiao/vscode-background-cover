@@ -456,6 +456,12 @@ export class PickList {
 				path: "contain"
 			},
 			{
+				label: '$(diff-added)    center                           ',
+				description: '居中' + ( this.sizeModel == 'center' ? '$(check)' : '' ),
+				imageType: 16,
+				path: "center"
+			},
+			{
 				label: '$(diff-modified)    not(center)                     ',
 				description: '无适应(居中)' + ( this.sizeModel == 'not_center' ? '$(check)' : '' ),
 				imageType: 16,
