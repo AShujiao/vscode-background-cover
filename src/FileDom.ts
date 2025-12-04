@@ -273,6 +273,9 @@ export class FileDom {
 			case "contain":
 				sizeModelVal = "100% 100%";
 				break;
+            case "center":
+				sizeModelVal = "contain";
+				break;
 			case "repeat":
 				sizeModelVal = "auto";
 				repeatVal = "repeat";
