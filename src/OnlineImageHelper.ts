@@ -53,13 +53,8 @@ export class OnlineImageHelper {
                         images = (data as any).files;
                     }
                     const imageFiles = images
-                        .map((item) => {
-                            if (typeof item === 'string') {
-                                return item;
-                            }
-                            return (item.name as string) || (item.url as string) || '';
-                        })
-                        .filter((name) => this.isImageFileName(name))
+                        .map((item) => this.extractImageFromItem(item))
+                        .filter((name): name is string => !!name && this.isImageFileName(name))
                         .map((name) => this.resolveImageUrl(urlString, name));
                     if (imageFiles.length > 0) {
                         return imageFiles;
@@ -110,6 +105,41 @@ export class OnlineImageHelper {
 
     private static isImageFileName(filename: string): boolean {
         return /\.(png|jpg|jpeg|gif|webp|bmp|jfif)(\?.*)?$/i.test(filename);
+    }
+
+    private static extractImageFromItem(item: unknown): string | null {
+        if (!item) {
+            return null;
+        }
+        if (typeof item === 'string') {
+            return item;
+        }
+        const obj = item as Record<string, unknown>;
+        const candidates: string[] = [];
+        if (typeof obj['imageUrl'] === 'string') {
+            candidates.push(obj['imageUrl'] as string);
+        }
+        if (typeof obj['fullUrl'] === 'string') {
+            candidates.push(obj['fullUrl'] as string);
+        }
+        if (typeof obj['url'] === 'string') {
+            candidates.push(obj['url'] as string);
+        }
+        if (typeof obj['thumbUrl'] === 'string') {
+            candidates.push(obj['thumbUrl'] as string);
+        }
+        if (typeof obj['src'] === 'string') {
+            candidates.push(obj['src'] as string);
+        }
+        if (typeof obj['name'] === 'string') {
+            candidates.push(obj['name'] as string);
+        }
+        for (const value of candidates) {
+            if (this.isImageFileName(value)) {
+                return value;
+            }
+        }
+        return null;
     }
 
     private static resolveImageUrl(baseUrl: string, imagePath: string): string {
