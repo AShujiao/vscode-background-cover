@@ -37,6 +37,7 @@ export class OnlineImageHelper {
     private static async tryJsonApi(urlString: string): Promise<string[] | null> {
         try {
             const apiUrls = [
+                urlString,
                 `${urlString}?format=json`,
                 `${urlString}?list=json`,
                 `${urlString.replace(/\/$/, '')}.json`,
