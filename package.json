@@ -26,8 +26,8 @@
     "license": "ISC",
     "main": "./out/extension",
     "extensionKind": [
-        "workspace",
-        "ui"
+        "ui",
+        "workspace"
     ],
     "contributes": {
         "commands": [

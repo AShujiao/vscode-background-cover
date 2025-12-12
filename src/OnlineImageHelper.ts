@@ -1,6 +1,7 @@
 import * as https from 'https';
 import * as http from 'http';
 import { URL } from 'url';
+import { isIP } from 'net';
 
 export class OnlineImageHelper {
     /**
@@ -163,24 +164,38 @@ export class OnlineImageHelper {
 
     private static fetchText(urlString: string): Promise<string> {
         return new Promise((resolve, reject) => {
-            const parsed = new URL(urlString);
+            let parsed: URL;
+            try {
+                parsed = this.parseAndValidateUrl(urlString);
+            } catch (error) {
+                reject(error);
+                return;
+            }
             const client = parsed.protocol === 'https:' ? https : http;
             const options: https.RequestOptions = {
                 method: 'GET',
                 timeout: 10000,
                 headers: {
-                    'User-Agent': 'VSCode-Background-Cover/2.7.1'
+                    'User-Agent': 'VSCode-Background-Cover/2.7.2'
                 }
             };
-            const req = client.get(urlString, options, (res) => {
-                if (res.statusCode === 301 || res.statusCode === 302) {
+            const req = client.get(parsed, options, (res) => {
+                const status = res.statusCode ?? 0;
+                if ([301, 302, 307, 308].includes(status)) {
                     const redirectUrl = res.headers.location;
                     if (redirectUrl) {
-                        return this.fetchText(redirectUrl).then(resolve).catch(reject);
+                        const nextUrl = new URL(redirectUrl, parsed).toString();
+                        this.fetchText(nextUrl).then(resolve).catch(reject);
+                        return;
                     }
+                    res.resume();
+                    reject(new Error(`Redirect response received (HTTP ${status}) but no location header was provided.`));
+                    return;
                 }
-                if (res.statusCode !== 200) {
-                    return reject(new Error(`HTTP ${res.statusCode}`));
+                if (status !== 200) {
+                    res.resume();
+                    reject(new Error(`HTTP ${status}`));
+                    return;
                 }
                 let data = '';
                 res.setEncoding('utf8');
@@ -197,16 +212,22 @@ export class OnlineImageHelper {
 
     private static fetchHeaders(urlString: string): Promise<http.IncomingHttpHeaders> {
         return new Promise((resolve, reject) => {
-            const parsed = new URL(urlString);
+            let parsed: URL;
+            try {
+                parsed = this.parseAndValidateUrl(urlString);
+            } catch (error) {
+                reject(error);
+                return;
+            }
             const client = parsed.protocol === 'https:' ? https : http;
             const options: https.RequestOptions = {
                 method: 'HEAD',
                 timeout: 5000,
                 headers: {
-                    'User-Agent': 'VSCode-Background-Cover/2.7.1'
+                    'User-Agent': 'VSCode-Background-Cover/2.7.2'
                 }
             };
-            const req = client.request(urlString, options, (res) => {
+            const req = client.request(parsed, options, (res) => {
                 resolve(res.headers);
             });
             req.on('error', reject);
@@ -216,6 +237,61 @@ export class OnlineImageHelper {
             });
             req.end();
         });
+    }
+
+    private static parseAndValidateUrl(urlString: string): URL {
+        const parsed = new URL(urlString);
+        if (!/^https?:$/.test(parsed.protocol)) {
+            throw new Error('仅支持 HTTPS 或 HTTP 协议');
+        }
+        if (!parsed.hostname) {
+            throw new Error('URL 缺少主机');
+        }
+        if (this.isPrivateAddress(parsed.hostname)) {
+            throw new Error('禁止访问私有网络地址');
+        }
+        return parsed;
+    }
+
+    private static isPrivateAddress(hostname: string): boolean {
+        const lower = hostname.toLowerCase();
+        if (lower === 'localhost' || lower === '127.0.0.1' || lower === '::1') {
+            return true;
+        }
+        const ipVersion = isIP(hostname);
+        if (ipVersion === 4) {
+            const parts = hostname.split('.').map((segment) => Number(segment));
+            if (parts.length === 4 && parts.every((part) => !Number.isNaN(part))) {
+                const [first, second] = parts;
+                if (first === 10) {
+                    return true;
+                }
+                if (first === 127) {
+                    return true;
+                }
+                if (first === 169 && second === 254) {
+                    return true;
+                }
+                if (first === 172 && second >= 16 && second <= 31) {
+                    return true;
+                }
+                if (first === 192 && second === 168) {
+                    return true;
+                }
+                if (first === 0) {
+                    return true;
+                }
+            }
+        }
+        if (ipVersion === 6) {
+            if (lower === '::1') {
+                return true;
+            }
+            if (lower.startsWith('fc') || lower.startsWith('fd') || lower.startsWith('fe80') || lower.startsWith('fec0')) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

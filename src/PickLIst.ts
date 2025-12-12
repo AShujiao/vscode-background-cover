@@ -264,10 +264,10 @@ export class PickList {
 
 	public static async updateImgPath( path: string ) {
 		// 检测图片地址格式
-		let isUrl = ( path.substr( 0, 8 ).toLowerCase() === 'https://' ) || ( path.substr( 0, 7 ).toLowerCase() === 'http://' );
+		let isUrl = ( path.slice( 0, 8 ).toLowerCase() === 'https://' ) || ( path.slice( 0, 7 ).toLowerCase() === 'http://' );
 		if ( !isUrl ) {
-			vsHelp.showInfo( "非http/https格式图片，不支持配置！ / Non HTTP/HTTPS format image, configuration not supported!" )
-			return false
+			vsHelp.showInfo( "非http/https格式图片，不支持配置！ / Non HTTP/HTTPS format image, configuration not supported!" );
+			return false;
 		}
 		try {
 			window.showInformationMessage( '正在检测在线资源类型... / Detecting online resource type...' );
@@ -643,6 +643,7 @@ export class PickList {
 			} catch ( error: any ) {
 				console.error('从在线文件夹获取图片失败:', error);
 				window.showWarningMessage('在线文件夹访问失败，请检查网络连接！');
+				this.clearOnlineFolder();
 			}
 		}
 		if ( this.checkFolder( this.config.randomImageFolder ) ) {
@@ -670,6 +671,7 @@ export class PickList {
 			window.showWarningMessage('未找到在线文件夹配置！');
 			return;
 		}
+		let success = false;
 		try {
 			window.showInformationMessage('正在刷新在线文件夹图片列表...');
 			const images = await OnlineImageHelper.getOnlineImages( onlineFolder );
@@ -678,13 +680,18 @@ export class PickList {
 				window.showInformationMessage(`刷新成功！发现 ${images.length} 张图片。`);
 				const randomImage = images[Math.floor( Math.random() * images.length )];
 				this.updateBackgound( randomImage );
+				success = true;
 			} else {
 				window.showWarningMessage('未在该URL找到图片！');
+				this.clearOnlineFolder();
 			}
 		} catch ( error: any ) {
 			window.showErrorMessage(`刷新失败: ${error.message}`);
+			this.clearOnlineFolder();
 		}
-		this.quickPick.hide();
+		if ( success ) {
+			this.quickPick.hide();
+		}
 	}
 
 	/**
@@ -829,7 +836,7 @@ export class PickList {
 
 		if ( type === 1 ) {
 			let fsStatus = fs.existsSync( path.resolve( value ) );
-			let isUrl = ( value.substr( 0, 8 ).toLowerCase() === 'https://' ) || ( value.substr( 0, 7 ).toLowerCase() === 'http://' );
+			let isUrl = ( value.slice( 0, 8 ).toLowerCase() === 'https://' ) || ( value.slice( 0, 7 ).toLowerCase() === 'http://' );
 			if ( !fsStatus && !isUrl ) {
 				window.showWarningMessage(
 					'No access to the file or the file does not exist! / 无权限访问文件或文件不存在！' );
