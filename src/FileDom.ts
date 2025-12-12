@@ -44,6 +44,7 @@ export class FileDom {
     private readonly blur: number;
     private readonly blendModel: string;
     private readonly systemType: string;
+    private readonly forceHttpsUpgrade: boolean;
     private upCssContent: string = '';
     private bakStatus: boolean = false;
     private bakJsContent: string = '';
@@ -67,14 +68,21 @@ export class FileDom {
         this.blur         = blur;
         this.blendModel   = blendModel;
         this.systemType   = os.type();
-        this.initializePromise = this.initializeImage();
+        this.forceHttpsUpgrade = this.workConfig.get('forceHttpsUpgrade', true);
+        this.initializePromise = this.initializeImage().catch((error: unknown) => {
+            console.error('[FileDom] Failed to preprocess image:', error);
+        });
     }
 
     private async initializeImage(): Promise<void> {
         const lowerPath = this.imagePath.toLowerCase();
-        if (!lowerPath.startsWith('https://') && !lowerPath.startsWith('data:')) {
+        if (
+            !lowerPath.startsWith('http://') &&
+            !lowerPath.startsWith('https://') &&
+            !lowerPath.startsWith('data:')
+        ) {
             const converted = await this.imageToBase64();
-            if (!converted && !lowerPath.startsWith('http://')) {
+            if (!converted) {
                 this.localImgToVsc();
             }
         }
@@ -331,7 +339,7 @@ export class FileDom {
 
         let finalImagePath = this.escapeTemplateLiteral(this.imagePath);
         const globalWindow = typeof globalThis !== 'undefined' ? (globalThis as any).window : undefined;
-        if (finalImagePath.toLowerCase().startsWith('http://')) {
+        if (this.forceHttpsUpgrade && finalImagePath.toLowerCase().startsWith('http://')) {
             if (globalWindow && globalWindow.location && globalWindow.location.protocol === 'https:') {
                 finalImagePath = finalImagePath.replace(/^http:\/\//i, 'https://');
             }

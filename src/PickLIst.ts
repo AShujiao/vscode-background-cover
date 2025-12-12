@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { URL } from 'url';
 import {
 	QuickPick,
 	Disposable,
@@ -643,7 +644,7 @@ export class PickList {
 			} catch ( error: any ) {
 				console.error('从在线文件夹获取图片失败:', error);
 				window.showWarningMessage('在线文件夹访问失败，请检查网络连接！');
-				this.clearOnlineFolder();
+				this.clearOnlineFolder(true);
 			}
 		}
 		if ( this.checkFolder( this.config.randomImageFolder ) ) {
@@ -676,18 +677,25 @@ export class PickList {
 			window.showInformationMessage('正在刷新在线文件夹图片列表...');
 			const images = await OnlineImageHelper.getOnlineImages( onlineFolder );
 			if ( images && images.length > 0 ) {
-				context.globalState.update('backgroundCoverOnlineImageList', images);
-				window.showInformationMessage(`刷新成功！发现 ${images.length} 张图片。`);
-				const randomImage = images[Math.floor( Math.random() * images.length )];
-				this.updateBackgound( randomImage );
-				success = true;
+				const normalizedFolder = this.normalizePathKey(onlineFolder);
+				if (images.length === 1 && this.normalizePathKey(images[0]) === normalizedFolder) {
+					window.showInformationMessage('检测到链接仅返回单张图片，已切换为单图模式。');
+					this.updateBackgound( images[0], true );
+					success = true;
+				} else {
+					context.globalState.update('backgroundCoverOnlineImageList', images);
+					window.showInformationMessage(`刷新成功！发现 ${images.length} 张图片。`);
+					const randomImage = images[Math.floor( Math.random() * images.length )];
+					this.updateBackgound( randomImage );
+					success = true;
+				}
 			} else {
 				window.showWarningMessage('未在该URL找到图片！');
-				this.clearOnlineFolder();
+				this.clearOnlineFolder(true);
 			}
 		} catch ( error: any ) {
 			window.showErrorMessage(`刷新失败: ${error.message}`);
-			this.clearOnlineFolder();
+			this.clearOnlineFolder(true);
 		}
 		if ( success ) {
 			this.quickPick.hide();
@@ -704,10 +712,28 @@ export class PickList {
 		context.globalState.update('backgroundCoverOnlineImageList', undefined);
 		if (resetRandomFolder && previousOnlineFolder) {
 			const currentRandomFolder = this.config.get<string>('randomImageFolder');
-			if (currentRandomFolder && currentRandomFolder === previousOnlineFolder) {
+			if (this.normalizePathKey(currentRandomFolder) === this.normalizePathKey(previousOnlineFolder)) {
 				this.config.update('randomImageFolder', '', ConfigurationTarget.Global);
 			}
 		}
+	}
+
+	private normalizePathKey(value?: string | null): string {
+		if (!value) {
+			return '';
+		}
+		const trimmed = value.trim();
+		if (/^https?:/i.test(trimmed)) {
+			try {
+				const parsed = new URL(trimmed);
+				const normalizedPath = parsed.pathname.replace(/\/+$/, '') || '/';
+				const search = parsed.search ?? '';
+				return `${parsed.protocol}//${parsed.host}${normalizedPath}${search}`;
+			} catch {
+				return trimmed.replace(/\/+$/, '');
+			}
+		}
+		return path.normalize(trimmed).replace(/\\+/g, '/');
 	}
 
 	/**
@@ -885,7 +911,7 @@ export class PickList {
 				shouldClearOnlineCache = true;
 			}
 		}
-		else if(type == 2) {
+		else if (type === 2) {
 			let isOpacity = parseFloat( value );
 
 			if ( isOpacity < 0 || isOpacity > 0.8 || isNaN( isOpacity ) ) {
@@ -893,7 +919,7 @@ export class PickList {
 				return false;
 			}
 		}
-		else if(type == 3) {
+		else if (type === 3) {
 			let blur = parseFloat( value );
 
 			if ( blur < 0 || blur > 100 || isNaN( blur ) ) {
@@ -929,7 +955,7 @@ export class PickList {
 			'backgroundCoverParticleColor',
 			'backgroundCoverParticleCount'
 		];
-		let setKey = keyArr[type]
+	let setKey = keyArr[type];
 
 		if (type === 1 && shouldClearOnlineCache) {
 			this.clearOnlineFolder(true);

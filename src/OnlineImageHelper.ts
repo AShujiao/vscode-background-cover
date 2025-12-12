@@ -2,8 +2,11 @@ import * as https from 'https';
 import * as http from 'http';
 import { URL } from 'url';
 import { isIP } from 'net';
+import { extensions } from 'vscode';
 
 export class OnlineImageHelper {
+    private static cachedUserAgent: string | null = null;
+
     /**
      * 获取在线图片列表（混合方案）
      */
@@ -223,7 +226,7 @@ export class OnlineImageHelper {
                 method: 'GET',
                 timeout: 10000,
                 headers: {
-                    'User-Agent': 'VSCode-Background-Cover/2.7.2'
+                    'User-Agent': this.getUserAgent()
                 }
             };
             const req = client.get(parsed, options, (res) => {
@@ -232,6 +235,14 @@ export class OnlineImageHelper {
                     const redirectUrl = res.headers.location;
                     if (redirectUrl) {
                         const nextUrl = new URL(redirectUrl, parsed).toString();
+                        try {
+                            this.parseAndValidateUrl(nextUrl);
+                        } catch (validationError: any) {
+                            res.resume();
+                            reject(new Error(`Redirect URL is invalid or unsafe: ${validationError?.message || validationError}`));
+                            return;
+                        }
+                        res.resume();
                         this.fetchText(nextUrl).then(resolve).catch(reject);
                         return;
                     }
@@ -271,7 +282,7 @@ export class OnlineImageHelper {
                 method,
                 timeout: method === 'HEAD' ? 5000 : 7000,
                 headers: {
-                    'User-Agent': 'VSCode-Background-Cover/2.7.2',
+                    'User-Agent': this.getUserAgent(),
                     'Accept': method === 'HEAD' ? '*/*' : 'image/*,*/*;q=0.8'
                 }
             };
@@ -284,6 +295,12 @@ export class OnlineImageHelper {
                         res.resume();
                         if (redirectCount >= 5) {
                             reject(new Error('Too many redirects'));
+                            return;
+                        }
+                        try {
+                            this.parseAndValidateUrl(nextUrl);
+                        } catch (validationError: any) {
+                            reject(new Error(`Redirect URL is invalid or unsafe: ${validationError?.message || validationError}`));
                             return;
                         }
                         this.fetchHeaders(nextUrl, method, redirectCount + 1).then(resolve).catch(reject);
@@ -360,6 +377,16 @@ export class OnlineImageHelper {
             }
         }
         return false;
+    }
+
+    private static getUserAgent(): string {
+        if (!this.cachedUserAgent) {
+            const extension = extensions.getExtension('manasxx.background-cover');
+            const version = extension?.packageJSON?.version;
+            const suffix = version ? `/${version}` : '';
+            this.cachedUserAgent = `VSCode-Background-Cover${suffix}`;
+        }
+        return this.cachedUserAgent;
     }
 
     /**
