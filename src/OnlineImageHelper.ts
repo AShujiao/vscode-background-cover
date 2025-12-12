@@ -46,18 +46,7 @@ export class OnlineImageHelper {
             for (const apiUrl of apiUrls) {
                 try {
                     const data = await this.fetchJson(apiUrl);
-                    let images: Array<string | { name?: string; url?: string; }> = [];
-                    if (Array.isArray(data)) {
-                        images = data;
-                    } else if (Array.isArray((data as any).images)) {
-                        images = (data as any).images;
-                    } else if (Array.isArray((data as any).files)) {
-                        images = (data as any).files;
-                    }
-                    const imageFiles = images
-                        .map((item) => this.extractImageFromItem(item))
-                        .filter((name): name is string => !!name && this.isImageFileName(name))
-                        .map((name) => this.resolveImageUrl(urlString, name));
+                    const imageFiles = this.collectImagesFromApiData(data, urlString);
                     if (imageFiles.length > 0) {
                         return imageFiles;
                     }
@@ -97,51 +86,109 @@ export class OnlineImageHelper {
 
     private static async isImageUrl(urlString: string): Promise<boolean> {
         try {
-            const headers = await this.fetchHeaders(urlString);
-            const contentType = headers['content-type'] as string | undefined;
-            return !!contentType && contentType.startsWith('image/');
+            const headInfo = await this.fetchHeaders(urlString, 'HEAD');
+            const headType = headInfo.contentType?.toLowerCase();
+            if (headType && headType.startsWith('image/')) {
+                return true;
+            }
         } catch (error) {
-            return this.isImageFileName(urlString);
+            // ignore and fall back to GET probing below
         }
+        try {
+            const getInfo = await this.fetchHeaders(urlString, 'GET');
+            const getType = getInfo.contentType?.toLowerCase();
+            if (getType && getType.startsWith('image/')) {
+                return true;
+            }
+        } catch (error) {
+            // ignore
+        }
+        return this.isImageFileName(urlString);
     }
 
     private static isImageFileName(filename: string): boolean {
         return /\.(png|jpg|jpeg|gif|webp|bmp|jfif)(\?.*)?$/i.test(filename);
     }
 
-    private static extractImageFromItem(item: unknown): string | null {
-        if (!item) {
+    private static extractImageFromValue(value: unknown, depth = 0): string | null {
+        if (value === null || value === undefined) {
             return null;
         }
-        if (typeof item === 'string') {
-            return item;
+        if (depth > 4) {
+            return null;
         }
-        const obj = item as Record<string, unknown>;
-        const candidates: string[] = [];
-        if (typeof obj['imageUrl'] === 'string') {
-            candidates.push(obj['imageUrl'] as string);
+        if (typeof value === 'string') {
+            return this.isImageFileName(value) ? value : null;
         }
-        if (typeof obj['fullUrl'] === 'string') {
-            candidates.push(obj['fullUrl'] as string);
+        if (Array.isArray(value)) {
+            for (const entry of value) {
+                const nested = this.extractImageFromValue(entry, depth + 1);
+                if (nested) {
+                    return nested;
+                }
+            }
+            return null;
         }
-        if (typeof obj['url'] === 'string') {
-            candidates.push(obj['url'] as string);
-        }
-        if (typeof obj['thumbUrl'] === 'string') {
-            candidates.push(obj['thumbUrl'] as string);
-        }
-        if (typeof obj['src'] === 'string') {
-            candidates.push(obj['src'] as string);
-        }
-        if (typeof obj['name'] === 'string') {
-            candidates.push(obj['name'] as string);
-        }
-        for (const value of candidates) {
-            if (this.isImageFileName(value)) {
-                return value;
+        if (typeof value === 'object') {
+            const record = value as Record<string, unknown>;
+            const prioritizedKeys = ['imageUrl', 'fullUrl', 'url', 'thumbUrl', 'src', 'original', 'name', 'path'];
+            for (const key of prioritizedKeys) {
+                if (key in record) {
+                    const nested = this.extractImageFromValue(record[key], depth + 1);
+                    if (nested) {
+                        return nested;
+                    }
+                }
+            }
+            for (const entry of Object.values(record)) {
+                const nested = this.extractImageFromValue(entry, depth + 1);
+                if (nested) {
+                    return nested;
+                }
             }
         }
         return null;
+    }
+
+    private static collectImagesFromApiData(data: unknown, baseUrl: string): string[] {
+        const found = new Set<string>();
+        const traverse = (value: unknown, depth = 0) => {
+            if (value === null || value === undefined || depth > 6) {
+                return;
+            }
+            if (typeof value === 'string') {
+                if (this.isImageFileName(value)) {
+                    found.add(this.resolveImageUrl(baseUrl, value));
+                }
+                return;
+            }
+            if (Array.isArray(value)) {
+                for (const entry of value) {
+                    traverse(entry, depth + 1);
+                }
+                return;
+            }
+            if (typeof value === 'object') {
+                const record = value as Record<string, unknown>;
+                if (record && typeof record['ext'] === 'string' && record['pid'] && record['uid'] && record['urls']) {
+                    const urlCandidate = this.extractImageFromValue(record['urls'], depth + 1);
+                    if (urlCandidate) {
+                        found.add(this.resolveImageUrl(baseUrl, urlCandidate));
+                    }
+                }
+                const prioritizedKeys = ['images', 'files', 'data', 'results', 'items', 'list'];
+                for (const key of prioritizedKeys) {
+                    if (Array.isArray(record[key])) {
+                        traverse(record[key], depth + 1);
+                    }
+                }
+                for (const entry of Object.values(record)) {
+                    traverse(entry, depth + 1);
+                }
+            }
+        };
+        traverse(data);
+        return Array.from(found);
     }
 
     private static resolveImageUrl(baseUrl: string, imagePath: string): string {
@@ -210,7 +257,7 @@ export class OnlineImageHelper {
         });
     }
 
-    private static fetchHeaders(urlString: string): Promise<http.IncomingHttpHeaders> {
+    private static fetchHeaders(urlString: string, method: 'HEAD' | 'GET' = 'HEAD', redirectCount = 0): Promise<{ headers: http.IncomingHttpHeaders; statusCode?: number; contentType?: string; }> {
         return new Promise((resolve, reject) => {
             let parsed: URL;
             try {
@@ -221,14 +268,35 @@ export class OnlineImageHelper {
             }
             const client = parsed.protocol === 'https:' ? https : http;
             const options: https.RequestOptions = {
-                method: 'HEAD',
-                timeout: 5000,
+                method,
+                timeout: method === 'HEAD' ? 5000 : 7000,
                 headers: {
-                    'User-Agent': 'VSCode-Background-Cover/2.7.2'
+                    'User-Agent': 'VSCode-Background-Cover/2.7.2',
+                    'Accept': method === 'HEAD' ? '*/*' : 'image/*,*/*;q=0.8'
                 }
             };
             const req = client.request(parsed, options, (res) => {
-                resolve(res.headers);
+                const status = res.statusCode ?? 0;
+                if ([301, 302, 307, 308].includes(status)) {
+                    const redirectUrl = res.headers.location;
+                    if (redirectUrl) {
+                        const nextUrl = new URL(redirectUrl, parsed).toString();
+                        res.resume();
+                        if (redirectCount >= 5) {
+                            reject(new Error('Too many redirects'));
+                            return;
+                        }
+                        this.fetchHeaders(nextUrl, method, redirectCount + 1).then(resolve).catch(reject);
+                        return;
+                    }
+                }
+                const contentType = (res.headers['content-type'] as string | undefined) ?? undefined;
+                resolve({ headers: res.headers, statusCode: res.statusCode, contentType });
+                if (method === 'GET') {
+                    res.destroy();
+                } else {
+                    res.resume();
+                }
             });
             req.on('error', reject);
             req.on('timeout', () => {

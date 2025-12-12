@@ -286,14 +286,14 @@ export class PickList {
 			} else {
 				window.showInformationMessage( '检测到单张在线图片！' );
 				const actualImage = ( images && images.length > 0 ) ? images[0] : path;
-				PickList.itemList.updateBackgound( actualImage );
+				PickList.itemList.updateBackgound( actualImage, true );
 			}
 		} catch ( error: any ) {
 			window.showErrorMessage( `在线资源检测失败: ${error.message}` );
 			let config = workspace.getConfiguration( 'backgroundCover' );
 			PickList.itemList = new PickList( config );
 			PickList.itemList.setImageFileType( 2 );
-			PickList.itemList.updateBackgound( path );
+			PickList.itemList.updateBackgound( path, true );
 		}
 	}
 
@@ -697,10 +697,17 @@ export class PickList {
 	/**
 	 * 清理在线文件夹缓存
 	 */
-	private clearOnlineFolder() {
-		let context = getContext();
+	private clearOnlineFolder(resetRandomFolder: boolean = false) {
+		const context = getContext();
+		const previousOnlineFolder = context.globalState.get<string>('backgroundCoverOnlineFolder');
 		context.globalState.update('backgroundCoverOnlineFolder', undefined);
 		context.globalState.update('backgroundCoverOnlineImageList', undefined);
+		if (resetRandomFolder && previousOnlineFolder) {
+			const currentRandomFolder = this.config.get<string>('randomImageFolder');
+			if (currentRandomFolder && currentRandomFolder === previousOnlineFolder) {
+				this.config.update('randomImageFolder', '', ConfigurationTarget.Global);
+			}
+		}
 	}
 
 	/**
@@ -834,6 +841,8 @@ export class PickList {
 			return false;
 		}
 
+		let shouldClearOnlineCache = false;
+
 		if ( type === 1 ) {
 			let fsStatus = fs.existsSync( path.resolve( value ) );
 			let isUrl = ( value.slice( 0, 8 ).toLowerCase() === 'https://' ) || ( value.slice( 0, 7 ).toLowerCase() === 'http://' );
@@ -841,6 +850,10 @@ export class PickList {
 				window.showWarningMessage(
 					'No access to the file or the file does not exist! / 无权限访问文件或文件不存在！' );
 				return false;
+			}
+
+			if ( !isUrl ) {
+				shouldClearOnlineCache = true;
 			}
 
 			if ( isUrl ) {
@@ -861,11 +874,15 @@ export class PickList {
 						return true;
 					} else if ( images && images.length === 1 ) {
 						value = images[0];
+						shouldClearOnlineCache = true;
 					}
 				} catch ( err: any ) {
 					console.error('[background-cover] OnlineImageHelper error:', err && err.message ? err.message : err);
 					window.showWarningMessage('在线资源检测失败，按单张图片处理 / Online detection failed, treating as single image');
+					shouldClearOnlineCache = true;
 				}
+			} else {
+				shouldClearOnlineCache = true;
 			}
 		}
 		else if(type == 2) {
@@ -914,6 +931,10 @@ export class PickList {
 		];
 		let setKey = keyArr[type]
 
+		if (type === 1 && shouldClearOnlineCache) {
+			this.clearOnlineFolder(true);
+		}
+
 		if (type === 12) {
 			this.setContextValue(setKey, parseInt(value), true);
 		} else if (type === 11) {
@@ -938,12 +959,12 @@ export class PickList {
 	}
 
 	// 更新配置
-	public updateBackgound( path?: string ) {
+	public updateBackgound( path?: string, clearOnlineCache: boolean = false ) {
 		if ( !path ) {
 			return vsHelp.showInfo( 'Unfetched Picture Path / 未获取到图片路径' );
 		}
-		if ( !this.isOnlineUrl( path ) ) {
-			this.clearOnlineFolder();
+		if ( clearOnlineCache || !this.isOnlineUrl( path ) ) {
+			this.clearOnlineFolder( true );
 		}
 		this.setConfigValue( 'imagePath', path );
 	}
@@ -966,12 +987,12 @@ export class PickList {
 		}
 		let fileUri = folderUris[0];
 		if ( type === 2 ) {
-			this.clearOnlineFolder();
+			this.clearOnlineFolder(true);
 			this.setConfigValue( 'randomImageFolder', fileUri.fsPath, false );
 			return this.imgList( fileUri.fsPath );
 		}
 		if ( type === 1 ) {
-			this.clearOnlineFolder();
+			this.clearOnlineFolder(true);
 			return this.setConfigValue( 'imagePath', fileUri.fsPath );
 		}
 
