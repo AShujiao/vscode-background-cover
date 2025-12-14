@@ -40,7 +40,7 @@ const vsHelp = {
     },
 
     showInfoSupport(content: any): Thenable<void> {
-        return window.showInformationMessage(content, { title: "❤️赞助" }, { title: "详情" }, { title: "加入群聊" })
+        return window.showInformationMessage(content, { modal: true }, { title: "❤️赞助" }, { title: "详情" }, { title: "加入群聊" })
             .then(function (item) {
                 if (!item) { return; }
                 if (item.title === '详情') {

@@ -73,14 +73,16 @@ export function activate(context: ExtensionContext) {
 	let openVersion:string|undefined           = context.globalState.get('ext_version');
 	let ex:Extension<any>|undefined = extensions.getExtension('manasxx.background-cover');
 	let version:string           = ex ? ex.packageJSON['version'] : '';
-	let title:string = ex ?  ex.packageJSON['one_title'] : '';
-	if(openVersion != version && title != ""){
+	
+	if(openVersion != version){
 		context.globalState.update('ext_version',version);
-		vsHelp.showInfoSupport(`
-			🐷已更新到2.7.1
-			🎉改动：~图片适应模式增加（居中）模式🎉
-			❤️是否愿意赞助在线图库运营❓`
-		);
+		vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
+� 新特性：
+1. 新增支持 code-server 平台
+2. 输入图片地址功能增强 (支持 JSON API / HTML / 在线图库)
+3. 支持将在线图库帖子设为背景源
+
+❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}
 }
 
