@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { URL } from 'url';
 import {
 	QuickPick,
 	Disposable,
@@ -21,6 +22,7 @@ import vsHelp from './vsHelp';
 import { getContext } from './global';
 import bleandHelper from './bleandHelper';
 import Color, { getColorList } from './color'; // 导入颜色定义
+import { OnlineImageHelper } from './OnlineImageHelper';
 
 
 
@@ -108,6 +110,15 @@ export class PickList {
 				description: '开启启动自动更换',
 				imageType: 11
 			} )
+		}
+		let context = getContext();
+		const onlineFolder = context.globalState.get('backgroundCoverOnlineFolder');
+		if (onlineFolder) {
+			items.push({
+				label: '$(cloud-download)    Refresh Online Folder   ',
+				description: '刷新在线文件夹图片列表',
+				imageType: 19
+			});
 		}
 		// 更多
 		items.push(
@@ -252,18 +263,39 @@ export class PickList {
 		//return commands.executeCommand( 'workbench.action.reloadWindow' );
 	}
 
-	public static updateImgPath( path: string ) {
+	public static async updateImgPath( path: string ) {
 		// 检测图片地址格式
-		let isUrl = ( path.substr( 0, 8 ).toLowerCase() === 'https://' );
+		let isUrl = ( path.slice( 0, 8 ).toLowerCase() === 'https://' ) || ( path.slice( 0, 7 ).toLowerCase() === 'http://' );
 		if ( !isUrl ) {
-			vsHelp.showInfo( "非https格式图片，不支持配置！ / Non HTTPS format image, configuration not supported!" )
-			return false
+			vsHelp.showInfo( "非http/https格式图片，不支持配置！ / Non HTTP/HTTPS format image, configuration not supported!" );
+			return false;
 		}
-		let config = workspace.getConfiguration( 'backgroundCover' );
-		PickList.itemList = new PickList( config );
-		PickList.itemList.setImageFileType( 2 );
-		PickList.itemList.updateBackgound( path );
-		
+		try {
+			window.showInformationMessage( '正在检测在线资源类型... / Detecting online resource type...' );
+			const images = await OnlineImageHelper.getOnlineImages( path );
+			let config = workspace.getConfiguration( 'backgroundCover' );
+			PickList.itemList = new PickList( config );
+			PickList.itemList.setImageFileType( 2 );
+			if ( images && images.length > 1 ) {
+				window.showInformationMessage( `检测到在线文件夹，包含 ${images.length} 张图片！将随机选择一张作为背景。` );
+				let context = getContext();
+				context.globalState.update( 'backgroundCoverOnlineFolder', path );
+				context.globalState.update( 'backgroundCoverOnlineImageList', images );
+				await config.update( 'randomImageFolder', path, ConfigurationTarget.Global );
+				const randomImage = images[Math.floor( Math.random() * images.length )];
+				PickList.itemList.updateBackgound( randomImage );
+			} else {
+				window.showInformationMessage( '检测到单张在线图片！' );
+				const actualImage = ( images && images.length > 0 ) ? images[0] : path;
+				PickList.itemList.updateBackgound( actualImage, true );
+			}
+		} catch ( error: any ) {
+			window.showErrorMessage( `在线资源检测失败: ${error.message}` );
+			let config = workspace.getConfiguration( 'backgroundCover' );
+			PickList.itemList = new PickList( config );
+			PickList.itemList.setImageFileType( 2 );
+			PickList.itemList.updateBackgound( path, true );
+		}
 	}
 
 	// 列表构造方法
@@ -356,6 +388,9 @@ export class PickList {
 				break;
 			case 18:
 				this.showInputBox( 3 );  // 修改模糊度
+				break;
+			case 19:
+				this.refreshOnlineFolder(); // 刷新在线文件夹
 				break;
 			case 30:
 				this.particleEffectSettings();
@@ -589,7 +624,29 @@ export class PickList {
 	/**
 	 * 启动时自动更新背景
 	 */
-	private autoUpdateBackground() {
+	private async autoUpdateBackground(): Promise<boolean> {
+		let context = getContext();
+		const onlineFolder = context.globalState.get<string>('backgroundCoverOnlineFolder');
+		const cachedImages = context.globalState.get<string[]>('backgroundCoverOnlineImageList');
+		if ( onlineFolder && this.isOnlineUrl( onlineFolder ) ) {
+			try {
+				let images = cachedImages as string[] | undefined;
+				if ( !images || images.length === 0 ) {
+					window.showInformationMessage('正在从在线文件夹获取图片列表...');
+					images = await OnlineImageHelper.getOnlineImages( onlineFolder );
+					context.globalState.update('backgroundCoverOnlineImageList', images);
+				}
+				if ( images && images.length > 0 ) {
+					const randomImage = images[Math.floor( Math.random() * images.length )];
+					this.listChange( 4, randomImage );
+					return true;
+				}
+			} catch ( error: any ) {
+				console.error('从在线文件夹获取图片失败:', error);
+				window.showWarningMessage('在线文件夹访问失败，请检查网络连接！');
+				this.clearOnlineFolder(true);
+			}
+		}
 		if ( this.checkFolder( this.config.randomImageFolder ) ) {
 			// 获取目录下的所有图片
 			let files: string[] =
@@ -603,6 +660,91 @@ export class PickList {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * 刷新在线文件夹列表
+	 */
+	private async refreshOnlineFolder() {
+		let context = getContext();
+		const onlineFolder = context.globalState.get<string>('backgroundCoverOnlineFolder');
+		if ( !onlineFolder ) {
+			window.showWarningMessage('未找到在线文件夹配置！');
+			return;
+		}
+		let success = false;
+		try {
+			window.showInformationMessage('正在刷新在线文件夹图片列表...');
+			const images = await OnlineImageHelper.getOnlineImages( onlineFolder );
+			if ( images && images.length > 0 ) {
+				const normalizedFolder = this.normalizePathKey(onlineFolder);
+				if (images.length === 1 && this.normalizePathKey(images[0]) === normalizedFolder) {
+					window.showInformationMessage('检测到链接仅返回单张图片，已切换为单图模式。');
+					this.updateBackgound( images[0], true );
+					success = true;
+				} else {
+					context.globalState.update('backgroundCoverOnlineImageList', images);
+					window.showInformationMessage(`刷新成功！发现 ${images.length} 张图片。`);
+					const randomImage = images[Math.floor( Math.random() * images.length )];
+					this.updateBackgound( randomImage );
+					success = true;
+				}
+			} else {
+				window.showWarningMessage('未在该URL找到图片！');
+				this.clearOnlineFolder(true);
+			}
+		} catch ( error: any ) {
+			window.showErrorMessage(`刷新失败: ${error.message}`);
+			this.clearOnlineFolder(true);
+		}
+		if ( success ) {
+			this.quickPick.hide();
+		}
+	}
+
+	/**
+	 * 清理在线文件夹缓存
+	 */
+	private clearOnlineFolder(resetRandomFolder: boolean = false) {
+		const context = getContext();
+		const previousOnlineFolder = context.globalState.get<string>('backgroundCoverOnlineFolder');
+		context.globalState.update('backgroundCoverOnlineFolder', undefined);
+		context.globalState.update('backgroundCoverOnlineImageList', undefined);
+		if (resetRandomFolder && previousOnlineFolder) {
+			const currentRandomFolder = this.config.get<string>('randomImageFolder');
+			if (this.normalizePathKey(currentRandomFolder) === this.normalizePathKey(previousOnlineFolder)) {
+				this.config.update('randomImageFolder', '', ConfigurationTarget.Global);
+			}
+		}
+	}
+
+	private normalizePathKey(value?: string | null): string {
+		if (!value) {
+			return '';
+		}
+		const trimmed = value.trim();
+		if (/^https?:/i.test(trimmed)) {
+			try {
+				const parsed = new URL(trimmed);
+				const normalizedPath = parsed.pathname.replace(/\/+$/, '') || '/';
+				const search = parsed.search ?? '';
+				return `${parsed.protocol}//${parsed.host}${normalizedPath}${search}`;
+			} catch {
+				return trimmed.replace(/\/+$/, '');
+			}
+		}
+		return path.normalize(trimmed).replace(/\\+/g, '/');
+	}
+
+	/**
+	 * 判断URL是否为在线地址
+	 */
+	private isOnlineUrl( url?: string ): boolean {
+		if ( !url ) {
+			return false;
+		}
+		const lower = url.toLowerCase();
+		return lower.startsWith( 'http://' ) || lower.startsWith( 'https://' );
 	}
 
 	// 根据图片目录展示图片列表
@@ -682,9 +824,9 @@ export class PickList {
 	}
 
 	// 创建一个输入框
-	private showInputBox( type: number ) {
+	private async showInputBox( type: number ) {
 		if ( type <= 0 || type > 12 ) { return false; }
-        let context = getContext();
+		let context = getContext();
 		let placeStringArr: string[] = [
 			'',
 			'Please enter the image path to support local and HTTPS',
@@ -710,7 +852,6 @@ export class PickList {
 		let placeString = placeStringArr[type];
 		let promptString = promptStringArr[type];
 
-
 		let option: InputBoxOptions = {
 			ignoreFocusOut: true,
 			password: false,
@@ -718,79 +859,117 @@ export class PickList {
 			prompt: promptString
 		};
 
-		window.showInputBox( option ).then( value => {
-			//未输入值返回false
-			if ( !value ) {
+		let value = await window.showInputBox( option );
+		// 未输入值返回false
+		if ( !value ) {
+			window.showWarningMessage(
+				'Please enter configuration parameters / 请输入配置参数！' );
+			return false;
+		}
+
+		let shouldClearOnlineCache = false;
+
+		if ( type === 1 ) {
+			let fsStatus = fs.existsSync( path.resolve( value ) );
+			let isUrl = ( value.slice( 0, 8 ).toLowerCase() === 'https://' ) || ( value.slice( 0, 7 ).toLowerCase() === 'http://' );
+			if ( !fsStatus && !isUrl ) {
 				window.showWarningMessage(
-					'Please enter configuration parameters / 请输入配置参数！' );
-				return;
-			}
-			if ( type === 1 ) {
-				// 判断路径是否存在
-				let fsStatus = fs.existsSync( path.resolve( value ) );
-				let isUrl = ( value.substr( 0, 8 ).toLowerCase() === 'https://' );
-				if ( !fsStatus && !isUrl ) {
-					window.showWarningMessage(
-						'No access to the file or the file does not exist! / 无权限访问文件或文件不存在！' );
-					return false;
-				}
-			} else if(type == 2) {
-				let isOpacity = parseFloat( value );
-
-				if ( isOpacity < 0 || isOpacity > 0.8 || isNaN( isOpacity ) ) {
-					window.showWarningMessage( 'Opacity ranges in：0 - 0.8！' );
-					return false;
-				}
-			}else if(type == 3) {
-				let blur = parseFloat( value );
-
-				if ( blur < 0 || blur > 100 || isNaN( blur ) ) {
-					window.showWarningMessage( 'Blur ranges in：0 - 100！' );
-					return false;
-				}
-			} else if (type === 10) {
-				let particleOpacity = parseFloat(value);
-				if (particleOpacity < 0 || particleOpacity > 1 || isNaN(particleOpacity)) {
-					window.showWarningMessage('粒子透明度范围：0 - 1！');
-					return false;
-				}
-			} else if (type === 11) {
-				// 可以添加简单的颜色格式验证
-				if (!value.includes(',')) {
-					window.showWarningMessage('颜色格式无效，请使用RGB(255,255,255)格式！');
-					return false;
-				}
-			} else if (type === 12) {
-				let particleCount = parseInt(value);
-				if (particleCount < 1 || particleCount > 200 || isNaN(particleCount)) {
-					window.showWarningMessage('粒子数量范围：1 - 200！');
-					return false;
-				}
+					'No access to the file or the file does not exist! / 无权限访问文件或文件不存在！' );
+				return false;
 			}
 
-			// set配置
-			let keyArr = [
-				'',
-				'imagePath',
-				'opacity',
-				'blur',
-				'','','','','','',
-				'backgroundCoverParticleOpacity',
-				'backgroundCoverParticleColor',
-				'backgroundCoverParticleCount'
-			];
-			let setKey = keyArr[type]
+			if ( !isUrl ) {
+				shouldClearOnlineCache = true;
+			}
 
-			if (type === 12) { // particle count
-				this.setContextValue(setKey, parseInt(value), true);
-			} else if (type === 11) { // particle color
-				this.setContextValue(setKey, value, true);
-			} else if (type === 10) { // particle opacity
-				this.setContextValue(setKey, parseFloat(value), true);
+			if ( isUrl ) {
+				try {
+					window.showInformationMessage('正在检测在线资源类型... / Detecting online resource type...');
+					const images = await OnlineImageHelper.getOnlineImages( value );
+					console.log('[background-cover] OnlineImageHelper result count:', images ? images.length : 0);
+					if ( images && images.length > 1 ) {
+						let config = workspace.getConfiguration( 'backgroundCover' );
+						PickList.itemList = new PickList( config );
+						PickList.itemList.setImageFileType( 2 );
+						let context = getContext();
+						await context.globalState.update( 'backgroundCoverOnlineFolder', value );
+						await context.globalState.update( 'backgroundCoverOnlineImageList', images );
+						await config.update( 'randomImageFolder', value, ConfigurationTarget.Global );
+						const randomImage = images[Math.floor( Math.random() * images.length )];
+						PickList.itemList.updateBackgound( randomImage );
+						return true;
+					} else if ( images && images.length === 1 ) {
+						value = images[0];
+						shouldClearOnlineCache = true;
+					}
+				} catch ( err: any ) {
+					console.error('[background-cover] OnlineImageHelper error:', err && err.message ? err.message : err);
+					window.showWarningMessage('在线资源检测失败，按单张图片处理 / Online detection failed, treating as single image');
+					shouldClearOnlineCache = true;
+				}
 			} else {
-				this.setConfigValue(setKey, ( type === 1 ? value : parseFloat( value ) ), true );
+				shouldClearOnlineCache = true;
 			}
-		} )
+		}
+		else if (type === 2) {
+			let isOpacity = parseFloat( value );
+
+			if ( isOpacity < 0 || isOpacity > 0.8 || isNaN( isOpacity ) ) {
+				window.showWarningMessage( 'Opacity ranges in：0 - 0.8！' );
+				return false;
+			}
+		}
+		else if (type === 3) {
+			let blur = parseFloat( value );
+
+			if ( blur < 0 || blur > 100 || isNaN( blur ) ) {
+				window.showWarningMessage( 'Blur ranges in：0 - 100！' );
+				return false;
+			}
+		} else if (type === 10) {
+			let particleOpacity = parseFloat(value);
+			if (particleOpacity < 0 || particleOpacity > 1 || isNaN(particleOpacity)) {
+				window.showWarningMessage('粒子透明度范围：0 - 1！');
+				return false;
+			}
+		} else if (type === 11) {
+			if (!value.includes(',')) {
+				window.showWarningMessage('颜色格式无效，请使用RGB(255,255,255)格式！');
+				return false;
+			}
+		} else if (type === 12) {
+			let particleCount = parseInt(value);
+			if (particleCount < 1 || particleCount > 200 || isNaN(particleCount)) {
+				window.showWarningMessage('粒子数量范围：1 - 200！');
+				return false;
+			}
+		}
+
+		let keyArr = [
+			'',
+			'imagePath',
+			'opacity',
+			'blur',
+			'','','','','','',
+			'backgroundCoverParticleOpacity',
+			'backgroundCoverParticleColor',
+			'backgroundCoverParticleCount'
+		];
+	let setKey = keyArr[type];
+
+		if (type === 1 && shouldClearOnlineCache) {
+			this.clearOnlineFolder(true);
+		}
+
+		if (type === 12) {
+			this.setContextValue(setKey, parseInt(value), true);
+		} else if (type === 11) {
+			this.setContextValue(setKey, value, true);
+		} else if (type === 10) {
+			this.setContextValue(setKey, parseFloat(value), true);
+		} else {
+			this.setConfigValue(setKey, ( type === 1 ? value : parseFloat( value ) ), true );
+		}
 	}
 
 	private setSizeModel( value?: string ) {
@@ -806,9 +985,12 @@ export class PickList {
 	}
 
 	// 更新配置
-	public updateBackgound( path?: string ) {
+	public updateBackgound( path?: string, clearOnlineCache: boolean = false ) {
 		if ( !path ) {
 			return vsHelp.showInfo( 'Unfetched Picture Path / 未获取到图片路径' );
+		}
+		if ( clearOnlineCache || !this.isOnlineUrl( path ) ) {
+			this.clearOnlineFolder( true );
 		}
 		this.setConfigValue( 'imagePath', path );
 	}
@@ -831,10 +1013,12 @@ export class PickList {
 		}
 		let fileUri = folderUris[0];
 		if ( type === 2 ) {
+			this.clearOnlineFolder(true);
 			this.setConfigValue( 'randomImageFolder', fileUri.fsPath, false );
 			return this.imgList( fileUri.fsPath );
 		}
 		if ( type === 1 ) {
+			this.clearOnlineFolder(true);
 			return this.setConfigValue( 'imagePath', fileUri.fsPath );
 		}
 

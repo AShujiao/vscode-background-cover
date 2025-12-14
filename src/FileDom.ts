@@ -8,12 +8,26 @@ import { SudoPromptHelper } from './SudoPromptHelper';
 import * as fse from 'fs-extra';
 import { getContext } from './global';
 
-const jsName: string  = 'workbench.desktop.main.js';
-const cssName: string = 'workbench.desktop.main.css';
-const bakName: string = 'workbench.desktop.main.js.bak';
-const jsFilePath      = path.join(env.appRoot, "out", "vs", "workbench", jsName);
-const cssFilePath     = path.join(env.appRoot, "out", "vs", "workbench", cssName);
-const bakFilePath     = path.join(env.appRoot, "out", "vs", "workbench", bakName);
+const workbenchTargets = [
+    {
+        name: 'desktop',
+        root: path.join(env.appRoot, "out", "vs", "workbench"),
+        js: 'workbench.desktop.main.js',
+        css: 'workbench.desktop.main.css',
+        bak: 'workbench.desktop.main.js.bak'
+    },
+    {
+        name: 'code-server',
+        root: path.join(env.appRoot, "out", "vs", "code", "browser", "workbench"),
+        js: 'workbench.js',
+        css: 'workbench.css',
+        bak: 'workbench.js.bak'
+    }
+];
+const selectedWorkbench = workbenchTargets.find((target) => fs.existsSync(path.join(target.root, target.js))) || workbenchTargets[0];
+const jsFilePath      = path.join(selectedWorkbench.root, selectedWorkbench.js);
+const cssFilePath     = path.join(selectedWorkbench.root, selectedWorkbench.css);
+const bakFilePath     = path.join(selectedWorkbench.root, selectedWorkbench.bak);
 
 enum SystemType {
     WINDOWS = 'Windows_NT',
@@ -30,10 +44,12 @@ export class FileDom {
     private readonly blur: number;
     private readonly blendModel: string;
     private readonly systemType: string;
+    private readonly forceHttpsUpgrade: boolean;
     private upCssContent: string = '';
     private bakStatus: boolean = false;
     private bakJsContent: string = '';
     private workConfig: WorkspaceConfiguration;
+    private initializePromise?: Promise<void>;
 
     constructor(
         workConfig:WorkspaceConfiguration,
@@ -52,15 +68,21 @@ export class FileDom {
         this.blur         = blur;
         this.blendModel   = blendModel;
         this.systemType   = os.type();
-
-        this.initializeImage();
+        this.forceHttpsUpgrade = this.workConfig.get('forceHttpsUpgrade', true);
+        this.initializePromise = this.initializeImage().catch((error: unknown) => {
+            console.error('[FileDom] Failed to preprocess image:', error);
+        });
     }
 
     private async initializeImage(): Promise<void> {
-        if (!this.imagePath.toLowerCase().startsWith('https://')) {
-            if (this.systemType === SystemType.MACOS) {
-                await this.imageToBase64();
-            } else {
+        const lowerPath = this.imagePath.toLowerCase();
+        if (
+            !lowerPath.startsWith('http://') &&
+            !lowerPath.startsWith('https://') &&
+            !lowerPath.startsWith('data:')
+        ) {
+            const converted = await this.imageToBase64();
+            if (!converted) {
                 this.localImgToVsc();
             }
         }
@@ -111,6 +133,11 @@ export class FileDom {
                     else resolve(null);
                 });
             });
+
+            if (this.initializePromise) {
+                await this.initializePromise;
+                this.initializePromise = undefined;
+            }
 
             const content = this.getJs().trim();
             if (!content) return false;
@@ -310,25 +337,42 @@ export class FileDom {
 				
 		}
 
-		return `
-		body::before{
-			content: "";
-			top: 0;
-			left: 0;
-			width: 100%;
-			height: 100%;
-			position: absolute;
-			background-size: ${sizeModelVal};
-			background-repeat: ${repeatVal};
-			background-position: ${positionVal};
-			opacity:${opacity};
-			background-image:url('${this.imagePath}');
-			z-index: 2;
-			pointer-events: none;
-			filter: blur(${this.blur}px);
-			mix-blend-mode: ${this.blendModel};
-		}
-		`;
+        let finalImagePath = this.escapeTemplateLiteral(this.imagePath);
+        const globalWindow = typeof globalThis !== 'undefined' ? (globalThis as any).window : undefined;
+        if (this.forceHttpsUpgrade && finalImagePath.toLowerCase().startsWith('http://')) {
+            if (globalWindow && globalWindow.location && globalWindow.location.protocol === 'https:') {
+                finalImagePath = finalImagePath.replace(/^http:\/\//i, 'https://');
+            }
+        }
+        return `
+        body::before{
+            content: "";
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            background-size: ${sizeModelVal};
+            background-repeat: ${repeatVal};
+            background-position: ${positionVal};
+            opacity:${opacity};
+            background-image:url('${finalImagePath}');
+            z-index: 2;
+            pointer-events: none;
+            filter: blur(${this.blur}px);
+            mix-blend-mode: ${this.blendModel};
+        }
+        `;
+    }
+
+    private escapeTemplateLiteral(value: string): string {
+        if (!value) {
+            return value;
+        }
+        return value
+            .replace(/\\/g, '\\\\')
+            .replace(/`/g, '\\`')
+            .replace(/\$\{/g, '\\${');
     }
 
     private async imageToBase64(): Promise<boolean> {
