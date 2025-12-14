@@ -12,6 +12,22 @@ export class OnlineImageHelper {
      */
     public static async getOnlineImages(urlString: string): Promise<string[]> {
         try {
+            const isImage = await this.isImageUrl(urlString);
+            if (isImage) {
+                console.log('[OnlineImageHelper] 检测为单张图片');
+                return [urlString];
+            }
+            // url是否为vs.20988.xyz
+            if (urlString.includes('vs.20988.xyz')) {
+                const vs20988xyzImages = await this.tryParseVs20988xyz(urlString);
+                if (vs20988xyzImages && vs20988xyzImages.length > 0) {
+                    console.log('[OnlineImageHelper] VS20988xyz 获取成功，获取到', vs20988xyzImages.length, '张图片');
+                    return vs20988xyzImages;
+                }else{
+                    return [];
+                }
+            }
+            
             const apiImages = await this.tryJsonApi(urlString);
             if (apiImages && apiImages.length > 0) {
                 console.log('[OnlineImageHelper] JSON API 成功，获取到', apiImages.length, '张图片');
@@ -23,13 +39,6 @@ export class OnlineImageHelper {
                 console.log('[OnlineImageHelper] HTML 解析成功，获取到', htmlImages.length, '张图片');
                 return htmlImages;
             }
-
-            const isImage = await this.isImageUrl(urlString);
-            if (isImage) {
-                console.log('[OnlineImageHelper] 检测为单张图片');
-                return [urlString];
-            }
-
             console.log('[OnlineImageHelper] 无法识别URL类型，当作单图处理');
             return [urlString];
         } catch (error: any) {
@@ -63,6 +72,7 @@ export class OnlineImageHelper {
         }
     }
 
+
     private static async tryParseDirectory(urlString: string): Promise<string[] | null> {
         try {
             const html = await this.fetchText(urlString);
@@ -73,6 +83,51 @@ export class OnlineImageHelper {
             const foundImages = new Set<string>();
             for (const pattern of patterns) {
                 const matches = html.matchAll(pattern);
+                for (const match of matches) {
+                    const imagePath = match[1];
+                    if (this.isImageFileName(imagePath)) {
+                        const fullUrl = this.resolveImageUrl(urlString, imagePath);
+                        foundImages.add(fullUrl);
+                    }
+                }
+            }
+            return foundImages.size > 0 ? Array.from(foundImages) : null;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    // 适配 VS20988xyz 论坛的图片提取
+    private static async tryParseVs20988xyz(urlString: string): Promise<string[] | null> {
+        try {
+            const html = await this.fetchText(urlString);
+            
+            // 先尝试提取 Post-body 节点内的内容
+            let targetContent = html;
+            const postBodyRegex = /<div\s+[^>]*class=["'][^"']*Post-body[^"']*["'][^>]*>([\s\S]*?)<\/div>/gi;
+            let match;
+            let combinedContent = '';
+            let foundBody = false;
+            
+            while ((match = postBodyRegex.exec(html)) !== null) {
+                if (match[1]) {
+                    combinedContent += match[1];
+                    foundBody = true;
+                }
+            }
+
+            if (foundBody) {
+                targetContent = combinedContent;
+                console.log('[OnlineImageHelper] 找到 Post-body 节点，将在其中查询图片');
+            }
+            
+            const patterns = [
+                /<img\s+src=["']([^"']+\.(png|jpg|jpeg|gif|webp|bmp|jfif))["']/gi,
+                /<img\s+[^>]*src=["']([^"']+)["'][^>]*>/gi,
+            ];
+            const foundImages = new Set<string>();
+            for (const pattern of patterns) {
+                const matches = targetContent.matchAll(pattern);
                 for (const match of matches) {
                     const imagePath = match[1];
                     if (this.isImageFileName(imagePath)) {

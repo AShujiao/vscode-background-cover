@@ -129,9 +129,15 @@ Add a picture you like to cover the entire vscode, as well as the particle effec
 ## 最近更新日志
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 2.7.1 (2025/12/04)
+#### ver 2.8.0 (2025/12/14)
 
-  1.图片适应模式增加（居中）模式
+感谢 [@WaaSakura](https://github.com/WaaSakura) 提交的[PR](https://github.com/AShujiao/vscode-background-cover/pull/173)
+
+    1.新增支持code-server平台     
+    2.输入图片地址功能扩展    
+        * 支持返回多图JSON格式API地址
+        * 支持静态html（解析a标签图片）   
+        * 支持在线图库网站（vs.20988.xyz 解析帖子内的图片） 
   
 ---
 ### Thanks 感谢
@@ -150,6 +156,7 @@ Add a picture you like to cover the entire vscode, as well as the particle effec
 [<img alt="kuresaru" src="https://avatars.githubusercontent.com/u/31172177?s=460&u=f44be019cc56fdf6d2ae9bbc7e12addb064c0b1b&v=4" width="117">](https://github.com/kuresaru)
 [<img alt="lauset" src="https://avatars.githubusercontent.com/u/47267800?v=4" width="117">](https://github.com/lauset)
 [<img alt="wuqirui" src="https://avatars.githubusercontent.com/u/53338059?v=4" width="117">](https://github.com/hhdqirui)
+[<img alt="WaaSakura" src="https://avatars.githubusercontent.com/u/54162467?v=4" width="117">](https://github.com/WaaSakura)
 
 ### Information 相关信息
 
