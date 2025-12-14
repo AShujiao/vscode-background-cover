@@ -89,7 +89,7 @@ export class PickList {
 			},
 			{
 				label: '$(pencil)    Input : Path/Https          ',
-				description: '输入图片路径：本地/https',
+				description: '输入图片路径：本地/https/json(api)/html(a标签)/在线图库（帖子地址）',
 				imageType: 6
 			},
 			{
@@ -840,7 +840,7 @@ export class PickList {
 
 		let promptStringArr: string[] = [
 			'',
-			'请输入图片路径，支持本地及https',
+			'输入图片路径：支持本地/https/json(api接口)/html(解析a标签)/在线图库（帖子地址）',
 			'设置图片不透明度：0 - 0.8,当前值：' + this.opacity,
 			'设置图片模糊度：0 - 100,当前值：' + this.blur,
 			'','','','','','',

@@ -2,7 +2,7 @@
     "name": "background-cover",
     "displayName": "background-cover",
     "description": "Add a picture you like to cover the entire vscode background. / 添加你喜欢的图片覆盖整个vscode背景",
-    "version": "2.7.2",
+    "version": "2.8.0",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.38.0"

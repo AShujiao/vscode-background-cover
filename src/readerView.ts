@@ -75,7 +75,8 @@ export default class ReaderViewProvider implements WebviewViewProvider {
                   // 设置vscode本地全局变更
                   let context = getContext();
                   context.globalState.update('backgroundCoverOnlineDefault', message.data.url);
-                  window.showInformationMessage("Successfully set default online gallery page / 设置默认在线图库页面成功！");
+                  PickList.updateImgPath(message.data.url);
+                  window.showInformationMessage("配置帖子图库成功，记得开启自动更换功能噢！/ Set successfully, remember to turn on the auto-change function!");
                   break;
             }
         },
