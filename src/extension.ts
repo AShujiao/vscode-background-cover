@@ -31,8 +31,14 @@ export function activate(context: ExtensionContext) {
 	backImgBtn.text = '$(file-media)';
 	backImgBtn.command = 'extension.backgroundCover.start';
 	backImgBtn.tooltip = 'Switch background image / 切换背景图';
-	PickList.autoUpdateBackground();
 	backImgBtn.show();
+
+	// 检查 VSCode 版本变化
+	let isChanged = checkVSCodeVersionChanged(context);
+	if (!isChanged) {
+		// 防止同时运行
+		PickList.autoUpdateBackground();
+	}
 
 	// 创建底部按钮 - 粒子效果配置
 	let particleBtn = window.createStatusBarItem(StatusBarAlignment.Right, -999);
@@ -66,8 +72,7 @@ export function activate(context: ExtensionContext) {
         PickList.autoUpdateBlendModel();
     });
 
-	// 检查 VSCode 版本变化
-	checkVSCodeVersionChanged(context);
+
 
 	 // 首次打开-提示语
 	let openVersion:string|undefined           = context.globalState.get('ext_version');
@@ -78,21 +83,19 @@ export function activate(context: ExtensionContext) {
 		context.globalState.update('ext_version',version);
 		vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
 � 新特性：
-1. 新增支持 code-server 平台
-2. 输入图片地址功能增强 (支持 JSON API / HTML / 在线图库)
-3. 支持将在线图库帖子设为背景源
+1. 修复vs更新后“重新应用背景”与“自动更换背景”事件冲突 
 
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}
 }
 
 // 检查 VSCode 版本是否变化
-function checkVSCodeVersionChanged(context: ExtensionContext) {
+function checkVSCodeVersionChanged(context: ExtensionContext): boolean {
 	// 获取配置
 	let config = workspace.getConfiguration('backgroundCover');
 	// 如果没有设置背景图，则不处理
 	if (!config.imagePath) {
-		return;
+		return false;
 	}
 
 	// 从全局状态中获取上次记录的 VSCode 版本
@@ -110,11 +113,12 @@ function checkVSCodeVersionChanged(context: ExtensionContext) {
 				PickList.needAutoUpdate(config);
 			}
 		});
+		// 更新全局状态中的 VSCode 版本
+		context.globalState.update('vscode_version', vscodeVersion);
+		return true;
 	}
-	
-	// 更新全局状态中的 VSCode 版本
-	context.globalState.update('vscode_version', vscodeVersion);
 
+	return false;
 }
 
 // this method is called when your extension is deactivated
