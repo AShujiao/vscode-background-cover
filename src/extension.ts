@@ -31,8 +31,14 @@ export function activate(context: ExtensionContext) {
 	backImgBtn.text = '$(file-media)';
 	backImgBtn.command = 'extension.backgroundCover.start';
 	backImgBtn.tooltip = 'Switch background image / 切换背景图';
-	PickList.autoUpdateBackground();
 	backImgBtn.show();
+
+	// 检查 VSCode 版本变化
+	let isChanged = checkVSCodeVersionChanged(context);
+	if (!isChanged) {
+		// 防止同时运行
+		PickList.autoUpdateBackground();
+	}
 
 	// 创建底部按钮 - 粒子效果配置
 	let particleBtn = window.createStatusBarItem(StatusBarAlignment.Right, -999);
@@ -66,8 +72,7 @@ export function activate(context: ExtensionContext) {
         PickList.autoUpdateBlendModel();
     });
 
-	// 检查 VSCode 版本变化
-	checkVSCodeVersionChanged(context);
+
 
 	 // 首次打开-提示语
 	let openVersion:string|undefined           = context.globalState.get('ext_version');
@@ -87,18 +92,18 @@ export function activate(context: ExtensionContext) {
 }
 
 // 检查 VSCode 版本是否变化
-function checkVSCodeVersionChanged(context: ExtensionContext) {
+function checkVSCodeVersionChanged(context: ExtensionContext): boolean {
 	// 获取配置
 	let config = workspace.getConfiguration('backgroundCover');
 	// 如果没有设置背景图，则不处理
 	if (!config.imagePath) {
-		return;
+		return false;
 	}
 
 	// 从全局状态中获取上次记录的 VSCode 版本
 	let lastVSCodeVersion = context.globalState.get('vscode_version');
 	// 如果版本不同，说明 VSCode 更新了
-	if (lastVSCodeVersion && lastVSCodeVersion !== vscodeVersion) {
+	if (true) {
 		// 弹出提示框确认是否更新背景
 		window.showInformationMessage(
 			`检测到 VSCode 已更新，背景图可能已被重置，是否重新应用背景图？ / Reapply the background image?`,
@@ -110,11 +115,12 @@ function checkVSCodeVersionChanged(context: ExtensionContext) {
 				PickList.needAutoUpdate(config);
 			}
 		});
+		// 更新全局状态中的 VSCode 版本
+		context.globalState.update('vscode_version', vscodeVersion);
+		return true;
 	}
-	
-	// 更新全局状态中的 VSCode 版本
-	context.globalState.update('vscode_version', vscodeVersion);
 
+	return false;
 }
 
 // this method is called when your extension is deactivated
