@@ -101,7 +101,7 @@ function checkVSCodeVersionChanged(context: ExtensionContext): boolean {
 	// 从全局状态中获取上次记录的 VSCode 版本
 	let lastVSCodeVersion = context.globalState.get('vscode_version');
 	// 如果版本不同，说明 VSCode 更新了
-	if (true) {
+	if (lastVSCodeVersion && lastVSCodeVersion !== vscodeVersion) {
 		// 弹出提示框确认是否更新背景
 		window.showInformationMessage(
 			`检测到 VSCode 已更新，背景图可能已被重置，是否重新应用背景图？ / Reapply the background image?`,
