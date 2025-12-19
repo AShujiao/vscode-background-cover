@@ -83,9 +83,7 @@ export function activate(context: ExtensionContext) {
 		context.globalState.update('ext_version',version);
 		vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
 � 新特性：
-1. 新增支持 code-server 平台
-2. 输入图片地址功能增强 (支持 JSON API / HTML / 在线图库)
-3. 支持将在线图库帖子设为背景源
+1. 修复vs更新后“重新应用背景”与“自动更换背景”事件冲突 
 
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}
