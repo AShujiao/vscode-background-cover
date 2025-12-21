@@ -4,8 +4,7 @@ import {
   WebviewViewResolveContext,
   CancellationToken,
   Disposable,
-  window,
-  workspace
+  window
 } from 'vscode';
 import { PickList } from './PickList';
 import { getContext } from './global';
@@ -15,6 +14,7 @@ export default class ReaderViewProvider implements WebviewViewProvider {
   public static readonly viewType = 'manzhuxing.readerView';
 
   private _view ? : WebviewView;
+  private _pendingPage?: string;
 
   //监听面板事件
   private _disposables: Disposable[] = [];
@@ -36,6 +36,8 @@ export default class ReaderViewProvider implements WebviewViewProvider {
       // 重新载入
       this._view.webview.html = "页面刷新中······";
       this._view.webview.html = this.getHtmlForWebview('home');
+    } else {
+      this._pendingPage = 'home';
     }
   }
 
@@ -54,11 +56,17 @@ export default class ReaderViewProvider implements WebviewViewProvider {
   ) {
     this._view = webviewView;
 
+    webviewView.onDidDispose(() => {
+      this._view = undefined;
+    });
+
     this._view.webview.options = {
       enableScripts: true,
     };
 
-    this._view.webview.html = this.getHtmlForWebview();
+    const pageToLoad = this._pendingPage;
+    this._pendingPage = undefined;
+    this._view.webview.html = this.getHtmlForWebview(pageToLoad);
     this._view.webview.onDidReceiveMessage(
         message => {
             switch (message.command) {

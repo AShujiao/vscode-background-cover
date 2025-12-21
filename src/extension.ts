@@ -103,7 +103,6 @@ export function activate(context: ExtensionContext) {
 		await config.update(key, value, true);
 		// Trigger update
 		const newConfig = workspace.getConfiguration('backgroundCover');
-		const pickList = new PickList(newConfig);
 		PickList.needAutoUpdate(newConfig);
 	}));
 
