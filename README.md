@@ -32,7 +32,7 @@ Add a picture you like to cover the entire vscode, as well as the particle effec
 *   **Sidebar Panel**: New sidebar UI for easy configuration.
 *   **侧边栏面板**: 全新左侧侧边栏可视化配置，操作更便捷。
 *   **Multi-language**: Support multiple languages.
-*   **多语言支持**: 支持多语言切换。
+*   **多语言支持**: 侧边栏配置支持中、英双语。
 
 ### 🔄 Auto Carousel / 自动轮播 (v3.0)
 *   **Timed Rotation**: Automatically rotate multiple images at set intervals.
@@ -88,17 +88,12 @@ Add a picture you like to cover the entire vscode, as well as the particle effec
 
 [**Integrated Online Gallery / 集成在线图库**](https://vs.20988.xyz/d/24-vscodebei-jing-tu-tu-ku)
 
-> Please configure via the extension commands or status bar button.  
-> 请通过插件配置命令或底部按钮进行配置。
 
-![05](https://github.com/user-attachments/assets/373c373e-e672-4ed4-9b4b-d09eaa457c9d)
-![微信截图_20241119082747](https://github.com/user-attachments/assets/eb94402d-7193-488a-a148-353879a7e71a)
-![](https://github.com/user-attachments/assets/b17f3358-124a-48b0-822b-a1443a2c1e2c)
-![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/20172d72-5384-4bfe-bceb-ec582cfb1698)
-![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/dcbb7870-8342-4069-9dd8-026d3b903420)
-![Image](https://github.com/user-attachments/assets/078e6d26-412b-4bb8-8113-3ac3972153b1)
-![Image](https://github.com/user-attachments/assets/a8668f9c-6ff1-46f1-b5c2-b606ed327910)
-![Image](https://github.com/user-attachments/assets/0ad0f6e2-a777-45a9-ad02-1fd2caaac1df)
+![](https://github.com/user-attachments/assets/957d0525-f2f3-46bb-b46f-7e2c26c3dbcb)
+![](https://github.com/user-attachments/assets/f21efb46-8bbd-48f3-ab30-ca9fbd5c7810)
+![Image](https://github.com/user-attachments/assets/892d7763-0bc9-477b-896a-180a4ecc90e7)
+![Image](https://github.com/user-attachments/assets/7a1558d5-6bc6-4563-a4e7-4e543695384c)
+
 
 
 ## Config 配置项
@@ -123,8 +118,6 @@ Click the `Background Cover` icon in the left activity bar to open the settings 
     *   **切换背景**: 点击状态栏底部的切换按钮。
 *   **Start/Config**: `Ctrl + Shift + P` -> `backgroundCover - start`
     *   **开始/配置**: 打开命令面板运行 `backgroundCover - start`。
-*   **Random Update**: `Ctrl + Shift + F7` -> Randomly update background.
-    *   **随机更新**: 按下 `Ctrl + Shift + F7` 随机更换背景。
 *   **Re-apply**: If VS Code updates, the background might disappear. Please re-apply.
     *   **重新应用**: VS Code 更新后背景可能会消失，请手动重新设置。
 
