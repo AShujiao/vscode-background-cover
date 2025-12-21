@@ -38,8 +38,6 @@ export enum ActionType {
     CloseBackground = 7,
     ReloadWindow = 8,
     CloseMenu = 9,
-    TurnOffAuto = 10,
-    TurnOnAuto = 11,
     MoreMenu = 12,
     OpenExternalUrl = 13,
     OpenFilePath = 14,
@@ -48,6 +46,7 @@ export enum ActionType {
     OnlineImages = 17,
     BackgroundBlur = 18,
     RefreshOnlineFolder = 19,
+    AutoRandomSettings = 20,
     
     // Particle Effects
     ParticleSettings = 30,
@@ -64,6 +63,7 @@ enum InputType {
     Path = 1,
     Opacity = 2,
     Blur = 3,
+    AutoRandomSettings = 4,
     ParticleOpacity = 10,
     ParticleColor = 11,
     ParticleCount = 12
@@ -71,6 +71,7 @@ enum InputType {
 
 export class PickList {
     public static itemList: PickList | undefined;
+    private static intervalHandle: NodeJS.Timeout | undefined;
 
     private readonly quickPick: QuickPick<ImgItem> | any;
     private _disposables: Disposable[] = [];
@@ -100,8 +101,10 @@ export class PickList {
 
         const nowBlenaStr = BlendHelper.autoBlendModel();
         PickList.itemList = new PickList(config);
-        PickList.itemList.updateDom(false, nowBlenaStr as string).then(() => {
-            commands.executeCommand('workbench.action.reloadWindow');
+        PickList.itemList.updateDom(false, nowBlenaStr as string).then((requiresReload) => {
+            if (requiresReload) {
+                commands.executeCommand('workbench.action.reloadWindow');
+            }
         }).catch(error => {
             console.error("Error updating the DOM:", error);
         });
@@ -120,8 +123,10 @@ export class PickList {
             (value) => {
                 if (value === 'YES') {
                     PickList.itemList = new PickList(config);
-                    PickList.itemList.updateDom(false, nowBlenaStr as string).then(() => {
-                        commands.executeCommand('workbench.action.reloadWindow');
+                    PickList.itemList.updateDom(false, nowBlenaStr as string).then((requiresReload) => {
+                        if (requiresReload) {
+                            commands.executeCommand('workbench.action.reloadWindow');
+                        }
                     });
                 }
             }
@@ -148,6 +153,34 @@ export class PickList {
         PickList.itemList.setRandUpdate(true);
         PickList.itemList.autoUpdateBackground();
         PickList.itemList = undefined;
+    }
+
+    public static startAutoRandomTask() {
+        const config = workspace.getConfiguration('backgroundCover');
+        const autoStatus = config.get<boolean>('autoStatus');
+        const interval = config.get<number>('autoInterval', 10);
+
+        PickList.stopAutoRandomTask();
+
+        if (autoStatus && interval > 0) {
+            console.log(`[BackgroundCover] Starting auto update task. Interval: ${interval}s`);
+            PickList.intervalHandle = setInterval(() => {
+                const cfg = workspace.getConfiguration('backgroundCover');
+                // Check if we have a source for images
+                if (cfg.randomImageFolder || getContext().globalState.get('backgroundCoverOnlineFolder')) {
+                    const pl = new PickList(cfg);
+                    // Silent update: no persist, no UI messages
+                    pl.autoUpdateBackground(false).catch(err => console.error(err));
+                }
+            }, interval * 1000);
+        }
+    }
+
+    public static stopAutoRandomTask() {
+        if (PickList.intervalHandle) {
+            clearInterval(PickList.intervalHandle);
+            PickList.intervalHandle = undefined;
+        }
     }
 
     public static startNest() {
@@ -238,35 +271,41 @@ export class PickList {
 
     private showMainMenu() {
         const items: ImgItem[] = [
-            { label: '$(file-media)    Select Pictures               ', description: '选择一张背景图', imageType: ActionType.SelectPictures },
-            { label: '$(file-directory)    Add Directory                ', description: '添加图片目录', imageType: ActionType.AddDirectory },
-            { label: '$(settings)    Background Opacity      ', description: '更新图片不透明度', imageType: ActionType.BackgroundOpacity },
-            { label: '$(settings)    Background Blur            ', description: '模糊度', imageType: ActionType.BackgroundBlur },
-            { label: '$(layout)    Size Mode                      ', description: '尺寸适应模式 / size adaptive mode', imageType: ActionType.SizeModeMenu },
-            { label: '$(pencil)    Input : Path/Https          ', description: '输入图片路径：本地/https/json(api)/html(a标签)/在线图库（帖子地址）', imageType: ActionType.InputPath },
-            { label: '$(eye-closed)    Closing Background      ', description: '关闭背景图', imageType: ActionType.CloseBackground },
+            { label: '$(file-media) Select Pictures', detail: '选择一张背景图', imageType: ActionType.SelectPictures },
+            { label: '$(file-directory) Add Directory', detail: '添加图片目录', imageType: ActionType.AddDirectory },
+            { label: '$(settings) Background Opacity', detail: '更新图片不透明度', imageType: ActionType.BackgroundOpacity },
+            { label: '$(settings) Background Blur', detail: '模糊度', imageType: ActionType.BackgroundBlur },
+            { label: '$(layout) Size Mode', detail: '尺寸适应模式 / size adaptive mode', imageType: ActionType.SizeModeMenu },
+            { label: '$(pencil) Input : Path/Https', detail: '输入图片路径：本地/https/json(api)/html(a标签)/在线图库（帖子地址）', imageType: ActionType.InputPath },
+            { label: '$(eye-closed) Closing Background', detail: '关闭背景图', imageType: ActionType.CloseBackground },
         ];
 
-        if (this.config.autoStatus) {
-            items.push({ label: '$(sync)    OFF Start Replacement  ', description: '关闭启动自动更换', imageType: ActionType.TurnOffAuto });
-        } else {
-            items.push({ label: '$(sync)    ON Start Replacement   ', description: '开启启动自动更换', imageType: ActionType.TurnOnAuto });
-        }
+        const autoStatus = this.config.get('autoStatus');
+        const autoInterval = this.config.get('autoInterval', 0);
+        const autoDesc = autoStatus 
+            ? `ON (Interval: ${autoInterval}s)` 
+            : 'OFF';
+        
+        items.push({ 
+            label: `$(sync) Auto Random: ${autoDesc}`, 
+            detail: '设置自动更换间隔 (0表示关闭) / Set auto update interval (0 to disable)', 
+            imageType: ActionType.AutoRandomSettings 
+        });
 
         const context = getContext();
         const onlineFolder = context.globalState.get('backgroundCoverOnlineFolder');
         if (onlineFolder) {
-            items.push({ label: '$(cloud-download)    Refresh Online Folder   ', description: '刷新在线文件夹图片列表', imageType: ActionType.RefreshOnlineFolder });
+            items.push({ label: '$(cloud-download) Refresh Online Folder', detail: '刷新在线文件夹图片列表', imageType: ActionType.RefreshOnlineFolder });
         }
 
         items.push(
             { label: '', description: '--------------------', imageType: 0, kind: QuickPickItemKind.Separator },
-            { label: '$(sparkle)    Particle Effects🎉           ', description: '粒子效果设置🎉', imageType: ActionType.ParticleSettings },
+            { label: '$(sparkle) Particle Effects🎉', detail: '粒子效果设置🎉', imageType: ActionType.ParticleSettings },
             { label: '', description: '--------------------', imageType: 0, kind: QuickPickItemKind.Separator },
-            { label: '$(github)    Github                            ', description: 'Github信息', imageType: ActionType.MoreMenu },
-            { label: '$(heart)    Support                          ', description: '请作者喝一杯咖啡吧~       ', imageType: ActionType.OpenFilePath, path: "//resources//support.jpg" },
-            { label: '$(organization)    Wechat                           ', description: '微信群聊~      ', imageType: ActionType.OpenFilePath, path: "//resources//wx.jpg" },
-            { label: '$(ports-open-browser-icon)    Online images                ', description: '在线图库', imageType: ActionType.OnlineImages, path: "https://vs.20988.xyz/d/24-bei-jing-tu-tu-ku" }
+            { label: '$(github) Github', detail: 'Github信息', imageType: ActionType.MoreMenu },
+            { label: '$(heart) Support', detail: '请作者喝一杯咖啡吧~', imageType: ActionType.OpenFilePath, path: "//resources//support.jpg" },
+            { label: '$(organization) Wechat', detail: '微信群聊~', imageType: ActionType.OpenFilePath, path: "//resources//wx.jpg" },
+            { label: '$(ports-open-browser-icon) Online images', detail: '在线图库', imageType: ActionType.OnlineImages, path: "https://vs.20988.xyz/d/24-bei-jing-tu-tu-ku" }
         );
 
         this.quickPick.items = items;
@@ -283,8 +322,6 @@ export class PickList {
             case ActionType.CloseBackground: this.updateDom(true); break;
             case ActionType.ReloadWindow: commands.executeCommand('workbench.action.reloadWindow'); break;
             case ActionType.CloseMenu: this.quickPick.hide(); break;
-            case ActionType.TurnOffAuto: this.setConfigValue('autoStatus', false, false); this.quickPick.hide(); break;
-            case ActionType.TurnOnAuto: this.handleTurnOnAuto(); break;
             case ActionType.MoreMenu: this.showMoreMenu(); break;
             case ActionType.OpenExternalUrl: this.gotoPath(path); break;
             case ActionType.OpenFilePath: PickList.gotoFilePath(path); break;
@@ -293,6 +330,7 @@ export class PickList {
             case ActionType.OnlineImages: commands.executeCommand('workbench.view.extension.backgroundCover-explorer'); break;
             case ActionType.BackgroundBlur: this.showInputBox(InputType.Blur); break;
             case ActionType.RefreshOnlineFolder: this.refreshOnlineFolder(); break;
+            case ActionType.AutoRandomSettings: this.showInputBox(InputType.AutoRandomSettings); break;
             
             // Particle Effects
             case ActionType.ParticleSettings: this.particleEffectSettings(); break;
@@ -307,16 +345,6 @@ export class PickList {
         }
     }
 
-    private handleTurnOnAuto() {
-        if (!this.config.randomImageFolder) {
-            window.showWarningMessage('Please add a directory! / 请添加目录后再来开启！');
-        } else {
-            this.setConfigValue('autoStatus', true, false);
-            this.autoUpdateBackground();
-        }
-        this.quickPick.hide();
-    }
-
     private gotoPath(path?: string) {
         if (path == undefined) { return window.showWarningMessage('无效菜单'); }
         env.openExternal(Uri.parse(path));
@@ -324,9 +352,9 @@ export class PickList {
 
     private showMoreMenu() {
         const items: ImgItem[] = [
-            { label: '$(github)    Repository               ', description: '仓库地址', imageType: ActionType.OpenExternalUrl, path: "https://github.com/AShujiao/vscode-background-cover" },
-            { label: '$(issues)    Issues                       ', description: '有疑问就来提问', imageType: ActionType.OpenExternalUrl, path: "https://github.com/AShujiao/vscode-background-cover/issues" },
-            { label: '$(star)    Star                           ', description: '给作者点个Star吧', imageType: ActionType.OpenExternalUrl, path: "https://github.com/AShujiao/vscode-background-cover" }
+            { label: '$(github) Repository', detail: '仓库地址', imageType: ActionType.OpenExternalUrl, path: "https://github.com/AShujiao/vscode-background-cover" },
+            { label: '$(issues) Issues', detail: '有疑问就来提问', imageType: ActionType.OpenExternalUrl, path: "https://github.com/AShujiao/vscode-background-cover/issues" },
+            { label: '$(star) Star', detail: '给作者点个Star吧', imageType: ActionType.OpenExternalUrl, path: "https://github.com/AShujiao/vscode-background-cover" }
         ];
         this.quickPick.items = items;
         this.quickPick.show();
@@ -348,8 +376,8 @@ export class PickList {
         ];
 
         const items: ImgItem[] = modes.map(m => ({
-            label: `$(layout)    ${m.label}`,
-            description: `${m.desc} ${this.sizeModel == m.value ? '$(check)' : ''}`,
+            label: `$(layout) ${m.label}`,
+            detail: `${m.desc} ${this.sizeModel == m.value ? '$(check)' : ''}`,
             imageType: ActionType.SetSizeMode,
             path: m.value
         }));
@@ -362,13 +390,13 @@ export class PickList {
         const enabled = getContext().globalState.get('backgroundCoverParticleEffect', false);
         const items: ImgItem[] = [
             {
-                label: enabled ? '$(circle-filled)    Disable Particles        ' : '$(circle-outline)    Enable Particles        ',
-                description: enabled ? '关闭粒子效果' : '启用粒子效果',
+                label: enabled ? '$(circle-filled) Disable Particles' : '$(circle-outline) Enable Particles',
+                detail: enabled ? '关闭粒子效果' : '启用粒子效果',
                 imageType: ActionType.ToggleParticle
             },
-            { label: '$(settings)    Particle Opacity         ', description: '设置粒子透明度', imageType: ActionType.ParticleOpacity },
-            { label: '$(symbol-color)    Select Color               ', description: '选择粒子颜色', imageType: ActionType.ParticleColor },
-            { label: '$(multiple-windows)    Particle Count           ', description: '设置粒子数量', imageType: ActionType.ParticleCount },
+            { label: '$(settings) Particle Opacity', detail: '设置粒子透明度', imageType: ActionType.ParticleOpacity },
+            { label: '$(symbol-color) Select Color', detail: '选择粒子颜色', imageType: ActionType.ParticleColor },
+            { label: '$(multiple-windows) Particle Count', detail: '设置粒子数量', imageType: ActionType.ParticleCount },
         ];
         this.quickPick.items = items;
         this.quickPick.show();
@@ -381,13 +409,12 @@ export class PickList {
 
     private showColorSelection() {
         const items: ImgItem[] = [];
-        items.push({ label: '$(pencil)    Custom Color', description: '输入自定义RGB颜色 (例如: 255,255,255)', imageType: ActionType.InputParticleColor });
+        items.push({ label: '$(pencil) Custom Color', detail: '输入自定义RGB颜色 (例如: 255,255,255)', imageType: ActionType.InputParticleColor });
         
         const colorList = getColorList();
         for (const colorName of colorList) {
             items.push({
-                label: `$(symbol-color)    ${colorName}`,
-                description: ``,
+                label: `$(symbol-color) ${colorName}`,
                 imageType: ActionType.SetParticleColor,
                 path: colorName
             });
@@ -405,7 +432,7 @@ export class PickList {
         }
     }
 
-    private async autoUpdateBackground(): Promise<boolean> {
+    private async autoUpdateBackground(persist: boolean = true): Promise<boolean> {
         const context = getContext();
         const onlineFolder = context.globalState.get<string>('backgroundCoverOnlineFolder');
         const cachedImages = context.globalState.get<string[]>('backgroundCoverOnlineImageList');
@@ -414,28 +441,41 @@ export class PickList {
             try {
                 let images = cachedImages as string[] | undefined;
                 if (!images || images.length === 0) {
-                    window.showInformationMessage('正在从在线文件夹获取图片列表...');
+                    if (persist) {
+                        window.showInformationMessage('正在从在线文件夹获取图片列表...');
+                    }
                     images = await OnlineImageHelper.getOnlineImages(onlineFolder);
                     context.globalState.update('backgroundCoverOnlineImageList', images);
                 }
                 if (images && images.length > 0) {
                     const randomImage = images[Math.floor(Math.random() * images.length)];
-                    this.handleAction(ActionType.UpdateBackground, randomImage);
+                    if (persist) {
+                        this.handleAction(ActionType.UpdateBackground, randomImage);
+                    } else {
+                        this.updateBackgound(randomImage, false, false);
+                    }
                     return true;
                 }
             } catch (error: any) {
                 console.error('从在线文件夹获取图片失败:', error);
-                window.showWarningMessage('在线文件夹访问失败，请检查网络连接！');
+                if (persist) {
+                    window.showWarningMessage('在线文件夹访问失败，请检查网络连接！');
+                }
                 this.clearOnlineFolder(true);
             }
         }
 
-        if (this.checkFolder(this.config.randomImageFolder)) {
-            const files = this.getFolderImgList(this.config.randomImageFolder);
+        const randomImageFolder = this.config.get<string>('randomImageFolder');
+        if (randomImageFolder && this.checkFolder(randomImageFolder)) {
+            const files = this.getFolderImgList(randomImageFolder);
             if (files.length > 0) {
                 const randomFile = files[Math.floor(Math.random() * files.length)];
-                const file = path.join(this.config.randomImageFolder, randomFile);
-                this.handleAction(ActionType.UpdateBackground, file);
+                const file = path.join(randomImageFolder, randomFile);
+                if (persist) {
+                    this.handleAction(ActionType.UpdateBackground, file);
+                } else {
+                    this.updateBackgound(file, false, false);
+                }
             }
         }
         return true;
@@ -513,19 +553,19 @@ export class PickList {
 
     private showImageSelectionList(folderPath?: string) {
         let items: ImgItem[] = [{
-            label: '$(diff-added)  Manual selection',
-            description: '选择一张背景图',
+            label: '$(diff-added) Manual selection',
+            detail: '选择一张背景图',
             imageType: ActionType.ManualSelection
         }];
 
-        const randomPath: any = folderPath ? folderPath : this.config.randomImageFolder;
+        const randomPath: any = folderPath ? folderPath : this.config.get<string>('randomImageFolder');
         if (this.checkFolder(randomPath)) {
             const files = this.getFolderImgList(randomPath);
             if (files.length > 0) {
                 const randomFile = files[Math.floor(Math.random() * files.length)];
                 items.push({
-                    label: '$(light-bulb)  Random pictures',
-                    description: '随机自动选择       ctrl+shift+F7',
+                    label: '$(light-bulb) Random pictures',
+                    detail: '随机自动选择       ctrl+shift+F7',
                     imageType: ActionType.UpdateBackground,
                     path: path.join(randomPath, randomFile)
                 });
@@ -573,6 +613,10 @@ export class PickList {
             case InputType.Blur:
                 placeString = 'Set image blur: 0-100,current:(' + this.blur + ')';
                 promptString = '设置图片模糊度：0 - 100,当前值：' + this.blur;
+                break;
+            case InputType.AutoRandomSettings:
+                placeString = 'Auto update current:(' + this.config.get('autoInterval', 0) + ')';
+                promptString = '设置自动更换间隔(秒)，0表示关闭自动定时更换 / Set interval (0 to disable)';
                 break;
             case InputType.ParticleOpacity:
                 placeString = 'Particle opacity (0.1 - 1),current:(' + context.globalState.get("backgroundCoverParticleOpacity") + ')';
@@ -658,6 +702,12 @@ export class PickList {
                 window.showWarningMessage('Blur ranges in：0 - 100！');
                 return false;
             }
+        } else if (type === InputType.AutoRandomSettings) {
+            const interval = parseInt(value);
+            if (interval < 0 || isNaN(interval)) {
+                window.showWarningMessage('Interval must be >= 0!');
+                return false;
+            }
         } else if (type === InputType.ParticleOpacity) {
             const particleOpacity = parseFloat(value);
             if (particleOpacity < 0 || particleOpacity > 1 || isNaN(particleOpacity)) {
@@ -688,29 +738,43 @@ export class PickList {
         } else if (type === InputType.ParticleOpacity) {
             this.setContextValue('backgroundCoverParticleOpacity', parseFloat(value), true);
         } else if (type === InputType.Path) {
-            this.setConfigValue('imagePath', value, true);
+            await this.setConfigValue('imagePath', value, true);
         } else if (type === InputType.Opacity) {
-            this.setConfigValue('opacity', parseFloat(value), true);
+            await this.setConfigValue('opacity', parseFloat(value), true);
         } else if (type === InputType.Blur) {
-            this.setConfigValue('blur', parseFloat(value), true);
+            await this.setConfigValue('blur', parseFloat(value), true);
+        } else if (type === InputType.AutoRandomSettings) {
+            const interval = parseInt(value);
+            if (interval > 0) {
+                if (!this.config.get('randomImageFolder') && !getContext().globalState.get('backgroundCoverOnlineFolder')) {
+                    window.showWarningMessage('Please add a directory first! / 请先添加目录！');
+                    return false;
+                }
+                await this.setConfigValue('autoInterval', interval, false);
+                await this.setConfigValue('autoStatus', true, false);
+                await this.autoUpdateBackground();
+            } else {
+                await this.setConfigValue('autoStatus', false, false);
+                await this.setConfigValue('autoInterval', 0, false);
+            }
         }
     }
 
-    private setSizeModel(value?: string) {
+    private async setSizeModel(value?: string) {
         if (!value) { return vsHelp.showInfo('No parameter value was obtained / 未获取到参数值'); }
-        this.setConfigValue('sizeModel', value, true);
+        await this.setConfigValue('sizeModel', value, true);
     }
 
     public setImageFileType(value: number) {
         this.imageFileType = value;
     }
 
-    public updateBackgound(path?: string, clearOnlineCache: boolean = false) {
+    public async updateBackgound(path?: string, clearOnlineCache: boolean = false, persist: boolean = true) {
         if (!path) { return vsHelp.showInfo('Unfetched Picture Path / 未获取到图片路径'); }
         if (clearOnlineCache || !this.isOnlineUrl(path)) {
             this.clearOnlineFolder(true);
         }
-        this.setConfigValue('imagePath', path);
+        await this.setConfigValue('imagePath', path, true, persist);
     }
 
     private async openFieldDialog(type: number) {
@@ -738,8 +802,11 @@ export class PickList {
         return false;
     }
 
-    private setConfigValue(name: string, value: any, updateDom: Boolean = true) {
-        this.config.update(name, value, ConfigurationTarget.Global);
+    private async setConfigValue(name: string, value: any, updateDom: Boolean = true, persist: boolean = true) {
+        if (persist) {
+            await this.config.update(name, value, ConfigurationTarget.Global);
+            this.config = workspace.getConfiguration('backgroundCover');
+        }
         switch (name) {
             case 'opacity': this.opacity = value; break;
             case 'imagePath': this.imgPath = value; break;
@@ -747,7 +814,7 @@ export class PickList {
             case 'blur': this.blur = value; break;
             default: break;
         }
-        if (updateDom) { this.updateDom(); }
+        if (updateDom) { await this.updateDom(); }
         return true;
     }
 
@@ -761,7 +828,7 @@ export class PickList {
         this.randUpdate = value;
     }
 
-    private async updateDom(uninstall: boolean = false, colorThemeKind: string = ""): Promise<void> {
+    private async updateDom(uninstall: boolean = false, colorThemeKind: string = ""): Promise<boolean> {
         if (colorThemeKind == "") {
             colorThemeKind = BlendHelper.autoBlendModel();
         }
@@ -775,13 +842,13 @@ export class PickList {
         try {
             if (uninstall) {
                 this.config.update("imagePath", "", ConfigurationTarget.Global);
-                result = await dom.uninstall();
+                result = await dom.clearBackground();
             } else {
                 result = await dom.install();
             }
 
             if (result) {
-                if (!dom.requiresReload && !uninstall) {
+                if (!dom.requiresReload) {
                     if (this.quickPick) {
                         this.quickPick.hide();
                     }
@@ -792,14 +859,14 @@ export class PickList {
                         window.setStatusBarMessage('Background updated successfully! / 背景更新成功！', 5000);
                     }, 1000);
                     
-                    return;
+                    return false;
                 }
 
                 if (this.quickPick) {
                     this.quickPick.placeholder = 'Reloading takes effect? / 重新加载生效？';
                     this.quickPick.items = [
-                        { label: '$(check)   YES', description: '立即重新加载窗口生效', imageType: ActionType.ReloadWindow },
-                        { label: '$(x)   NO', description: '稍后手动重启', imageType: ActionType.CloseMenu }
+                        { label: '$(check) YES', detail: '立即重新加载窗口生效', imageType: ActionType.ReloadWindow },
+                        { label: '$(x) NO', detail: '稍后手动重启', imageType: ActionType.CloseMenu }
                     ];
                     this.quickPick.ignoreFocusOut = true;
                     this.quickPick.show();
@@ -823,5 +890,6 @@ export class PickList {
         } catch (error: any) {
             await window.showErrorMessage(`更新失败: ${error.message}`);
         }
+        return result && (dom.requiresReload || uninstall);
     }
 }

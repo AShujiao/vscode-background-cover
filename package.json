@@ -98,6 +98,11 @@
                     "default": false,
                     "description": "Automatically change background each time you start / 每次启动时随机自动更换背景"
                 },
+                "backgroundCover.autoInterval": {
+                    "type": "number",
+                    "default": 10,
+                    "description": "Automatically change background interval in seconds / 自动更换背景的时间间隔（秒）"
+                },
                 "backgroundCover.sizeModel": {
                     "type": "string",
                     "enum": [

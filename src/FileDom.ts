@@ -259,6 +259,17 @@ export class FileDom {
         }
     }
 
+    public async clearBackground(): Promise<boolean> {
+        try {
+            await this.writeWithPermission(CUSTOM_CSS_FILE_PATH, '');
+            this.requiresReload = false;
+            return true;
+        } catch (error) {
+            await window.showErrorMessage(`清除背景失败: ${error}`);
+            return false;
+        }
+    }
+
     private async getContent(filePath: string): Promise<string> {
         return await fse.readFile(filePath, 'utf-8');
     }

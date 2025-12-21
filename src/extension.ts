@@ -50,7 +50,15 @@ export function activate(context: ExtensionContext) {
 		}
 	});
 
+	// 启动自动更换任务
+	PickList.startAutoRandomTask();
 
+	// 监听配置变化
+	context.subscriptions.push(workspace.onDidChangeConfiguration(e => {
+		if (e.affectsConfiguration('backgroundCover.autoStatus') || e.affectsConfiguration('backgroundCover.autoInterval')) {
+			PickList.startAutoRandomTask();
+		}
+	}));
 
 	let randomCommand = commands.registerCommand('extension.backgroundCover.refresh', () => { PickList.randomUpdateBackground(); });
 	let startCommand = commands.registerCommand('extension.backgroundCover.start', () => { PickList.createItemLIst() });
@@ -132,5 +140,6 @@ async function checkVSCodeVersionChanged(context: ExtensionContext): Promise<boo
 
 // this method is called when your extension is deactivated
 export function deactivate() {
+	PickList.stopAutoRandomTask();
 }
 

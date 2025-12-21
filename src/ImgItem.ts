@@ -8,14 +8,15 @@ import {
 export class ImgItem implements QuickPickItem {
 
 	label: string;
-	description: string;
+	description?: string;
+	detail?: string;
 	imageType: number;
 	path?: string | undefined;
 	kind?: QuickPickItemKind | undefined;
 
-	constructor(label: string, description: string, type: number, path?: string | undefined) {
+	constructor(label: string, detail: string, type: number, path?: string | undefined) {
 		this.label = label;
-		this.description = description;
+		this.detail = detail;
 		this.imageType = type;
 		this.path = path;
 	}
