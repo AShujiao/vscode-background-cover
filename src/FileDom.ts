@@ -42,6 +42,8 @@ const selectedWorkbench = getWorkbenchTarget();
 const JS_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.js);
 const CSS_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.css);
 const BAK_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.bak);
+const CUSTOM_CSS_FILE_NAME = 'css-background-cover.css';
+const CUSTOM_CSS_FILE_PATH = path.join(selectedWorkbench.root, CUSTOM_CSS_FILE_NAME);
 
 enum SystemType {
     WINDOWS = 'Windows_NT',
@@ -168,10 +170,27 @@ export class FileDom {
                 this.initializePromise = undefined;
             }
 
+            // Save CSS first
+            try {
+                await this.saveCssContent();
+            } catch (e) {
+                window.showErrorMessage('Failed to write CSS file: ' + e);
+                return false;
+            }
+
             const content = this.getJs().trim();
             if (!content) return false;
 
             const currentContent = await this.getContent(this.filePath);
+            
+            // Check if we need to update JS
+            const match = currentContent.match(new RegExp(`\\/\\*ext-${this.extName}-start\\*\\/([\\s\\S]*?)\\/\\*ext-${this.extName}-end\\*\\/`));
+            if (match && match[0].trim() === content.trim()) {
+                this.requiresReload = false;
+                return true;
+            }
+
+            this.requiresReload = true;
             const bakContent = this.clearCssContent(currentContent);
             
             if (this.bakStatus) {
@@ -219,6 +238,20 @@ export class FileDom {
         try {
             const content = this.clearCssContent(await this.getContent(this.filePath));
             await this.saveContent(content);
+            
+            // Remove CSS file
+            if (await fse.pathExists(CUSTOM_CSS_FILE_PATH)) {
+                try {
+                    await fse.remove(CUSTOM_CSS_FILE_PATH);
+                } catch {
+                    if (this.systemType === SystemType.WINDOWS) {
+                        await SudoPromptHelper.exec(`del "${CUSTOM_CSS_FILE_PATH}"`);
+                    } else {
+                        await SudoPromptHelper.exec(`rm "${CUSTOM_CSS_FILE_PATH}"`);
+                    }
+                }
+            }
+
             return true;
         } catch (error) {
             await window.showErrorMessage(`卸载失败: ${error}`);
@@ -274,16 +307,94 @@ export class FileDom {
         await fse.writeFile(BAK_FILE_PATH, this.bakJsContent, { encoding: 'utf-8' });
     }
 
-    private getJs(): string {
+    public requiresReload: boolean = true;
+
+    private async saveCssContent(): Promise<void> {
         const css = this.getCss();
+        await this.writeWithPermission(CUSTOM_CSS_FILE_PATH, css);
+    }
+
+    private getLoaderJs(): string {
+        const cssUrl = Uri.file(CUSTOM_CSS_FILE_PATH).with({ scheme: 'vscode-file', authority: 'vscode-app' }).toString();
+        
+        return `
+        (function() {
+            const cssUrl = '${cssUrl}';
+            
+            function updateStyleTag(css) {
+                let style = document.getElementById('background-cover-style');
+                if (!style) {
+                    style = document.createElement('style');
+                    style.id = 'background-cover-style';
+                    document.head.appendChild(style);
+                }
+                if (style.textContent !== css) {
+                    style.textContent = css;
+                }
+            }
+            
+            function loadCss() {
+                const url = cssUrl + '?t=' + Date.now();
+                fetch(url).then(r => r.text()).then(css => {
+                    updateStyleTag(css);
+                }).catch(e => console.error('[BackgroundCover] Load error:', e));
+            }
+            
+            // Initial load
+            loadCss();
+
+            // 1. Event Hook: Listen for status bar message
+            try {
+                const observer = new MutationObserver((mutations) => {
+                    for (const mutation of mutations) {
+                        const target = mutation.target;
+                        // Check text content of the mutated node
+                        if (target.textContent && target.textContent.includes('background-cover-reload-trigger')) {
+                            loadCss();
+                            return; 
+                        }
+                    }
+                });
+                
+                const findStatusBar = () => {
+                    // Try to find the status bar container
+                    const statusBar = document.querySelector('.statusbar') || document.getElementById('workbench.parts.statusbar') || document.querySelector('footer');
+                    if (statusBar) {
+                        observer.observe(statusBar, { 
+                            subtree: true, 
+                            characterData: true, 
+                            childList: true 
+                        });
+                        console.log('[BackgroundCover] Observer attached to:', statusBar);
+                    } else {
+                        // Retry if not found yet
+                        setTimeout(findStatusBar, 2000);
+                    }
+                };
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', findStatusBar);
+                } else {
+                    findStatusBar();
+                }
+            } catch (e) {
+                console.error('[BackgroundCover] Observer error:', e);
+            }
+
+            // 2. Backup Hook: Check on window focus
+            // This ensures that if the status bar trigger is missed, the background updates when the user interacts with the window
+            window.addEventListener('focus', loadCss);
+        })();
+        `;
+    }
+
+    private getJs(): string {
         const particleJs = this.getParticleJs();
 
         return `
         /*ext-${this.extName}-start*/
         /*ext.${this.extName}.ver.${version}*/
-        const style = document.createElement('style');
-        style.textContent = \`${css}\`;
-        document.head.appendChild(style);
+        ${this.getLoaderJs()}
         ${particleJs}
         /*ext-${this.extName}-end*/
         `;

@@ -781,6 +781,20 @@ export class PickList {
             }
 
             if (result) {
+                if (!dom.requiresReload && !uninstall) {
+                    if (this.quickPick) {
+                        this.quickPick.hide();
+                    }
+                    const triggerMsg = window.setStatusBarMessage('background-cover-reload-trigger');
+                    
+                    setTimeout(() => {
+                        triggerMsg.dispose();
+                        window.setStatusBarMessage('Background updated successfully! / 背景更新成功！', 5000);
+                    }, 1000);
+                    
+                    return;
+                }
+
                 if (this.quickPick) {
                     this.quickPick.placeholder = 'Reloading takes effect? / 重新加载生效？';
                     this.quickPick.items = [
