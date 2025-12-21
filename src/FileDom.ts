@@ -1,14 +1,27 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import * as crypto from 'crypto';
+import * as https from 'https';
+import * as http from 'http';
+import { URL } from 'url';
 import { env, Uri, window, WorkspaceConfiguration } from 'vscode';
-import * as lockfile from 'lockfile';
+import * as lockfile from 'proper-lockfile';
 import version from './version';
 import { SudoPromptHelper } from './SudoPromptHelper';
 import * as fse from 'fs-extra';
 import { getContext } from './global';
+import { getParticleEffectJs } from './ParticleEffect';
 
-const workbenchTargets = [
+interface WorkbenchTarget {
+    name: string;
+    root: string;
+    js: string;
+    css: string;
+    bak: string;
+}
+
+const WORKBENCH_TARGETS: WorkbenchTarget[] = [
     {
         name: 'desktop',
         root: path.join(env.appRoot, "out", "vs", "workbench"),
@@ -24,10 +37,17 @@ const workbenchTargets = [
         bak: 'workbench.js.bak'
     }
 ];
-const selectedWorkbench = workbenchTargets.find((target) => fs.existsSync(path.join(target.root, target.js))) || workbenchTargets[0];
-const jsFilePath      = path.join(selectedWorkbench.root, selectedWorkbench.js);
-const cssFilePath     = path.join(selectedWorkbench.root, selectedWorkbench.css);
-const bakFilePath     = path.join(selectedWorkbench.root, selectedWorkbench.bak);
+
+function getWorkbenchTarget(): WorkbenchTarget {
+    return WORKBENCH_TARGETS.find((target) => fs.existsSync(path.join(target.root, target.js))) || WORKBENCH_TARGETS[0];
+}
+
+const selectedWorkbench = getWorkbenchTarget();
+const JS_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.js);
+const CSS_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.css);
+const BAK_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.bak);
+const CUSTOM_CSS_FILE_NAME = 'css-background-cover.css';
+export const CUSTOM_CSS_FILE_PATH = path.join(selectedWorkbench.root, CUSTOM_CSS_FILE_NAME);
 
 enum SystemType {
     WINDOWS = 'Windows_NT',
@@ -52,7 +72,7 @@ export class FileDom {
     private initializePromise?: Promise<void>;
 
     constructor(
-        workConfig:WorkspaceConfiguration,
+        workConfig: WorkspaceConfiguration,
         imagePath: string,
         opacity: number,
         sizeModel: string = 'cover',
@@ -60,22 +80,28 @@ export class FileDom {
         blendModel: string = ''
     ) {
         this.workConfig = workConfig;
-        this.blendModel   = blendModel || this.workConfig.get('blendModel', '');
-        this.filePath     = jsFilePath;
-        this.imagePath    = imagePath;
+        this.filePath = JS_FILE_PATH;
+        this.imagePath = imagePath;
         this.imageOpacity = Math.min(opacity, 0.8);
-        this.sizeModel    = sizeModel || "cover";
-        this.blur         = blur;
-        this.blendModel   = blendModel;
-        this.systemType   = os.type();
+        this.sizeModel = sizeModel || "cover";
+        this.blur = blur;
+        this.blendModel = blendModel || this.workConfig.get('blendModel', '');
+        this.systemType = os.type();
         this.forceHttpsUpgrade = this.workConfig.get('forceHttpsUpgrade', true);
+        
         this.initializePromise = this.initializeImage().catch((error: unknown) => {
             console.error('[FileDom] Failed to preprocess image:', error);
         });
     }
 
     private async initializeImage(): Promise<void> {
-        const lowerPath = this.imagePath.toLowerCase();
+        let lowerPath = this.imagePath.toLowerCase();
+
+        if (lowerPath.startsWith('http://') || lowerPath.startsWith('https://')) {
+            await this.downloadAndCacheImage();
+            lowerPath = this.imagePath.toLowerCase();
+        }
+
         if (
             !lowerPath.startsWith('http://') &&
             !lowerPath.startsWith('https://') &&
@@ -88,50 +114,135 @@ export class FileDom {
         }
     }
 
-    public async install(): Promise<boolean> {
+    private async downloadAndCacheImage(): Promise<void> {
+        try {
+            const context = getContext();
+            const cacheDir = path.join(context.globalStorageUri.fsPath, 'images');
+            await fse.ensureDir(cacheDir);
 
-        // 文件是否存在
+            const urlHash = crypto.createHash('md5').update(this.imagePath).digest('hex');
+            let ext = '.jpg';
+            let isStaticImage = false;
+
+            try {
+                const urlObj = new URL(this.imagePath);
+                ext = path.extname(urlObj.pathname) || '.jpg';
+                if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].includes(ext.toLowerCase())) {
+                    isStaticImage = true;
+                }
+            } catch {
+                // ignore
+            }
+            
+            const cachePath = path.join(cacheDir, `${urlHash}${ext}`);
+
+            if (isStaticImage && await fse.pathExists(cachePath)) {
+                this.imagePath = cachePath;
+                return;
+            }
+
+            const tempPath = `${cachePath}.tmp`;
+
+            try {
+                await this.downloadFile(this.imagePath, tempPath);
+                await fse.move(tempPath, cachePath, { overwrite: true });
+                this.imagePath = cachePath;
+            } catch (error) {
+                if (await fse.pathExists(cachePath)) {
+                    this.imagePath = cachePath;
+                    console.warn('[FileDom] Download failed, using cached image:', error);
+                } else {
+                    throw error;
+                }
+            }
+        } catch (error) {
+            console.error('[FileDom] Failed to download image:', error);
+        }
+    }
+
+    private downloadFile(url: string, dest: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const file = fs.createWriteStream(dest);
+            const protocol = url.startsWith('https') ? https : http;
+            
+            const request = protocol.get(url, (response) => {
+                if (response.statusCode !== 200) {
+                    reject(new Error(`Failed to download: ${response.statusCode}`));
+                    return;
+                }
+                response.pipe(file);
+                file.on('finish', () => {
+                    file.close();
+                    resolve();
+                });
+            });
+            
+            request.on('error', (err) => {
+                fs.unlink(dest, () => {});
+                reject(err);
+            });
+        });
+    }
+
+    public async install(): Promise<boolean> {
+        if (!(await this.checkFileExists())) {
+            return false;
+        }
+
+        await this.handleLegacyCleanup();
+        await this.ensureBackup();
+
+        return await this.applyPatch();
+    }
+
+    private async checkFileExists(): Promise<boolean> {
         const isExist = await fse.pathExists(this.filePath);
         if (!isExist) {
             await window.showErrorMessage(`文件不存在，提醒开发者修复吧！`);
-            return false
+            return false;
         }
+        return true;
+    }
 
+    private async handleLegacyCleanup(): Promise<void> {
+        const vsContext = getContext();
+        const clearCssNum = Number(vsContext.globalState.get('ext_backgroundCover_clear_v2')) || 0;
 
-        // 获取全局变量是否已经清除
-        let vsContext = getContext();
-        let clearCssNum = Number(vsContext.globalState.get('ext_backgroundCover_clear_v2')) || 0;
-        // 尝试5次清除旧版css文件
-        if(clearCssNum <= 5){
-            // 验证旧版css文件是否需要清除
-            const cssContent = this.getContent(cssFilePath);
-            if(this.getPatchContent(cssContent)){
-                // 清除旧版css文件
+        if (clearCssNum <= 5) {
+            const cssContent = await this.getContent(CSS_FILE_PATH);
+            if (this.getPatchContent(cssContent)) {
                 this.upCssContent = this.clearCssContent(cssContent);
-            }else{
-                // 不存在旧版css文件，设置全局变量
-                vsContext.globalState.update('ext_backgroundCover_clear_v2',clearCssNum + 1);
+            } else {
+                vsContext.globalState.update('ext_backgroundCover_clear_v2', clearCssNum + 1);
             }
         }
+    }
 
-        // 备份文件是否存在
-        const bakExist = await fse.pathExists(bakFilePath);
+    private async ensureBackup(): Promise<void> {
+        const bakExist = await fse.pathExists(BAK_FILE_PATH);
         if (!bakExist) {
             this.bakStatus = true;
-            // 触发备份提醒用户稍等片刻
-            window.showInformationMessage(`首次使用正在获取权限及备份文件，处理中... / First use is getting permission and backing up files, processing...`);
+            window.setStatusBarMessage(`首次使用正在获取权限及备份文件，处理中... / First use is getting permission and backing up files, processing...`, 10000);
         }
-        
+    }
 
-        const lockPath = os.tmpdir() + '/vscode-background.lock';
+    private async applyPatch(): Promise<boolean> {
+        const lockPath = path.join(os.tmpdir(), 'vscode-background.lock');
+        let release: (() => Promise<void>) | undefined;
 
         try {
-            // 加锁
-            await new Promise((resolve, reject) => {
-                lockfile.lock(lockPath, { retries: 10, retryWait: 100 }, (err:any) => {
-                    if (err) reject(err);
-                    else resolve(null);
-                });
+            if (!(await fse.pathExists(lockPath))) {
+                await fse.writeFile(lockPath, '', 'utf-8');
+            }
+
+            release = await lockfile.lock(lockPath, {
+                retries: {
+                    retries: 10,
+                    minTimeout: 100,
+                    maxTimeout: 1000,
+                    randomize: true
+                },
+                stale: 20000
             });
 
             if (this.initializePromise) {
@@ -139,11 +250,30 @@ export class FileDom {
                 this.initializePromise = undefined;
             }
 
+            // Save CSS first
+            try {
+                await this.saveCssContent();
+            } catch (e) {
+                window.showErrorMessage('Failed to write CSS file: ' + e);
+                return false;
+            }
+
             const content = this.getJs().trim();
             if (!content) return false;
 
-            const bakContent = this.clearCssContent(this.getContent(this.filePath))
-            if(this.bakStatus){
+            const currentContent = await this.getContent(this.filePath);
+            
+            // Check if we need to update JS
+            const match = currentContent.match(new RegExp(`\\/\\*ext-${this.extName}-start\\*\\/([\\s\\S]*?)\\/\\*ext-${this.extName}-end\\*\\/`));
+            if (match && match[0].trim() === content.trim()) {
+                this.requiresReload = false;
+                return true;
+            }
+
+            this.requiresReload = true;
+            const bakContent = this.clearCssContent(currentContent);
+            
+            if (this.bakStatus) {
                 this.bakJsContent = bakContent;
             }
 
@@ -154,35 +284,61 @@ export class FileDom {
             await window.showErrorMessage(`Installation failed: ${error.message}`);
             return false;
         } finally {
-            // 解锁
-            lockfile.unlock(lockPath, (err:any) => {
-                if (err) console.error(`Failed to unlock ${lockPath}:`, err);
-            });
+            if (release) {
+                try {
+                    await release();
+                } catch (err) {
+                    console.error(`Failed to unlock ${lockPath}:`, err);
+                }
+            }
         }
     }
 
-    // 获取文件权限通用方法
-    public async getFilePermission(filePath:string): Promise<void> {
-        switch(this.systemType){
-            case SystemType.WINDOWS:
-                await SudoPromptHelper.exec(`takeown /f "${filePath}" /a`);
-                await SudoPromptHelper.exec(`icacls "${filePath}" /grant Users:F`);
-                break;
-            case SystemType.MACOS:
-                await SudoPromptHelper.exec(`chmod a+rwx "${filePath}"`);
-                break;
-            case SystemType.LINUX:
-                await SudoPromptHelper.exec(`chmod 666 "${filePath}"`);
-                break;
+    public async getFilePermission(filePath: string): Promise<void> {
+        try {
+            if (!(await fse.pathExists(filePath))) {
+                if (this.systemType === SystemType.WINDOWS) {
+                    await SudoPromptHelper.exec(`echo. > "${filePath}"`);
+                } else {
+                    await SudoPromptHelper.exec(`touch "${filePath}"`);
+                }
+            }
+            switch (this.systemType) {
+                case SystemType.WINDOWS:
+                    await SudoPromptHelper.exec(`takeown /f "${filePath}" /a`);
+                    await SudoPromptHelper.exec(`icacls "${filePath}" /grant Users:F`);
+                    break;
+                case SystemType.MACOS:
+                    await SudoPromptHelper.exec(`chmod a+rwx "${filePath}"`);
+                    break;
+                case SystemType.LINUX:
+                    await SudoPromptHelper.exec(`chmod 666 "${filePath}"`);
+                    break;
+            }
+        } catch (error) {
+            console.error(`Failed to get permission for ${filePath}:`, error);
+            throw error;
         }
     }
-
 
     public async uninstall(): Promise<boolean> {
         try {
-            const content = this.clearCssContent(this.getContent(this.filePath));
+            const content = this.clearCssContent(await this.getContent(this.filePath));
             await this.saveContent(content);
-            //await commands.executeCommand('workbench.action.reloadWindow');
+            
+            // Remove CSS file
+            if (await fse.pathExists(CUSTOM_CSS_FILE_PATH)) {
+                try {
+                    await fse.remove(CUSTOM_CSS_FILE_PATH);
+                } catch {
+                    if (this.systemType === SystemType.WINDOWS) {
+                        await SudoPromptHelper.exec(`del "${CUSTOM_CSS_FILE_PATH}"`);
+                    } else {
+                        await SudoPromptHelper.exec(`rm "${CUSTOM_CSS_FILE_PATH}"`);
+                    }
+                }
+            }
+
             return true;
         } catch (error) {
             await window.showErrorMessage(`卸载失败: ${error}`);
@@ -190,160 +346,184 @@ export class FileDom {
         }
     }
 
-    private getContent(filePath:string): string {
-        return fs.readFileSync(filePath, 'utf-8');
+    public async clearBackground(): Promise<boolean> {
+        try {
+            await this.writeWithPermission(CUSTOM_CSS_FILE_PATH, '');
+            this.requiresReload = false;
+            return true;
+        } catch (error) {
+            await window.showErrorMessage(`清除背景失败: ${error}`);
+            return false;
+        }
+    }
+
+    private async getContent(filePath: string): Promise<string> {
+        return await fse.readFile(filePath, 'utf-8');
     }
 
     private async saveContent(content: string): Promise<boolean> {
-
-        // 追加新内容到原文件
-        try{
-            await fse.writeFile(this.filePath,content, {encoding: 'utf-8'});
-        }catch(err){
-            // 权限不足,根据不同系统获取创建文件权限
-            await this.getFilePermission(this.filePath);
-            await fse.writeFile(this.filePath,content, {encoding: 'utf-8'});
-        }
-        
-        
-        // 清除旧版css文件
-        if(this.upCssContent){
-            try{
-                await fse.writeFile(cssFilePath,this.upCssContent, {encoding: 'utf-8'});
-            }catch(err){
-                // 权限不足,根据不同系统获取创建文件权限
-                await this.getFilePermission(cssFilePath);
-                await fse.writeFile(cssFilePath,this.upCssContent, {encoding: 'utf-8'});
-            }
-            this.upCssContent = '';
-        }
-
-        // 备份文件
-        if(this.bakStatus){
+        if (this.bakStatus) {
             await this.bakFile();
+        }
+
+        await this.writeWithPermission(this.filePath, content);
+
+        if (this.upCssContent) {
+            await this.writeWithPermission(CSS_FILE_PATH, this.upCssContent);
+            this.upCssContent = '';
         }
 
         return true;
     }
 
-    private async bakFile(): Promise<void> {
-        try{
-            await fse.writeFile(bakFilePath,this.bakJsContent, {encoding: 'utf-8'});
-        }catch(err){
-            // 权限不足,根据不同系统获取创建文件权限
-            if(this.systemType === SystemType.WINDOWS){
-                // 使用cmd命令创建文件
-                await SudoPromptHelper.exec(`echo. > "${bakFilePath}"`);
-                await SudoPromptHelper.exec(`icacls "${bakFilePath}" /grant Users:F`);
-            }else if(this.systemType === SystemType.MACOS){
-                // 使用命令创建文件并赋予权限
-                await SudoPromptHelper.exec(`touch "${bakFilePath}"`);
-                await SudoPromptHelper.exec(`chmod a+rwx "${bakFilePath}"`);
-            }else if(this.systemType === SystemType.LINUX){
-                // 使用命令创建文件并赋予权限
-                await SudoPromptHelper.exec(`touch "${bakFilePath}"`);
-                await SudoPromptHelper.exec(`chmod 666 "${bakFilePath}"`);
-            }
-            await fse.writeFile(bakFilePath,this.bakJsContent, {encoding: 'utf-8'});
+    private async writeWithPermission(filePath: string, content: string): Promise<void> {
+        try {
+            await fse.writeFile(filePath, content, { encoding: 'utf-8' });
+        } catch (err) {
+            await this.getFilePermission(filePath);
+            await fse.writeFile(filePath, content, { encoding: 'utf-8' });
         }
     }
 
-    private getJs(): string {
-        let css = this.getCss();
-        let particleJs = this.getParticleJs();
+    private async bakFile(): Promise<void> {
+        try {
+            await fse.writeFile(BAK_FILE_PATH, this.bakJsContent, { encoding: 'utf-8' });
+        } catch (err) {
+            await this.createAndWriteBakFile();
+        }
+    }
+
+    private async createAndWriteBakFile(): Promise<void> {
+        if (this.systemType === SystemType.WINDOWS) {
+            await SudoPromptHelper.exec(`echo. > "${BAK_FILE_PATH}"`);
+            await SudoPromptHelper.exec(`icacls "${BAK_FILE_PATH}" /grant Users:F`);
+        } else {
+            await SudoPromptHelper.exec(`touch "${BAK_FILE_PATH}"`);
+            const chmodCmd = this.systemType === SystemType.MACOS ? 'chmod a+rwx' : 'chmod 666';
+            await SudoPromptHelper.exec(`${chmodCmd} "${BAK_FILE_PATH}"`);
+        }
+        await fse.writeFile(BAK_FILE_PATH, this.bakJsContent, { encoding: 'utf-8' });
+    }
+
+    public requiresReload: boolean = true;
+
+    private async saveCssContent(): Promise<void> {
+        const css = this.getCss();
+        await this.writeWithPermission(CUSTOM_CSS_FILE_PATH, css);
+    }
+
+    private getLoaderJs(): string {
+        const cssUrl = Uri.file(CUSTOM_CSS_FILE_PATH).with({ scheme: 'vscode-file', authority: 'vscode-app' }).toString();
         
+        return `
+        (function() {
+            const cssUrl = '${cssUrl}';
+            
+            function updateStyleTag(css) {
+                let style = document.getElementById('background-cover-style');
+                if (!style) {
+                    style = document.createElement('style');
+                    style.id = 'background-cover-style';
+                    document.head.appendChild(style);
+                }
+                if (style.textContent !== css) {
+                    style.textContent = css;
+                }
+            }
+            
+            function loadCss() {
+                const url = cssUrl + '?t=' + Date.now();
+                fetch(url).then(r => r.text()).then(css => {
+                    updateStyleTag(css);
+                }).catch(e => console.error('[BackgroundCover] Load error:', e));
+            }
+            
+            // Initial load
+            loadCss();
+
+            // 1. Event Hook: Listen for status bar message
+            try {
+                const observer = new MutationObserver((mutations) => {
+                    for (const mutation of mutations) {
+                        const target = mutation.target;
+                        // Check text content of the mutated node
+                        if (target.textContent && target.textContent.includes('background-cover-reload-trigger')) {
+                            loadCss();
+                            return; 
+                        }
+                    }
+                });
+                
+                const findStatusBar = () => {
+                    // Try to find the status bar container
+                    const statusBar = document.querySelector('.statusbar') || document.getElementById('workbench.parts.statusbar') || document.querySelector('footer');
+                    if (statusBar) {
+                        observer.observe(statusBar, { 
+                            subtree: true, 
+                            characterData: true, 
+                            childList: true 
+                        });
+                        console.log('[BackgroundCover] Observer attached to:', statusBar);
+                    } else {
+                        // Retry if not found yet
+                        setTimeout(findStatusBar, 2000);
+                    }
+                };
+
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', findStatusBar);
+                } else {
+                    findStatusBar();
+                }
+            } catch (e) {
+                console.error('[BackgroundCover] Observer error:', e);
+            }
+
+            // 2. Backup Hook: Check on window focus
+            // This ensures that if the status bar trigger is missed, the background updates when the user interacts with the window
+            window.addEventListener('focus', loadCss);
+        })();
+        `;
+    }
+
+    private getJs(): string {
+        const particleJs = this.getParticleJs();
+
         return `
         /*ext-${this.extName}-start*/
         /*ext.${this.extName}.ver.${version}*/
-        const style = document.createElement('style');
-        style.textContent = \`${css}\`;
-        document.head.appendChild(style);
+        ${this.getLoaderJs()}
         ${particleJs}
         /*ext-${this.extName}-end*/
         `;
     }
 
     private getParticleJs(): string {
-        
-        let context = getContext();
-        // 如果粒子效果未启用，则返回空字符串
+        const context = getContext();
         if (!context.globalState.get('backgroundCoverParticleEffect', false)) {
             return '';
         }
-        
-        // 获取粒子效果的配置
- 
+
         const opacity = context.globalState.get('backgroundCoverParticleOpacity', 0.6);
         const color = context.globalState.get('backgroundCoverParticleColor', '#ffffff');
         const count = context.globalState.get('backgroundCoverParticleCount', 50);
-        
-        // 粒子效果的 JS 代码
-        return `
-        // 粒子效果注入
-        !function(){"use strict";function e(e){return e&&e.__esModule&&Object.prototype.hasOwnProperty.call(e,"default")?e.default:e}function t(e,t){return e(t={exports:{}},t.exports),t.exports}var n=t(function(e,t){Object.defineProperty(t,"__esModule",{value:!0});var n=1;t.default=function(){return""+n++},e.exports=t.default});e(n);var o=t(function(e,t){Object.defineProperty(t,"__esModule",{value:!0}),t.default=function(e){var t=arguments.length>1&&void 0!==arguments[1]?arguments[1]:30,n=null;return function(){for(var o=this,i=arguments.length,r=Array(i),a=0;a<i;a++)r[a]=arguments[a];clearTimeout(n),n=setTimeout(function(){e.apply(o,r)},t)}},e.exports=t.default});e(o);var i=t(function(e,t){Object.defineProperty(t,"__esModule",{value:!0});t.SizeSensorId="size-sensor-id",t.SensorStyle="display:block;position:absolute;top:0;left:0;height:100%;width:100%;overflow:hidden;pointer-events:none;z-index:-1;opacity:0",t.SensorClassName="size-sensor-object"});e(i);i.SizeSensorId,i.SensorStyle,i.SensorClassName;var r=t(function(e,t){Object.defineProperty(t,"__esModule",{value:!0}),t.createSensor=void 0;var n,r=(n=o)&&n.__esModule?n:{default:n};t.createSensor=function(e){var t=void 0,n=[],o=(0,r.default)(function(){n.forEach(function(t){t(e)})}),a=function(){t&&t.parentNode&&(t.contentDocument.defaultView.removeEventListener("resize",o),t.parentNode.removeChild(t),t=void 0,n=[])};return{element:e,bind:function(r){t||(t=function(){"static"===getComputedStyle(e).position&&(e.style.position="relative");var t=document.createElement("object");return t.onload=function(){t.contentDocument.defaultView.addEventListener("resize",o),o()},t.setAttribute("style",i.SensorStyle),t.setAttribute("class",i.SensorClassName),t.type="text/html",e.appendChild(t),t.data="about:blank",t}()),-1===n.indexOf(r)&&n.push(r)},destroy:a,unbind:function(e){var o=n.indexOf(e);-1!==o&&n.splice(o,1),0===n.length&&t&&a()}}}});e(r);r.createSensor;var a=t(function(e,t){Object.defineProperty(t,"__esModule",{value:!0}),t.createSensor=void 0;var n,i=(n=o)&&n.__esModule?n:{default:n};t.createSensor=function(e){var t=void 0,n=[],o=(0,i.default)(function(){n.forEach(function(t){t(e)})}),r=function(){t.disconnect(),n=[],t=void 0};return{element:e,bind:function(i){t||(t=function(){var t=new ResizeObserver(o);return t.observe(e),o(),t}()),-1===n.indexOf(i)&&n.push(i)},destroy:r,unbind:function(e){var o=n.indexOf(e);-1!==o&&n.splice(o,1),0===n.length&&t&&r()}}}});e(a);a.createSensor;var s=t(function(e,t){Object.defineProperty(t,"__esModule",{value:!0}),t.createSensor=void 0;t.createSensor="undefined"!=typeof ResizeObserver?a.createSensor:r.createSensor});e(s);s.createSensor;var u=t(function(e,t){Object.defineProperty(t,"__esModule",{value:!0}),t.removeSensor=t.getSensor=void 0;var o,r=(o=n)&&o.__esModule?o:{default:o};var a={};t.getSensor=function(e){var t=e.getAttribute(i.SizeSensorId);if(t&&a[t])return a[t];var n=(0,r.default)();e.setAttribute(i.SizeSensorId,n);var o=(0,s.createSensor)(e);return a[n]=o,o},t.removeSensor=function(e){var t=e.element.getAttribute(i.SizeSensorId);e.element.removeAttribute(i.SizeSensorId),e.destroy(),t&&a[t]&&delete a[t]}});e(u);u.removeSensor,u.getSensor;var c=t(function(e,t){Object.defineProperty(t,"__esModule",{value:!0}),t.clear=t.bind=void 0;t.bind=function(e,t){var n=(0,u.getSensor)(e);return n.bind(t),function(){n.unbind(t)}},t.clear=function(e){var t=(0,u.getSensor)(e);(0,u.removeSensor)(t)}});e(c);var l=c.clear,d=c.bind,v=window.requestAnimationFrame||window.webkitRequestAnimationFrame||window.mozRequestAnimationFrame||window.msRequestAnimationFrame||window.oRequestAnimationFrame||function(e){return window.setTimeout(e,1e3/60)},f=window.cancelAnimationFrame||window.webkitCancelAnimationFrame||window.mozCancelAnimationFrame||window.msCancelAnimationFrame||window.oCancelAnimationFrame||window.clearTimeout,m=function(e){return new Array(e).fill(0).map(function(e,t){return t})},h=Object.assign||function(e){for(var t=1;t<arguments.length;t++){var n=arguments[t];for(var o in n)Object.prototype.hasOwnProperty.call(n,o)&&(e[o]=n[o])}return e},p=function(){function e(e,t){for(var n=0;n<t.length;n++){var o=t[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(e,o.key,o)}}return function(t,n,o){return n&&e(t.prototype,n),o&&e(t,o),t}}();var y=function(){function e(t,n){var o=this;!function(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}(this,e),this.randomPoints=function(){return m(o.c.count).map(function(){return{x:Math.random()*o.canvas.width,y:Math.random()*o.canvas.height,xa:2*Math.random()-1,ya:2*Math.random()-1,max:6e3}})},this.el=t,this.c=h({zIndex:-1,opacity:.5,color:"0,0,0",pointColor:"0,0,0",count:99},n),this.canvas=this.newCanvas(),this.context=this.canvas.getContext("2d"),this.points=this.randomPoints(),this.current={x:null,y:null,max:2e4},this.all=this.points.concat([this.current]),this.bindEvent(),this.requestFrame(this.drawCanvas)}return p(e,[{key:"bindEvent",value:function(){var e=this;d(this.el,function(){e.canvas.width=e.el.clientWidth,e.canvas.height=e.el.clientHeight}),this.onmousemove=window.onmousemove,window.onmousemove=function(t){e.current.x=t.clientX-e.el.offsetLeft+document.scrollingElement.scrollLeft,e.current.y=t.clientY-e.el.offsetTop+document.scrollingElement.scrollTop,e.onmousemove&&e.onmousemove(t)},this.onmouseout=window.onmouseout,window.onmouseout=function(){e.current.x=null,e.current.y=null,e.onmouseout&&e.onmouseout()}}},{key:"newCanvas",value:function(){"static"===getComputedStyle(this.el).position&&(this.el.style.position="relative");var e,t=document.createElement("canvas");return t.style.cssText="display:block;position:absolute;top:0;left:0;height:100%;width:100%;overflow:hidden;pointer-events:none;z-index:"+(e=this.c).zIndex+";opacity:"+e.opacity,t.width=this.el.clientWidth,t.height=this.el.clientHeight,this.el.appendChild(t),t}},{key:"requestFrame",value:function(e){var t=this;this.tid=v(function(){return e.call(t)})}},{key:"drawCanvas",value:function(){var e=this,t=this.context,n=this.canvas.width,o=this.canvas.height,i=this.current,r=this.points,a=this.all;t.clearRect(0,0,n,o);var s=void 0,u=void 0,c=void 0,l=void 0,d=void 0,v=void 0;r.forEach(function(r,f){for(r.x+=r.xa,r.y+=r.ya,r.xa*=r.x>n||r.x<0?-1:1,r.ya*=r.y>o||r.y<0?-1:1,t.fillStyle="rgba("+e.c.pointColor+")",t.fillRect(r.x-.5,r.y-.5,1,1),u=f+1;u<a.length;u++)null!==(s=a[u]).x&&null!==s.y&&(l=r.x-s.x,d=r.y-s.y,(v=l*l+d*d)<s.max&&(s===i&&v>=s.max/2&&(r.x-=.03*l,r.y-=.03*d),c=(s.max-v)/s.max,t.beginPath(),t.lineWidth=c/2,t.strokeStyle="rgba("+e.c.color+","+(c+.2)+")",t.moveTo(r.x,r.y),t.lineTo(s.x,s.y),t.stroke()))}),this.requestFrame(this.drawCanvas)}},{key:"destroy",value:function(){l(this.el),window.onmousemove=this.onmousemove,window.onmouseout=this.onmouseout,f(this.tid),this.canvas.parentNode.removeChild(this.canvas)}}]),e}();y.version="2.0.4";var w,b;new y(document.body,(w=document.getElementsByTagName("script"),{zIndex:99,opacity:"${opacity}",color:"${color}",pointColor:"${color}",count:${count}}))}();
-        `;
+
+        return getParticleEffectJs(opacity, color, count);
     }
 
     private getCss(): string {
-		// 透明度最大0.8
-		let opacity = this.imageOpacity;
-		opacity = opacity > 0.8 ? 0.8 : opacity;
-
-		// 图片填充方式
-		let sizeModelVal = this.sizeModel;
-		let repeatVal    = "no-repeat";
-		let positionVal  = "center";
-		switch(this.sizeModel){
-			case "cover":
-				sizeModelVal = "cover";
-				break;
-			case "contain":
-				sizeModelVal = "100% 100%";
-				break;
-            case "center":
-				sizeModelVal = "contain";
-				break;
-			case "repeat":
-				sizeModelVal = "auto";
-				repeatVal = "repeat";
-				break;
-			case "not_center":
-				sizeModelVal = "auto";
-				break;
-			case "not_right_bottom":
-				sizeModelVal = "auto";
-				positionVal = "right 96%";
-				break;
-			case "not_right_top":
-				sizeModelVal = "auto";
-				positionVal = "right 30px";
-				break;
-			case "not_left":
-				sizeModelVal = "auto";
-				positionVal = "left";
-				break;
-			case "not_right":
-				sizeModelVal = "auto";
-				positionVal = "right";
-				break;
-			case "not_top":
-				sizeModelVal = "auto";
-				positionVal = "top";
-				break;
-			case "not_bottom":
-				sizeModelVal = "auto";
-				positionVal = "bottom";
-				break;
-				
-		}
+        const opacity = Math.min(this.imageOpacity, 0.8);
+        const { sizeModelVal, repeatVal, positionVal } = this.getCssStyles();
 
         let finalImagePath = this.escapeTemplateLiteral(this.imagePath);
         const globalWindow = typeof globalThis !== 'undefined' ? (globalThis as any).window : undefined;
+        
         if (this.forceHttpsUpgrade && finalImagePath.toLowerCase().startsWith('http://')) {
-            if (globalWindow && globalWindow.location && globalWindow.location.protocol === 'https:') {
+            if (globalWindow?.location?.protocol === 'https:') {
                 finalImagePath = finalImagePath.replace(/^http:\/\//i, 'https://');
             }
         }
+
         return `
         body::before{
             content: "";
@@ -362,13 +542,75 @@ export class FileDom {
             filter: blur(${this.blur}px);
             mix-blend-mode: ${this.blendModel};
         }
+        ${this.getCorruptionWarningCss()}
         `;
     }
 
-    private escapeTemplateLiteral(value: string): string {
-        if (!value) {
-            return value;
+    private getCorruptionWarningCss(): string {
+        const translations = [
+            'installation appears to be corrupt',
+            '安装似乎损坏',
+        ];
+        return translations.map(trans => `
+        .notification-toast-container:has([aria-label*='${trans}']) {
+            display: none;
         }
+        `).join('');
+    }
+
+    private getCssStyles(): { sizeModelVal: string; repeatVal: string; positionVal: string } {
+        let sizeModelVal = this.sizeModel;
+        let repeatVal = "no-repeat";
+        let positionVal = "center";
+
+        switch (this.sizeModel) {
+            case "cover":
+                sizeModelVal = "cover";
+                break;
+            case "contain":
+                sizeModelVal = "100% 100%";
+                break;
+            case "center":
+                sizeModelVal = "contain";
+                break;
+            case "repeat":
+                sizeModelVal = "auto";
+                repeatVal = "repeat";
+                break;
+            case "not_center":
+                sizeModelVal = "auto";
+                break;
+            case "not_right_bottom":
+                sizeModelVal = "auto";
+                positionVal = "right 96%";
+                break;
+            case "not_right_top":
+                sizeModelVal = "auto";
+                positionVal = "right 30px";
+                break;
+            case "not_left":
+                sizeModelVal = "auto";
+                positionVal = "left";
+                break;
+            case "not_right":
+                sizeModelVal = "auto";
+                positionVal = "right";
+                break;
+            case "not_top":
+                sizeModelVal = "auto";
+                positionVal = "top";
+                break;
+            case "not_bottom":
+                sizeModelVal = "auto";
+                positionVal = "bottom";
+                break;
+        }
+
+        return { sizeModelVal, repeatVal, positionVal };
+    }
+
+    private escapeTemplateLiteral(value: string): string {
+        if (!value) return value;
         return value
             .replace(/\\/g, '\\\\')
             .replace(/`/g, '\\`')
@@ -396,12 +638,8 @@ export class FileDom {
         return content.replace(regex, '').trim();
     }
 
-    // 获取文件里是否存在补丁样式代码
-    public getPatchContent(content:string): boolean {
+    public getPatchContent(content: string): boolean {
         const match = content.match(/\/\*ext-backgroundCover-start\*\/[\s\S]*?\/\*ext-backgroundCover-end\*\//g);
-        if(match){
-            return true;
-        }
-        return false;
+        return !!match;
     }
 }

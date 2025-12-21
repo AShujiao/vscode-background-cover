@@ -12,6 +12,7 @@
 
 <p align="center">
 Add a picture you like to cover the entire vscode, as well as the particle effect animation that follows the mouse<br/>
+<b>(v3.0 Hot Reload Supported / 支持热更新)</b><br/>
 <br/>
 添加一张你喜欢的图片铺满整个vscode, 以及鼠标跟随的粒子效果动画
 <br/>
@@ -22,6 +23,20 @@ Add a picture you like to cover the entire vscode, as well as the particle effec
 </p>
 
 ## Features 功能特性
+
+### 🚀 Hot Reload / 热更新 (v3.0)
+*   **Instant Switch**: Change background images instantly without restarting VS Code.
+*   **即刻生效**: 切换背景图片无需重启 VS Code，即点即用，丝滑体验。
+
+### ⚙️ Visual Configuration / 可视化配置 (v3.0)
+*   **Sidebar Panel**: New sidebar UI for easy configuration.
+*   **侧边栏面板**: 全新左侧侧边栏可视化配置，操作更便捷。
+*   **Multi-language**: Support multiple languages.
+*   **多语言支持**: 侧边栏配置支持中、英双语。
+
+### 🔄 Auto Carousel / 自动轮播 (v3.0)
+*   **Timed Rotation**: Automatically rotate multiple images at set intervals.
+*   **定时轮播**: 支持多张图片定时自动轮播。
 
 ### 🎨 Custom Background / 自定义背景
 *   **Flexible Sources**: Support local image paths (File) and online URLs (HTTP/HTTPS).
@@ -38,8 +53,6 @@ Add a picture you like to cover the entire vscode, as well as the particle effec
 ### 🖼️ Layout & Display / 布局与显示
 *   **Fill Modes**: Support various CSS background-size modes (cover, contain, etc.) and positioning.
 *   **填充模式**: 支持多种图片填充方式（铺满、适应等）及自定义位置设置。
-*   **Random Switching**: Randomly switch backgrounds from a specified folder or list on startup or via shortcut.
-*   **随机切换**: 支持从指定文件夹或列表中随机切换背景图（支持启动时自动切换）。
 
 ### ☁️ Online Gallery / 在线图库
 *   **Integrated Community**: Browse, upload, and apply wallpapers directly within VS Code.
@@ -48,7 +61,7 @@ Add a picture you like to cover the entire vscode, as well as the particle effec
 ### 🛠️ Platform Support / 平台支持
 *   **Cross-Platform**: Support Windows, MacOS, Linux, and **Code-Server**.
 *   **全平台**: 支持 Windows, MacOS, Linux 以及 **Code-Server** 环境。
-*   **No Admin Required**: Auto-permission handling on Windows (v2.6.2+).
+*   **No Admin Required**: Auto-permission handling on Windows.
 *   **无需管理员**: Windows 下自动获取文件写入权限，无需以管理员身份运行。
 
 ## ⚠️ Warnings / 警告
@@ -56,7 +69,9 @@ Add a picture you like to cover the entire vscode, as well as the particle effec
 > **Note**: This extension works by modifying VS Code's internal files.  
 > **注意**: 本插件通过修改 VS Code 内部文件运行。
 
-1.  **First Install / Update**: You might see a "Corrupted" warning. Please click **[Don't show again]**.
+1.  **v3.0 Upgrade**: First time use requires re-hooking. Please restart VS Code once after permission grant.
+    *   **v3.0 升级**: 首次使用需要重新获取权限，授权后请重启一次 VS Code。
+2.  **First Install / Update**: You might see a "Corrupted" warning. Please click **[Don't show again]**.
     *   **初次安装/更新**: 可能会出现“安装损坏”的提示，请点击 **【不再提示】**。
 2.  **Overlap Issue**: If background overlaps after upgrade, please restart VS Code.
     *   **重叠问题**: 升级后如果背景重叠，请重启 VS Code。
@@ -73,40 +88,29 @@ Add a picture you like to cover the entire vscode, as well as the particle effec
 
 [**Integrated Online Gallery / 集成在线图库**](https://vs.20988.xyz/d/24-vscodebei-jing-tu-tu-ku)
 
-> Please configure via the extension commands or status bar button.  
-> 请通过插件配置命令或底部按钮进行配置。
 
-![05](https://github.com/user-attachments/assets/373c373e-e672-4ed4-9b4b-d09eaa457c9d)
-![微信截图_20241119082747](https://github.com/user-attachments/assets/eb94402d-7193-488a-a148-353879a7e71a)
-![](https://github.com/user-attachments/assets/b17f3358-124a-48b0-822b-a1443a2c1e2c)
-![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/20172d72-5384-4bfe-bceb-ec582cfb1698)
-![](https://github.com/AShujiao/vscode-maxPlus/assets/14969576/dcbb7870-8342-4069-9dd8-026d3b903420)
-![Image](https://github.com/user-attachments/assets/078e6d26-412b-4bb8-8113-3ac3972153b1)
-![Image](https://github.com/user-attachments/assets/a8668f9c-6ff1-46f1-b5c2-b606ed327910)
-![Image](https://github.com/user-attachments/assets/0ad0f6e2-a777-45a9-ad02-1fd2caaac1df)
+![](https://github.com/user-attachments/assets/957d0525-f2f3-46bb-b46f-7e2c26c3dbcb)
+![](https://github.com/user-attachments/assets/f21efb46-8bbd-48f3-ab30-ca9fbd5c7810)
+![Image](https://github.com/user-attachments/assets/892d7763-0bc9-477b-896a-180a4ecc90e7)
+![Image](https://github.com/user-attachments/assets/7a1558d5-6bc6-4563-a4e7-4e543695384c)
+
 
 
 ## Config 配置项
 
-> **Important**: Please use the extension's command or status bar button to configure. **Manual modification of settings is NOT supported.**  
-> **重要提示**: 请务必使用插件自带的命令或状态栏按钮进行配置。**不支持手动修改配置项。**
+> **New in v3.0**: Please use the **Sidebar Panel** (Activity Bar) to configure the extension.  
+> **v3.0 新特性**: 请使用左侧 **活动栏图标** 打开配置面板进行设置。
 
-### Menu Options / 菜单选项
+### ⚙️ Sidebar Settings / 侧边栏设置
 
-Press `Ctrl + Shift + P` -> `backgroundCover - start` to open the configuration menu.   
-按下 `Ctrl + Shift + P` -> `backgroundCover - start` 打开配置菜单。
+Click the `Background Cover` icon in the left activity bar to open the settings panel:
+点击左侧活动栏的 `Background Cover` 图标打开设置面板：
 
-| Option (选项) | Description (描述) |
-| :--- | :--- |
-| **Select Pictures** | Select a local image file as background. / 选择一张本地图片作为背景。 |
-| **Add Directory** | Add a folder for random background switching. / 添加图片文件夹用于随机切换。 |
-| **Input : Path/Https** | Input local path or URL (HTTP/HTTPS/JSON API/HTML). / 输入本地路径或在线图片链接、api地址或html链接。 |
-| **Background Opacity** | Adjust background opacity. / 调整背景透明度。 |
-| **Background Blur** | Adjust background blur effect. / 调整背景模糊度。 |
-| **Size Mode** | Set image fill mode (Cover, Contain, Center, etc.). / 设置图片填充模式。 |
-| **Particle Effects** | Configure mouse particle effects (Enable/Disable, Opacity, Color, Count). / 配置鼠标粒子特效。 |
-| **Start/Off Replacement** | Enable/Disable auto background switch on startup. / 开启/关闭启动时自动更换背景。 |
-| **Closing Background** | Remove background and restore default. / 清除背景并恢复默认。 |
+*   **Image Source**: Select local files, folders, or enter URLs. / 选择本地文件、文件夹或输入链接。
+*   **Appearance**: Adjust Opacity, Blur, and Fill Mode. / 调整透明度、模糊度和填充模式。
+*   **Animation**: Configure Mouse Particles and Auto Carousel. / 配置鼠标粒子和自动轮播。
+
+*(The Command Palette `Ctrl + Shift + P` -> `backgroundCover - start` is still available as an alternative)*
 
 ## Shortcuts & Usage / 快捷键与使用
 
@@ -114,14 +118,12 @@ Press `Ctrl + Shift + P` -> `backgroundCover - start` to open the configuration 
     *   **切换背景**: 点击状态栏底部的切换按钮。
 *   **Start/Config**: `Ctrl + Shift + P` -> `backgroundCover - start`
     *   **开始/配置**: 打开命令面板运行 `backgroundCover - start`。
-*   **Random Update**: `Ctrl + Shift + F7` -> Randomly update background and restart.
-    *   **随机更新**: 按下 `Ctrl + Shift + F7` 随机更换背景并重启。
-*   **Re-apply**: If VS Code updates, the background might disappear. Please re-apply or restart.
-    *   **重新应用**: VS Code 更新后背景可能会消失，请手动重新设置或重启插件。
+*   **Re-apply**: If VS Code updates, the background might disappear. Please re-apply.
+    *   **重新应用**: VS Code 更新后背景可能会消失，请手动重新设置。
 
+> **Note**: For v3.0+, changing background is instant (Hot Reload). However, for the **first time** after upgrade, you must allow the permission hook and restart VS Code once.
+> **注意**: v3.0+ 版本支持热更新（无需重启）。但在升级后 **首次使用** 时，必须允许权限 Hook 并重启一次 VS Code 才能生效。
 
-
-![](https://user-images.githubusercontent.com/14969576/58956744-b076c880-87d1-11e9-8552-7a9f93eaf3b4.jpg)
 
 
 ## 🗑️ Uninstall / 卸载
@@ -153,20 +155,14 @@ A: 插件会在需要时请求密码。或者你可以手动修改文件权限�
 ## 最近更新日志
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 2.8.0 (2025/12/14)
+#### ver 3.0.0 (2025/12/21)
 
-感谢 [@WaaSakura](https://github.com/WaaSakura) 提交的[PR](https://github.com/AShujiao/vscode-background-cover/pull/173)
-
-    1.新增支持code-server平台     
-    2.输入图片地址功能扩展    
-        * 支持返回多图JSON格式API地址
-        * 支持静态html（解析a标签图片）   
-        * 支持在线图库网站（vs.20988.xyz 解析帖子内的图片） 
-    3. 支持在线图库帖子设置为背景图库（通过帖子列表、详情三个点按钮触发）
-
-#### ver 2.8.1 (2025/12/19)
-
-    1.修复vs更新后“重新应用背景”与“自动更换背景”事件冲突 
+    1.🎉 重大更新：支持背景图热更新，切换图片无需重启 VSCode 即刻生效！
+    2.✨ 新增左侧侧边栏可视化配置面板，操作更便捷
+    3.🌐 新增多语言支持（国际化）
+    4.🔄 新增多图定时自动轮播功能
+    5.🛠 底层架构重构与性能优化
+    ⚠️ 注意：本次更新涉及底层变动，首次使用需重新获取权限（Hook）并重启一次 VSCode 后生效。 
   
 ---
 ### Thanks 感谢

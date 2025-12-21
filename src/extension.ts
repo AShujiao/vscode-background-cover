@@ -17,13 +17,16 @@ import {
 	version as vscodeVersion,
 	workspace, // 获取 VSCode 版本
 } from 'vscode';
-import { PickList } from './PickLIst';
+import * as fs from 'fs';
+import { PickList } from './PickList';
+import { ImgItem } from './ImgItem';
 import vsHelp from './vsHelp';
 import ReaderViewProvider from './readerView';
 import { setContext } from './global';
+import { CUSTOM_CSS_FILE_PATH } from './FileDom';
+import { BackgroundCoverViewProvider } from './backgroundCoverView';
 
-// this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
+
 export function activate(context: ExtensionContext) {
 	setContext(context);
 	// 创建底部按钮 - 背景图片配置
@@ -32,13 +35,7 @@ export function activate(context: ExtensionContext) {
 	backImgBtn.command = 'extension.backgroundCover.start';
 	backImgBtn.tooltip = 'Switch background image / 切换背景图';
 	backImgBtn.show();
-
-	// 检查 VSCode 版本变化
-	let isChanged = checkVSCodeVersionChanged(context);
-	if (!isChanged) {
-		// 防止同时运行
-		PickList.autoUpdateBackground();
-	}
+	context.subscriptions.push(backImgBtn);
 
 	// 创建底部按钮 - 粒子效果配置
 	let particleBtn = window.createStatusBarItem(StatusBarAlignment.Right, -999);
@@ -46,8 +43,37 @@ export function activate(context: ExtensionContext) {
 	particleBtn.command = 'extension.backgroundCover.nest';
 	particleBtn.tooltip = 'Particle effect / 粒子效果';
 	particleBtn.show();
+	context.subscriptions.push(particleBtn);
 
+	// 异步检查 VSCode 版本变化，不阻塞启动
+	checkVSCodeVersionChanged(context).then(isChanged => {
+		if (!isChanged) {
+			const config = workspace.getConfiguration('backgroundCover');
+			if (config.imagePath && !fs.existsSync(CUSTOM_CSS_FILE_PATH)) {
+				window.showInformationMessage(
+					'BackgroundCover 3.0：新版本支持免重启切换背景，需要重新初始化核心文件。是否立即执行？ / BackgroundCover 3.0: Supports background switching without restart. Core file re-initialization required. Proceed?',
+					'Yes', 'No'
+				).then(result => {
+					if (result === 'Yes') {
+						PickList.needAutoUpdate(config);
+					}
+				});
+			} else {
+				// 防止同时运行
+				PickList.autoUpdateBackground();
+			}
+		}
+	});
 
+	// 启动自动更换任务
+	PickList.startAutoRandomTask();
+
+	// 监听配置变化
+	context.subscriptions.push(workspace.onDidChangeConfiguration(e => {
+		if (e.affectsConfiguration('backgroundCover.autoStatus') || e.affectsConfiguration('backgroundCover.autoInterval')) {
+			PickList.startAutoRandomTask();
+		}
+	}));
 
 	let randomCommand = commands.registerCommand('extension.backgroundCover.refresh', () => { PickList.randomUpdateBackground(); });
 	let startCommand = commands.registerCommand('extension.backgroundCover.start', () => { PickList.createItemLIst() });
@@ -64,8 +90,38 @@ export function activate(context: ExtensionContext) {
 	  },
 	});
 	commands.registerCommand('backgroundCover.refreshEntry',() => readerViewProvider.refresh());
-	commands.registerCommand('backgroundCover.home',() => readerViewProvider.home());
+	commands.registerCommand('backgroundCover.home',() => {
+		commands.executeCommand('setContext', 'backgroundCover.mode', 'gallery');
+		readerViewProvider.home();
+	});
+	commands.registerCommand('backgroundCover.switchMode',() => {
+		commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
+	});
+	commands.registerCommand('backgroundCover.support',() => readerViewProvider.support());
 
+	// Register Tree Data Provider
+	const backgroundCoverViewProvider = new BackgroundCoverViewProvider();
+	window.registerTreeDataProvider('backgroundCover.menu', backgroundCoverViewProvider);
+
+	// Register Command for Tree Item Click
+	context.subscriptions.push(commands.registerCommand('backgroundCover.runAction', (type: number, path?: string) => {
+		const config = workspace.getConfiguration('backgroundCover');
+		const quickPick = window.createQuickPick<ImgItem>();
+		const pickList = new PickList(config, quickPick);
+		pickList.handleAction(type, path);
+	}));
+
+
+	context.subscriptions.push(commands.registerCommand('backgroundCover.setConfig', async (key: string, value: any) => {
+		const config = workspace.getConfiguration();
+		await config.update(key, value, true);
+		// Trigger update
+		const newConfig = workspace.getConfiguration('backgroundCover');
+		PickList.needAutoUpdate(newConfig);
+	}));
+
+	// Initialize context
+	commands.executeCommand('setContext', 'backgroundCover.mode', 'gallery');
 
 	// 监听主题变化
 	window.onDidChangeActiveColorTheme((event) => {
@@ -82,15 +138,20 @@ export function activate(context: ExtensionContext) {
 	if(openVersion != version){
 		context.globalState.update('ext_version',version);
 		vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
-� 新特性：
-1. 修复vs更新后“重新应用背景”与“自动更换背景”事件冲突 
+🚀 重大更新 (v3.0)：
+1. 支持背景图热更新，无需重启 VSCode
+2. 新增左侧可视化配置面板
+3. 支持多图定时自动轮播
+4. 支持多语言
+
+⚠️ 注意：首次使用需重新获取权限并重启一次 VSCode 后生效。
 
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}
 }
 
 // 检查 VSCode 版本是否变化
-function checkVSCodeVersionChanged(context: ExtensionContext): boolean {
+async function checkVSCodeVersionChanged(context: ExtensionContext): Promise<boolean> {
 	// 获取配置
 	let config = workspace.getConfiguration('backgroundCover');
 	// 如果没有设置背景图，则不处理
@@ -103,19 +164,25 @@ function checkVSCodeVersionChanged(context: ExtensionContext): boolean {
 	// 如果版本不同，说明 VSCode 更新了
 	if (lastVSCodeVersion && lastVSCodeVersion !== vscodeVersion) {
 		// 弹出提示框确认是否更新背景
-		window.showInformationMessage(
+		const value = await window.showInformationMessage(
 			`检测到 VSCode 已更新，背景图可能已被重置，是否重新应用背景图？ / Reapply the background image?`,
 			'YES',
 			'NO'
-		).then((value) => {
-			if (value === 'YES') {
-				// 更新DOM
-				PickList.needAutoUpdate(config);
-			}
-		});
+		);
+		
+		if (value === 'YES') {
+			// 更新DOM
+			PickList.needAutoUpdate(config);
+		}
+		
 		// 更新全局状态中的 VSCode 版本
 		context.globalState.update('vscode_version', vscodeVersion);
 		return true;
+	}
+
+	// 修复：首次运行或版本未记录时，也需要更新版本号，防止下次误判
+	if (!lastVSCodeVersion) {
+		context.globalState.update('vscode_version', vscodeVersion);
 	}
 
 	return false;
@@ -123,5 +190,6 @@ function checkVSCodeVersionChanged(context: ExtensionContext): boolean {
 
 // this method is called when your extension is deactivated
 export function deactivate() {
+	PickList.stopAutoRandomTask();
 }
 

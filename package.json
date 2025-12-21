@@ -1,8 +1,8 @@
 {
     "name": "background-cover",
     "displayName": "background-cover",
-    "description": "Add a picture you like to cover the entire vscode background. / 添加你喜欢的图片覆盖整个vscode背景",
-    "version": "2.8.1",
+    "description": "Add a picture you like to cover the entire vscode background (Hot Reload Supported). / 添加你喜欢的图片覆盖整个vscode背景（支持热更新）",
+    "version": "3.0.0",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.38.0"
@@ -58,6 +58,16 @@
                     "light": "resources/light/home.svg",
                     "dark": "resources/dark/home.svg"
                 }
+            },
+            {
+                "command": "backgroundCover.switchMode",
+                "title": "配置",
+                "icon": "$(settings-gear)"
+            },
+            {
+                "command": "backgroundCover.support",
+                "title": "赞助",
+                "icon": "$(heart)"
             }
         ],
         "keybindings": [
@@ -97,6 +107,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Automatically change background each time you start / 每次启动时随机自动更换背景"
+                },
+                "backgroundCover.autoInterval": {
+                    "type": "number",
+                    "default": 10,
+                    "description": "Automatically change background interval in seconds / 自动更换背景的时间间隔（秒）"
                 },
                 "backgroundCover.sizeModel": {
                     "type": "string",
@@ -145,9 +160,15 @@
         "views": {
             "backgroundCover-explorer": [
                 {
+                    "id": "backgroundCover.menu",
+                    "name": "Menu",
+                    "when": "backgroundCover.mode == 'menu'"
+                },
+                {
                     "id": "backgroundCover.readerView",
                     "type": "webview",
-                    "name": "backgroundCover"
+                    "name": "Online Gallery",
+                    "when": "backgroundCover.mode != 'menu'"
                 }
             ]
         },
@@ -156,12 +177,37 @@
                 {
                     "command": "backgroundCover.refreshEntry",
                     "when": "view == backgroundCover.readerView",
-                    "group": "navigation@1"
+                    "group": "navigation@2"
                 },
                 {
                     "command": "backgroundCover.home",
                     "when": "view == backgroundCover.readerView",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "backgroundCover.switchMode",
+                    "when": "view == backgroundCover.readerView",
                     "group": "navigation@0"
+                },
+                {
+                    "command": "backgroundCover.support",
+                    "when": "view == backgroundCover.readerView",
+                    "group": "navigation@3"
+                },
+                {
+                    "command": "backgroundCover.home",
+                    "when": "view == backgroundCover.menu",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "backgroundCover.refreshEntry",
+                    "when": "view == backgroundCover.menu",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "backgroundCover.support",
+                    "when": "view == backgroundCover.menu",
+                    "group": "navigation@3"
                 }
             ]
         }
@@ -188,6 +234,7 @@
         "@types/lockfile": "^1.0.4",
         "@types/mocha": "^5.2.7",
         "@types/node": "^22.9.0",
+        "@types/proper-lockfile": "^4.1.4",
         "@types/vscode": "^1.30.0",
         "@vscode/test-electron": "^2.3.2",
         "typescript": "^4.5.4"
@@ -195,7 +242,7 @@
     "dependencies": {
         "async-mutex": "^0.5.0",
         "fs-extra": "^11.2.0",
-        "lockfile": "^1.0.4",
+        "proper-lockfile": "^4.1.2",
         "sudo-prompt": "^9.2.1"
     }
 }

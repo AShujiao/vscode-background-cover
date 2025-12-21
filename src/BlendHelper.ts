@@ -1,9 +1,9 @@
 
 import { window, ColorThemeKind } from 'vscode';
 
-const bleandHelper = {
+export class BlendHelper {
 
-	autoBlendModel(): string {
+	public static autoBlendModel(): string {
 		let blendStr = '';
 		let themeKind = window.activeColorTheme.kind;
 		if ( themeKind === ColorThemeKind.Dark ) {
@@ -20,5 +20,4 @@ const bleandHelper = {
 
 }
 
-export default bleandHelper;
 
