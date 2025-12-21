@@ -47,7 +47,7 @@ const JS_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.js);
 const CSS_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.css);
 const BAK_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.bak);
 const CUSTOM_CSS_FILE_NAME = 'css-background-cover.css';
-const CUSTOM_CSS_FILE_PATH = path.join(selectedWorkbench.root, CUSTOM_CSS_FILE_NAME);
+export const CUSTOM_CSS_FILE_PATH = path.join(selectedWorkbench.root, CUSTOM_CSS_FILE_NAME);
 
 enum SystemType {
     WINDOWS = 'Windows_NT',
@@ -279,6 +279,13 @@ export class FileDom {
 
     public async getFilePermission(filePath: string): Promise<void> {
         try {
+            if (!(await fse.pathExists(filePath))) {
+                if (this.systemType === SystemType.WINDOWS) {
+                    await SudoPromptHelper.exec(`echo. > "${filePath}"`);
+                } else {
+                    await SudoPromptHelper.exec(`touch "${filePath}"`);
+                }
+            }
             switch (this.systemType) {
                 case SystemType.WINDOWS:
                     await SudoPromptHelper.exec(`takeown /f "${filePath}" /a`);

@@ -17,11 +17,13 @@ import {
 	version as vscodeVersion,
 	workspace, // 获取 VSCode 版本
 } from 'vscode';
+import * as fs from 'fs';
 import { PickList } from './PickList';
 import { ImgItem } from './ImgItem';
 import vsHelp from './vsHelp';
 import ReaderViewProvider from './readerView';
 import { setContext } from './global';
+import { CUSTOM_CSS_FILE_PATH } from './FileDom';
 import { BackgroundCoverViewProvider } from './backgroundCoverView';
 
 
@@ -46,8 +48,20 @@ export function activate(context: ExtensionContext) {
 	// 异步检查 VSCode 版本变化，不阻塞启动
 	checkVSCodeVersionChanged(context).then(isChanged => {
 		if (!isChanged) {
-			// 防止同时运行
-			PickList.autoUpdateBackground();
+			const config = workspace.getConfiguration('backgroundCover');
+			if (config.imagePath && !fs.existsSync(CUSTOM_CSS_FILE_PATH)) {
+				window.showInformationMessage(
+					'BackgroundCover 3.0：新版本支持免重启切换背景，需要重新初始化核心文件。是否立即执行？ / BackgroundCover 3.0: Supports background switching without restart. Core file re-initialization required. Proceed?',
+					'Yes', 'No'
+				).then(result => {
+					if (result === 'Yes') {
+						PickList.needAutoUpdate(config);
+					}
+				});
+			} else {
+				// 防止同时运行
+				PickList.autoUpdateBackground();
+			}
 		}
 	});
 
