@@ -1,6 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import * as crypto from 'crypto';
+import * as https from 'https';
+import * as http from 'http';
+import { URL } from 'url';
 import { env, Uri, window, WorkspaceConfiguration } from 'vscode';
 import * as lockfile from 'proper-lockfile';
 import version from './version';
@@ -91,7 +95,13 @@ export class FileDom {
     }
 
     private async initializeImage(): Promise<void> {
-        const lowerPath = this.imagePath.toLowerCase();
+        let lowerPath = this.imagePath.toLowerCase();
+
+        if (lowerPath.startsWith('http://') || lowerPath.startsWith('https://')) {
+            await this.downloadAndCacheImage();
+            lowerPath = this.imagePath.toLowerCase();
+        }
+
         if (
             !lowerPath.startsWith('http://') &&
             !lowerPath.startsWith('https://') &&
@@ -102,6 +112,59 @@ export class FileDom {
                 this.localImgToVsc();
             }
         }
+    }
+
+    private async downloadAndCacheImage(): Promise<void> {
+        try {
+            const context = getContext();
+            const cacheDir = path.join(context.globalStorageUri.fsPath, 'images');
+            await fse.ensureDir(cacheDir);
+
+            const urlHash = crypto.createHash('md5').update(this.imagePath).digest('hex');
+            let ext = '.jpg';
+            try {
+                const urlObj = new URL(this.imagePath);
+                ext = path.extname(urlObj.pathname) || '.jpg';
+            } catch {
+                // ignore
+            }
+            
+            const cachePath = path.join(cacheDir, `${urlHash}${ext}`);
+
+            if (await fse.pathExists(cachePath)) {
+                this.imagePath = cachePath;
+                return;
+            }
+
+            await this.downloadFile(this.imagePath, cachePath);
+            this.imagePath = cachePath;
+        } catch (error) {
+            console.error('[FileDom] Failed to download image:', error);
+        }
+    }
+
+    private downloadFile(url: string, dest: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const file = fs.createWriteStream(dest);
+            const protocol = url.startsWith('https') ? https : http;
+            
+            const request = protocol.get(url, (response) => {
+                if (response.statusCode !== 200) {
+                    reject(new Error(`Failed to download: ${response.statusCode}`));
+                    return;
+                }
+                response.pipe(file);
+                file.on('finish', () => {
+                    file.close();
+                    resolve();
+                });
+            });
+            
+            request.on('error', (err) => {
+                fs.unlink(dest, () => {});
+                reject(err);
+            });
+        });
     }
 
     public async install(): Promise<boolean> {
