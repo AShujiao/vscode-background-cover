@@ -138,8 +138,13 @@ export function activate(context: ExtensionContext) {
 	if(openVersion != version){
 		context.globalState.update('ext_version',version);
 		vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
-� 新特性：
-1. 修复vs更新后“重新应用背景”与“自动更换背景”事件冲突 
+🚀 重大更新 (v3.0)：
+1. 支持背景图热更新，无需重启 VSCode
+2. 新增左侧可视化配置面板
+3. 支持多图定时自动轮播
+4. 支持多语言
+
+⚠️ 注意：首次使用需重新获取权限并重启一次 VSCode 后生效。
 
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}
