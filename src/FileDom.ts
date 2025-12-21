@@ -140,7 +140,7 @@ export class FileDom {
         const bakExist = await fse.pathExists(BAK_FILE_PATH);
         if (!bakExist) {
             this.bakStatus = true;
-            window.showInformationMessage(`首次使用正在获取权限及备份文件，处理中... / First use is getting permission and backing up files, processing...`);
+            window.setStatusBarMessage(`首次使用正在获取权限及备份文件，处理中... / First use is getting permission and backing up files, processing...`, 10000);
         }
     }
 
@@ -333,7 +333,20 @@ export class FileDom {
             filter: blur(${this.blur}px);
             mix-blend-mode: ${this.blendModel};
         }
+        ${this.getCorruptionWarningCss()}
         `;
+    }
+
+    private getCorruptionWarningCss(): string {
+        const translations = [
+            'installation appears to be corrupt',
+            '安装似乎损坏',
+        ];
+        return translations.map(trans => `
+        .notification-toast-container:has([aria-label*='${trans}']) {
+            display: none;
+        }
+        `).join('');
     }
 
     private getCssStyles(): { sizeModelVal: string; repeatVal: string; positionVal: string } {

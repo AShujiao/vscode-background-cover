@@ -14,6 +14,7 @@ import {
 	extensions,
 	InputBoxOptions,
 	ConfigurationTarget,
+    ProgressLocation
 } from 'vscode';
 
 import { FileDom } from './FileDom';
@@ -164,33 +165,38 @@ export class PickList {
             vsHelp.showInfo("非http/https格式图片，不支持配置！ / Non HTTP/HTTPS format image, configuration not supported!");
             return false;
         }
-        try {
-            window.showInformationMessage('正在检测在线资源类型... / Detecting online resource type...');
-            const images = await OnlineImageHelper.getOnlineImages(path);
-            const config = workspace.getConfiguration('backgroundCover');
-            PickList.itemList = new PickList(config);
-            PickList.itemList.setImageFileType(2);
-            
-            if (images && images.length > 1) {
-                window.showInformationMessage(`检测到在线文件夹，包含 ${images.length} 张图片！将随机选择一张作为背景。`);
-                const context = getContext();
-                context.globalState.update('backgroundCoverOnlineFolder', path);
-                context.globalState.update('backgroundCoverOnlineImageList', images);
-                await config.update('randomImageFolder', path, ConfigurationTarget.Global);
-                const randomImage = images[Math.floor(Math.random() * images.length)];
-                PickList.itemList.updateBackgound(randomImage);
-            } else {
-                window.showInformationMessage('检测到单张在线图片！');
-                const actualImage = (images && images.length > 0) ? images[0] : path;
-                PickList.itemList.updateBackgound(actualImage, true);
+        await window.withProgress({
+            location: ProgressLocation.Notification,
+            title: "正在检测在线资源类型... / Detecting online resource type...",
+            cancellable: false
+        }, async () => {
+            try {
+                const images = await OnlineImageHelper.getOnlineImages(path);
+                const config = workspace.getConfiguration('backgroundCover');
+                PickList.itemList = new PickList(config);
+                PickList.itemList.setImageFileType(2);
+                
+                if (images && images.length > 1) {
+                    window.showInformationMessage(`检测到在线文件夹，包含 ${images.length} 张图片！将随机选择一张作为背景。`);
+                    const context = getContext();
+                    context.globalState.update('backgroundCoverOnlineFolder', path);
+                    context.globalState.update('backgroundCoverOnlineImageList', images);
+                    await config.update('randomImageFolder', path, ConfigurationTarget.Global);
+                    const randomImage = images[Math.floor(Math.random() * images.length)];
+                    PickList.itemList.updateBackgound(randomImage);
+                } else {
+                    // window.showInformationMessage('检测到单张在线图片！');
+                    const actualImage = (images && images.length > 0) ? images[0] : path;
+                    PickList.itemList.updateBackgound(actualImage, true);
+                }
+            } catch (error: any) {
+                window.showErrorMessage(`在线资源检测失败: ${error.message}`);
+                const config = workspace.getConfiguration('backgroundCover');
+                PickList.itemList = new PickList(config);
+                PickList.itemList.setImageFileType(2);
+                PickList.itemList.updateBackgound(path, true);
             }
-        } catch (error: any) {
-            window.showErrorMessage(`在线资源检测失败: ${error.message}`);
-            const config = workspace.getConfiguration('backgroundCover');
-            PickList.itemList = new PickList(config);
-            PickList.itemList.setImageFileType(2);
-            PickList.itemList.updateBackgound(path, true);
-        }
+        });
     }
 
     public static gotoFilePath(path?: string) {
@@ -607,29 +613,36 @@ export class PickList {
             if (!isUrl) { shouldClearOnlineCache = true; }
 
             if (isUrl) {
-                try {
-                    window.showInformationMessage('正在检测在线资源类型... / Detecting online resource type...');
-                    const images = await OnlineImageHelper.getOnlineImages(value);
-                    if (images && images.length > 1) {
-                        const config = workspace.getConfiguration('backgroundCover');
-                        PickList.itemList = new PickList(config);
-                        PickList.itemList.setImageFileType(2);
-                        const context = getContext();
-                        await context.globalState.update('backgroundCoverOnlineFolder', value);
-                        await context.globalState.update('backgroundCoverOnlineImageList', images);
-                        await config.update('randomImageFolder', value, ConfigurationTarget.Global);
-                        const randomImage = images[Math.floor(Math.random() * images.length)];
-                        PickList.itemList.updateBackgound(randomImage);
-                        return true;
-                    } else if (images && images.length === 1) {
-                        value = images[0];
+                let shouldReturn = false;
+                await window.withProgress({
+                    location: ProgressLocation.Notification,
+                    title: "正在检测在线资源类型... / Detecting online resource type...",
+                    cancellable: false
+                }, async () => {
+                    try {
+                        const images = await OnlineImageHelper.getOnlineImages(value!);
+                        if (images && images.length > 1) {
+                            const config = workspace.getConfiguration('backgroundCover');
+                            PickList.itemList = new PickList(config);
+                            PickList.itemList.setImageFileType(2);
+                            const context = getContext();
+                            await context.globalState.update('backgroundCoverOnlineFolder', value);
+                            await context.globalState.update('backgroundCoverOnlineImageList', images);
+                            await config.update('randomImageFolder', value, ConfigurationTarget.Global);
+                            const randomImage = images[Math.floor(Math.random() * images.length)];
+                            PickList.itemList.updateBackgound(randomImage);
+                            shouldReturn = true;
+                        } else if (images && images.length === 1) {
+                            value = images[0];
+                            shouldClearOnlineCache = true;
+                        }
+                    } catch (err: any) {
+                        console.error('[background-cover] OnlineImageHelper error:', err && err.message ? err.message : err);
+                        window.showWarningMessage('在线资源检测失败，按单张图片处理 / Online detection failed, treating as single image');
                         shouldClearOnlineCache = true;
                     }
-                } catch (err: any) {
-                    console.error('[background-cover] OnlineImageHelper error:', err && err.message ? err.message : err);
-                    window.showWarningMessage('在线资源检测失败，按单张图片处理 / Online detection failed, treating as single image');
-                    shouldClearOnlineCache = true;
-                }
+                });
+                if (shouldReturn) { return true; }
             } else {
                 shouldClearOnlineCache = true;
             }
