@@ -58,6 +58,16 @@
                     "light": "resources/light/home.svg",
                     "dark": "resources/dark/home.svg"
                 }
+            },
+            {
+                "command": "backgroundCover.switchMode",
+                "title": "配置",
+                "icon": "$(settings-gear)"
+            },
+            {
+                "command": "backgroundCover.support",
+                "title": "赞助",
+                "icon": "$(heart)"
             }
         ],
         "keybindings": [
@@ -150,9 +160,15 @@
         "views": {
             "backgroundCover-explorer": [
                 {
+                    "id": "backgroundCover.menu",
+                    "name": "Menu",
+                    "when": "backgroundCover.mode == 'menu'"
+                },
+                {
                     "id": "backgroundCover.readerView",
                     "type": "webview",
-                    "name": "backgroundCover"
+                    "name": "Online Gallery",
+                    "when": "backgroundCover.mode != 'menu'"
                 }
             ]
         },
@@ -161,12 +177,37 @@
                 {
                     "command": "backgroundCover.refreshEntry",
                     "when": "view == backgroundCover.readerView",
-                    "group": "navigation@1"
+                    "group": "navigation@2"
                 },
                 {
                     "command": "backgroundCover.home",
                     "when": "view == backgroundCover.readerView",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "backgroundCover.switchMode",
+                    "when": "view == backgroundCover.readerView",
                     "group": "navigation@0"
+                },
+                {
+                    "command": "backgroundCover.support",
+                    "when": "view == backgroundCover.readerView",
+                    "group": "navigation@3"
+                },
+                {
+                    "command": "backgroundCover.home",
+                    "when": "view == backgroundCover.menu",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "backgroundCover.refreshEntry",
+                    "when": "view == backgroundCover.menu",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "backgroundCover.support",
+                    "when": "view == backgroundCover.menu",
+                    "group": "navigation@3"
                 }
             ]
         }

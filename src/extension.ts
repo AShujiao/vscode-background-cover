@@ -18,12 +18,13 @@ import {
 	workspace, // 获取 VSCode 版本
 } from 'vscode';
 import { PickList } from './PickList';
+import { ImgItem } from './ImgItem';
 import vsHelp from './vsHelp';
 import ReaderViewProvider from './readerView';
 import { setContext } from './global';
+import { BackgroundCoverViewProvider } from './backgroundCoverView';
 
-// this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
+
 export function activate(context: ExtensionContext) {
 	setContext(context);
 	// 创建底部按钮 - 背景图片配置
@@ -75,8 +76,39 @@ export function activate(context: ExtensionContext) {
 	  },
 	});
 	commands.registerCommand('backgroundCover.refreshEntry',() => readerViewProvider.refresh());
-	commands.registerCommand('backgroundCover.home',() => readerViewProvider.home());
+	commands.registerCommand('backgroundCover.home',() => {
+		commands.executeCommand('setContext', 'backgroundCover.mode', 'gallery');
+		readerViewProvider.home();
+	});
+	commands.registerCommand('backgroundCover.switchMode',() => {
+		commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
+	});
+	commands.registerCommand('backgroundCover.support',() => readerViewProvider.support());
 
+	// Register Tree Data Provider
+	const backgroundCoverViewProvider = new BackgroundCoverViewProvider();
+	window.registerTreeDataProvider('backgroundCover.menu', backgroundCoverViewProvider);
+
+	// Register Command for Tree Item Click
+	context.subscriptions.push(commands.registerCommand('backgroundCover.runAction', (type: number, path?: string) => {
+		const config = workspace.getConfiguration('backgroundCover');
+		const quickPick = window.createQuickPick<ImgItem>();
+		const pickList = new PickList(config, quickPick);
+		pickList.handleAction(type, path);
+	}));
+
+
+	context.subscriptions.push(commands.registerCommand('backgroundCover.setConfig', async (key: string, value: any) => {
+		const config = workspace.getConfiguration();
+		await config.update(key, value, true);
+		// Trigger update
+		const newConfig = workspace.getConfiguration('backgroundCover');
+		const pickList = new PickList(newConfig);
+		PickList.needAutoUpdate(newConfig);
+	}));
+
+	// Initialize context
+	commands.executeCommand('setContext', 'backgroundCover.mode', 'gallery');
 
 	// 监听主题变化
 	window.onDidChangeActiveColorTheme((event) => {

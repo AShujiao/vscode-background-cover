@@ -244,7 +244,7 @@ export class PickList {
 
     // --- Instance Methods ---
 
-    private constructor(config: WorkspaceConfiguration, pickList?: QuickPick<ImgItem>) {
+    public constructor(config: WorkspaceConfiguration, pickList?: QuickPick<ImgItem>) {
         this.config = config;
         this.imgPath = config.imagePath;
         this.opacity = config.opacity;
@@ -269,7 +269,7 @@ export class PickList {
         }
     }
 
-    private showMainMenu() {
+    public getMainMenuItems(): ImgItem[] {
         const items: ImgItem[] = [
             { label: '$(file-media) Select Pictures', detail: '选择一张背景图', imageType: ActionType.SelectPictures },
             { label: '$(file-directory) Add Directory', detail: '添加图片目录', imageType: ActionType.AddDirectory },
@@ -307,11 +307,14 @@ export class PickList {
             { label: '$(organization) Wechat', detail: '微信群聊~', imageType: ActionType.OpenFilePath, path: "//resources//wx.jpg" },
             { label: '$(ports-open-browser-icon) Online images', detail: '在线图库', imageType: ActionType.OnlineImages, path: "https://vs.20988.xyz/d/24-bei-jing-tu-tu-ku" }
         );
-
-        this.quickPick.items = items;
+        return items;
     }
 
-    private handleAction(type: ActionType, path?: string) {
+    private showMainMenu() {
+        this.quickPick.items = this.getMainMenuItems();
+    }
+
+    public handleAction(type: ActionType, path?: string) {
         switch (type) {
             case ActionType.SelectPictures: this.showImageSelectionList(); break;
             case ActionType.AddDirectory: this.openFieldDialog(2); break;
@@ -350,17 +353,20 @@ export class PickList {
         env.openExternal(Uri.parse(path));
     }
 
-    private showMoreMenu() {
-        const items: ImgItem[] = [
+    public getMoreMenuItems(): ImgItem[] {
+        return [
             { label: '$(github) Repository', detail: '仓库地址', imageType: ActionType.OpenExternalUrl, path: "https://github.com/AShujiao/vscode-background-cover" },
             { label: '$(issues) Issues', detail: '有疑问就来提问', imageType: ActionType.OpenExternalUrl, path: "https://github.com/AShujiao/vscode-background-cover/issues" },
             { label: '$(star) Star', detail: '给作者点个Star吧', imageType: ActionType.OpenExternalUrl, path: "https://github.com/AShujiao/vscode-background-cover" }
         ];
-        this.quickPick.items = items;
+    }
+
+    private showMoreMenu() {
+        this.quickPick.items = this.getMoreMenuItems();
         this.quickPick.show();
     }
 
-    private showSizeModeMenu() {
+    public getSizeModeMenuItems(): ImgItem[] {
         const modes = [
             { label: 'cover (default)', value: 'cover', desc: '填充(默认)' },
             { label: 'repeat', value: 'repeat', desc: '平铺' },
@@ -375,20 +381,22 @@ export class PickList {
             { label: 'not(bottom)', value: 'not_bottom', desc: '无适应(靠下)' },
         ];
 
-        const items: ImgItem[] = modes.map(m => ({
+        return modes.map(m => ({
             label: `$(layout) ${m.label}`,
             detail: `${m.desc} ${this.sizeModel == m.value ? '$(check)' : ''}`,
             imageType: ActionType.SetSizeMode,
             path: m.value
         }));
+    }
 
-        this.quickPick.items = items;
+    private showSizeModeMenu() {
+        this.quickPick.items = this.getSizeModeMenuItems();
         this.quickPick.show();
     }
 
-    public particleEffectSettings() {
+    public getParticleEffectMenuItems(): ImgItem[] {
         const enabled = getContext().globalState.get('backgroundCoverParticleEffect', false);
-        const items: ImgItem[] = [
+        return [
             {
                 label: enabled ? '$(circle-filled) Disable Particles' : '$(circle-outline) Enable Particles',
                 detail: enabled ? '关闭粒子效果' : '启用粒子效果',
@@ -398,7 +406,10 @@ export class PickList {
             { label: '$(symbol-color) Select Color', detail: '选择粒子颜色', imageType: ActionType.ParticleColor },
             { label: '$(multiple-windows) Particle Count', detail: '设置粒子数量', imageType: ActionType.ParticleCount },
         ];
-        this.quickPick.items = items;
+    }
+
+    public particleEffectSettings() {
+        this.quickPick.items = this.getParticleEffectMenuItems();
         this.quickPick.show();
     }
 
@@ -407,7 +418,7 @@ export class PickList {
         this.setContextValue('backgroundCoverParticleEffect', !currentValue, true);
     }
 
-    private showColorSelection() {
+    public getColorSelectionItems(): ImgItem[] {
         const items: ImgItem[] = [];
         items.push({ label: '$(pencil) Custom Color', detail: '输入自定义RGB颜色 (例如: 255,255,255)', imageType: ActionType.InputParticleColor });
         
@@ -419,7 +430,11 @@ export class PickList {
                 path: colorName
             });
         }
-        this.quickPick.items = items;
+        return items;
+    }
+
+    private showColorSelection() {
+        this.quickPick.items = this.getColorSelectionItems();
         this.quickPick.show();
     }
 
