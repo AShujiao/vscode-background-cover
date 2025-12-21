@@ -17,7 +17,7 @@ import {
 	version as vscodeVersion,
 	workspace, // 获取 VSCode 版本
 } from 'vscode';
-import { PickList } from './PickLIst';
+import { PickList } from './PickList';
 import vsHelp from './vsHelp';
 import ReaderViewProvider from './readerView';
 import { setContext } from './global';
@@ -32,13 +32,7 @@ export function activate(context: ExtensionContext) {
 	backImgBtn.command = 'extension.backgroundCover.start';
 	backImgBtn.tooltip = 'Switch background image / 切换背景图';
 	backImgBtn.show();
-
-	// 检查 VSCode 版本变化
-	let isChanged = checkVSCodeVersionChanged(context);
-	if (!isChanged) {
-		// 防止同时运行
-		PickList.autoUpdateBackground();
-	}
+	context.subscriptions.push(backImgBtn);
 
 	// 创建底部按钮 - 粒子效果配置
 	let particleBtn = window.createStatusBarItem(StatusBarAlignment.Right, -999);
@@ -46,6 +40,15 @@ export function activate(context: ExtensionContext) {
 	particleBtn.command = 'extension.backgroundCover.nest';
 	particleBtn.tooltip = 'Particle effect / 粒子效果';
 	particleBtn.show();
+	context.subscriptions.push(particleBtn);
+
+	// 异步检查 VSCode 版本变化，不阻塞启动
+	checkVSCodeVersionChanged(context).then(isChanged => {
+		if (!isChanged) {
+			// 防止同时运行
+			PickList.autoUpdateBackground();
+		}
+	});
 
 
 
@@ -90,7 +93,7 @@ export function activate(context: ExtensionContext) {
 }
 
 // 检查 VSCode 版本是否变化
-function checkVSCodeVersionChanged(context: ExtensionContext): boolean {
+async function checkVSCodeVersionChanged(context: ExtensionContext): Promise<boolean> {
 	// 获取配置
 	let config = workspace.getConfiguration('backgroundCover');
 	// 如果没有设置背景图，则不处理
@@ -103,19 +106,25 @@ function checkVSCodeVersionChanged(context: ExtensionContext): boolean {
 	// 如果版本不同，说明 VSCode 更新了
 	if (lastVSCodeVersion && lastVSCodeVersion !== vscodeVersion) {
 		// 弹出提示框确认是否更新背景
-		window.showInformationMessage(
+		const value = await window.showInformationMessage(
 			`检测到 VSCode 已更新，背景图可能已被重置，是否重新应用背景图？ / Reapply the background image?`,
 			'YES',
 			'NO'
-		).then((value) => {
-			if (value === 'YES') {
-				// 更新DOM
-				PickList.needAutoUpdate(config);
-			}
-		});
+		);
+		
+		if (value === 'YES') {
+			// 更新DOM
+			PickList.needAutoUpdate(config);
+		}
+		
 		// 更新全局状态中的 VSCode 版本
 		context.globalState.update('vscode_version', vscodeVersion);
 		return true;
+	}
+
+	// 修复：首次运行或版本未记录时，也需要更新版本号，防止下次误判
+	if (!lastVSCodeVersion) {
+		context.globalState.update('vscode_version', vscodeVersion);
 	}
 
 	return false;

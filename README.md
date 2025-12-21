@@ -153,20 +153,9 @@ A: 插件会在需要时请求密码。或者你可以手动修改文件权限�
 ## 最近更新日志
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 2.8.0 (2025/12/14)
+#### ver 2.8.2 (2025/12/21)
 
-感谢 [@WaaSakura](https://github.com/WaaSakura) 提交的[PR](https://github.com/AShujiao/vscode-background-cover/pull/173)
-
-    1.新增支持code-server平台     
-    2.输入图片地址功能扩展    
-        * 支持返回多图JSON格式API地址
-        * 支持静态html（解析a标签图片）   
-        * 支持在线图库网站（vs.20988.xyz 解析帖子内的图片） 
-    3. 支持在线图库帖子设置为背景图库（通过帖子列表、详情三个点按钮触发）
-
-#### ver 2.8.1 (2025/12/19)
-
-    1.修复vs更新后“重新应用背景”与“自动更换背景”事件冲突 
+    1.代码优化与依赖更新 
   
 ---
 ### Thanks 感谢

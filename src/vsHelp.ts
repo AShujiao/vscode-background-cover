@@ -4,7 +4,7 @@ import {
     Uri,
     env,
   } from 'vscode';
-import { PickList } from './PickLIst';
+import { PickList } from './PickList';
 
 const vsHelp = {
     /**
