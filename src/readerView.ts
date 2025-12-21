@@ -15,6 +15,7 @@ export default class ReaderViewProvider implements WebviewViewProvider {
 
   private _view ? : WebviewView;
   private _pendingPage?: string;
+  private _isProcessing: boolean = false;
 
   //监听面板事件
   private _disposables: Disposable[] = [];
@@ -68,21 +69,27 @@ export default class ReaderViewProvider implements WebviewViewProvider {
     this._pendingPage = undefined;
     this._view.webview.html = this.getHtmlForWebview(pageToLoad);
     this._view.webview.onDidReceiveMessage(
-        message => {
-            switch (message.command) {
-                case 'set_img':
-                  if(message.data.link){
-                    let context = getContext();
-                    context.globalState.update('backgroundCoverOnlineDefault', message.data.link);
-                  }
-                  PickList.updateImgPath(message.data.url);
-                  break;
-                case 'set_home':
-                  let context = getContext();
-                  context.globalState.update('backgroundCoverOnlineDefault', message.data.url);
-                  PickList.updateImgPath(message.data.url);
-                  window.showInformationMessage("配置帖子图库成功，记得开启自动更换功能噢！/ Set successfully, remember to turn on the auto-change function!");
-                  break;
+        async message => {
+            if (this._isProcessing) { return; }
+            this._isProcessing = true;
+            try {
+                switch (message.command) {
+                    case 'set_img':
+                      if(message.data.link){
+                        let context = getContext();
+                        await context.globalState.update('backgroundCoverOnlineDefault', message.data.link);
+                      }
+                      await PickList.updateImgPath(message.data.url);
+                      break;
+                    case 'set_home':
+                      let context = getContext();
+                      await context.globalState.update('backgroundCoverOnlineDefault', message.data.url);
+                      await PickList.updateImgPath(message.data.url);
+                      window.showInformationMessage("配置帖子图库成功，记得开启自动更换功能噢！/ Set successfully, remember to turn on the auto-change function!");
+                      break;
+                }
+            } finally {
+                this._isProcessing = false;
             }
         },
         this,

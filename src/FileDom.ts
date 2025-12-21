@@ -122,22 +122,39 @@ export class FileDom {
 
             const urlHash = crypto.createHash('md5').update(this.imagePath).digest('hex');
             let ext = '.jpg';
+            let isStaticImage = false;
+
             try {
                 const urlObj = new URL(this.imagePath);
                 ext = path.extname(urlObj.pathname) || '.jpg';
+                if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].includes(ext.toLowerCase())) {
+                    isStaticImage = true;
+                }
             } catch {
                 // ignore
             }
             
             const cachePath = path.join(cacheDir, `${urlHash}${ext}`);
 
-            if (await fse.pathExists(cachePath)) {
+            if (isStaticImage && await fse.pathExists(cachePath)) {
                 this.imagePath = cachePath;
                 return;
             }
 
-            await this.downloadFile(this.imagePath, cachePath);
-            this.imagePath = cachePath;
+            const tempPath = `${cachePath}.tmp`;
+
+            try {
+                await this.downloadFile(this.imagePath, tempPath);
+                await fse.move(tempPath, cachePath, { overwrite: true });
+                this.imagePath = cachePath;
+            } catch (error) {
+                if (await fse.pathExists(cachePath)) {
+                    this.imagePath = cachePath;
+                    console.warn('[FileDom] Download failed, using cached image:', error);
+                } else {
+                    throw error;
+                }
+            }
         } catch (error) {
             console.error('[FileDom] Failed to download image:', error);
         }
