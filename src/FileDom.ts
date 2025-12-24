@@ -423,24 +423,98 @@ export class FileDom {
         await this.writeWithPermission(CUSTOM_CSS_FILE_PATH, css);
     }
 
+    private getJs(): string {
+        const particleJs = this.getParticleJs();
+
+        return `
+        /*ext-${this.extName}-start*/
+        /*ext.${this.extName}.ver.${version}*/
+        ${this.getLoaderJs()}
+        ${particleJs}
+        /*ext-${this.extName}-end*/
+        `;
+    }
+
+    private getParticleJs(): string {
+        const context = getContext();
+        if (!context.globalState.get('backgroundCoverParticleEffect', false)) {
+            return '';
+        }
+
+        const opacity = context.globalState.get('backgroundCoverParticleOpacity', 0.6);
+        const color = context.globalState.get('backgroundCoverParticleColor', '#ffffff');
+        const count = context.globalState.get('backgroundCoverParticleCount', 50);
+
+        return getParticleEffectJs(opacity, color, count);
+    }
+
+    private getCss(): string {
+        const opacity = Math.min(this.imageOpacity, 0.8);
+        const { sizeModelVal, repeatVal, positionVal } = this.getCssStyles();
+
+        let rawPath = this.imagePath;
+        const globalWindow = typeof globalThis !== 'undefined' ? (globalThis as any).window : undefined;
+        
+        if (this.forceHttpsUpgrade && rawPath.toLowerCase().startsWith('http://')) {
+            if (globalWindow?.location?.protocol === 'https:') {
+                rawPath = rawPath.replace(/^http:\/\//i, 'https://');
+            }
+        }
+
+        let cssPath = this.escapeTemplateLiteral(rawPath);
+
+        if (this.isVideo) {
+            const config = {
+                url: rawPath,
+                opacity: opacity,
+                blur: this.blur,
+                blendMode: this.blendModel
+            };
+            // Escape backticks and ${} for template literal safety, but keep backslashes as is (JSON stringified)
+            const jsonConfig = JSON.stringify(config)
+                .replace(/`/g, '\\`')
+                .replace(/\$\{/g, '\\${');
+
+            return `
+            /*background-cover-video-start*/
+            ${jsonConfig}
+            /*background-cover-video-end*/
+            ${this.getCorruptionWarningCss()}
+            `;
+        }
+
+        return `
+        body::before{
+            content: "";
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            background-size: ${sizeModelVal};
+            background-repeat: ${repeatVal};
+            background-position: ${positionVal};
+            opacity:${opacity};
+            background-image:url('${cssPath}');
+            z-index: 2;
+            pointer-events: none;
+            filter: blur(${this.blur}px);
+            mix-blend-mode: ${this.blendModel};
+        }
+        ${this.getCorruptionWarningCss()}
+        `;
+    }
+
     private getLoaderJs(): string {
         const cssUrl = Uri.file(CUSTOM_CSS_FILE_PATH).with({ scheme: 'vscode-file', authority: 'vscode-app' }).toString();
         
-        let videoSetup = '';
-        if (this.isVideo) {
-            let finalImagePath = this.escapeTemplateLiteral(this.imagePath);
-            const globalWindow = typeof globalThis !== 'undefined' ? (globalThis as any).window : undefined;
-            if (this.forceHttpsUpgrade && finalImagePath.toLowerCase().startsWith('http://')) {
-                if (globalWindow?.location?.protocol === 'https:') {
-                    finalImagePath = finalImagePath.replace(/^http:\/\//i, 'https://');
-                }
-            }
-
-            const opacity = Math.min(this.imageOpacity, 0.8);
-            
-            videoSetup = `
-            function updateVideo() {
+        const videoSetup = `
+            function updateVideo(config) {
                 let video = document.getElementById('background-cover-video');
+                if (!config) {
+                    if (video) video.remove();
+                    return;
+                }
                 if (!video) {
                     video = document.createElement('video');
                     video.id = 'background-cover-video';
@@ -453,28 +527,34 @@ export class FileDom {
                     video.style.width = '100%';
                     video.style.height = '100%';
                     video.style.objectFit = 'cover';
-                    video.style.opacity = '${opacity}';
                     video.style.zIndex = '2';
                     video.style.pointerEvents = 'none';
-                    video.style.filter = 'blur(${this.blur}px)';
-                    video.style.mixBlendMode = '${this.blendModel}';
                     document.body.prepend(video);
                 }
                 
-                const src = '${finalImagePath}';
-                if (video.src !== src) {
-                    video.src = src;
+                let url = config.url;
+                // HTTPS upgrade logic
+                if (url.toLowerCase().startsWith('http://') && window.location.protocol === 'https:') {
+                    url = url.replace(/^http:\\/\\//i, 'https://');
                 }
+
+                if (video.src !== url) {
+                    video.src = url;
+                }
+                video.style.opacity = config.opacity + '';
+                video.style.filter = 'blur(' + config.blur + 'px)';
+                video.style.mixBlendMode = config.blendMode;
+                
                 video.play().catch(e => console.error('BackgroundCover video play error:', e));
             }
-            updateVideo();
-            `;
-        }
+        `;
 
         return `
         (function() {
             const cssUrl = '${cssUrl}';
             
+            ${videoSetup}
+
             function updateStyleTag(css) {
                 let style = document.getElementById('background-cover-style');
                 if (!style) {
@@ -491,12 +571,23 @@ export class FileDom {
                 const url = cssUrl + '?t=' + Date.now();
                 fetch(url).then(r => r.text()).then(css => {
                     updateStyleTag(css);
+                    
+                    const match = css.match(/\\/\\*background-cover-video-start\\*\\/([\\s\\S]*?)\\/\\*background-cover-video-end\\*\\//);
+                    if (match) {
+                        try {
+                            const config = JSON.parse(match[1]);
+                            updateVideo(config);
+                        } catch(e) {
+                            console.error('[BackgroundCover] Video config parse error:', e);
+                        }
+                    } else {
+                        updateVideo(null);
+                    }
                 }).catch(e => console.error('[BackgroundCover] Load error:', e));
             }
             
             // Initial load
             loadCss();
-            ${videoSetup}
 
             // 1. Event Hook: Listen for status bar message
             try {
@@ -506,7 +597,6 @@ export class FileDom {
                         // Check text content of the mutated node
                         if (target.textContent && target.textContent.includes('background-cover-reload-trigger')) {
                             loadCss();
-                            ${this.isVideo ? 'updateVideo();' : ''}
                             return; 
                         }
                     }
@@ -541,75 +631,8 @@ export class FileDom {
             // This ensures that if the status bar trigger is missed, the background updates when the user interacts with the window
             window.addEventListener('focus', () => {
                 loadCss();
-                ${this.isVideo ? 'updateVideo();' : ''}
             });
         })();
-        `;
-    }
-
-    private getJs(): string {
-        const particleJs = this.getParticleJs();
-
-        return `
-        /*ext-${this.extName}-start*/
-        /*ext.${this.extName}.ver.${version}*/
-        ${this.getLoaderJs()}
-        ${particleJs}
-        /*ext-${this.extName}-end*/
-        `;
-    }
-
-    private getParticleJs(): string {
-        const context = getContext();
-        if (!context.globalState.get('backgroundCoverParticleEffect', false)) {
-            return '';
-        }
-
-        const opacity = context.globalState.get('backgroundCoverParticleOpacity', 0.6);
-        const color = context.globalState.get('backgroundCoverParticleColor', '#ffffff');
-        const count = context.globalState.get('backgroundCoverParticleCount', 50);
-
-        return getParticleEffectJs(opacity, color, count);
-    }
-
-    private getCss(): string {
-        const opacity = Math.min(this.imageOpacity, 0.8);
-        const { sizeModelVal, repeatVal, positionVal } = this.getCssStyles();
-
-        let finalImagePath = this.escapeTemplateLiteral(this.imagePath);
-        const globalWindow = typeof globalThis !== 'undefined' ? (globalThis as any).window : undefined;
-        
-        if (this.forceHttpsUpgrade && finalImagePath.toLowerCase().startsWith('http://')) {
-            if (globalWindow?.location?.protocol === 'https:') {
-                finalImagePath = finalImagePath.replace(/^http:\/\//i, 'https://');
-            }
-        }
-
-        if (this.isVideo) {
-            return `
-            ${this.getCorruptionWarningCss()}
-            `;
-        }
-
-        return `
-        body::before{
-            content: "";
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            position: absolute;
-            background-size: ${sizeModelVal};
-            background-repeat: ${repeatVal};
-            background-position: ${positionVal};
-            opacity:${opacity};
-            background-image:url('${finalImagePath}');
-            z-index: 2;
-            pointer-events: none;
-            filter: blur(${this.blur}px);
-            mix-blend-mode: ${this.blendModel};
-        }
-        ${this.getCorruptionWarningCss()}
         `;
     }
 
