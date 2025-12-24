@@ -813,7 +813,7 @@ export class PickList {
     private async openFieldDialog(type: number) {
         const isFolders = type === 1 ? false : true;
         const isFiles = type === 2 ? false : true;
-        const filters = type === 1 ? { 'Images': ['png', 'jpg', 'gif', 'jpeg', 'jfif', 'webp', 'bmp'] } : undefined;
+        const filters = type === 1 ? { 'Images': ['png', 'jpg', 'gif', 'jpeg', 'jfif', 'webp', 'bmp', 'mp4'] } : undefined;
         const folderUris = await window.showOpenDialog({
             canSelectFolders: isFolders,
             canSelectFiles: isFiles,

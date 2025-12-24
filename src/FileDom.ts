@@ -70,6 +70,7 @@ export class FileDom {
     private bakJsContent: string = '';
     private workConfig: WorkspaceConfiguration;
     private initializePromise?: Promise<void>;
+    private isVideo: boolean = false;
 
     constructor(
         workConfig: WorkspaceConfiguration,
@@ -94,6 +95,11 @@ export class FileDom {
         });
     }
 
+    private checkIsVideo(filePath: string): boolean {
+        const ext = path.extname(filePath).toLowerCase();
+        return ['.mp4', '.webm', '.ogg', '.mov'].includes(ext);
+    }
+
     private async initializeImage(): Promise<void> {
         let lowerPath = this.imagePath.toLowerCase();
 
@@ -101,6 +107,8 @@ export class FileDom {
             await this.downloadAndCacheImage();
             lowerPath = this.imagePath.toLowerCase();
         }
+
+        this.isVideo = this.checkIsVideo(this.imagePath);
 
         if (
             !lowerPath.startsWith('http://') &&
@@ -110,7 +118,9 @@ export class FileDom {
             try {
                 this.localImgToVsc();
             } catch (e) {
-                await this.imageToBase64();
+                if (!this.isVideo) {
+                    await this.imageToBase64();
+                }
             }
         }
     }
@@ -128,7 +138,7 @@ export class FileDom {
             try {
                 const urlObj = new URL(this.imagePath);
                 ext = path.extname(urlObj.pathname) || '.jpg';
-                if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'].includes(ext.toLowerCase())) {
+                if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.mp4', '.webm', '.ogg', '.mov'].includes(ext.toLowerCase())) {
                     isStaticImage = true;
                 }
             } catch {
@@ -416,6 +426,51 @@ export class FileDom {
     private getLoaderJs(): string {
         const cssUrl = Uri.file(CUSTOM_CSS_FILE_PATH).with({ scheme: 'vscode-file', authority: 'vscode-app' }).toString();
         
+        let videoSetup = '';
+        if (this.isVideo) {
+            let finalImagePath = this.escapeTemplateLiteral(this.imagePath);
+            const globalWindow = typeof globalThis !== 'undefined' ? (globalThis as any).window : undefined;
+            if (this.forceHttpsUpgrade && finalImagePath.toLowerCase().startsWith('http://')) {
+                if (globalWindow?.location?.protocol === 'https:') {
+                    finalImagePath = finalImagePath.replace(/^http:\/\//i, 'https://');
+                }
+            }
+
+            const opacity = Math.min(this.imageOpacity, 0.8);
+            
+            videoSetup = `
+            function updateVideo() {
+                let video = document.getElementById('background-cover-video');
+                if (!video) {
+                    video = document.createElement('video');
+                    video.id = 'background-cover-video';
+                    video.autoplay = true;
+                    video.loop = true;
+                    video.muted = true;
+                    video.style.position = 'absolute';
+                    video.style.top = '0';
+                    video.style.left = '0';
+                    video.style.width = '100%';
+                    video.style.height = '100%';
+                    video.style.objectFit = 'cover';
+                    video.style.opacity = '${opacity}';
+                    video.style.zIndex = '2';
+                    video.style.pointerEvents = 'none';
+                    video.style.filter = 'blur(${this.blur}px)';
+                    video.style.mixBlendMode = '${this.blendModel}';
+                    document.body.prepend(video);
+                }
+                
+                const src = '${finalImagePath}';
+                if (video.src !== src) {
+                    video.src = src;
+                }
+                video.play().catch(e => console.error('BackgroundCover video play error:', e));
+            }
+            updateVideo();
+            `;
+        }
+
         return `
         (function() {
             const cssUrl = '${cssUrl}';
@@ -441,6 +496,7 @@ export class FileDom {
             
             // Initial load
             loadCss();
+            ${videoSetup}
 
             // 1. Event Hook: Listen for status bar message
             try {
@@ -450,6 +506,7 @@ export class FileDom {
                         // Check text content of the mutated node
                         if (target.textContent && target.textContent.includes('background-cover-reload-trigger')) {
                             loadCss();
+                            ${this.isVideo ? 'updateVideo();' : ''}
                             return; 
                         }
                     }
@@ -482,7 +539,10 @@ export class FileDom {
 
             // 2. Backup Hook: Check on window focus
             // This ensures that if the status bar trigger is missed, the background updates when the user interacts with the window
-            window.addEventListener('focus', loadCss);
+            window.addEventListener('focus', () => {
+                loadCss();
+                ${this.isVideo ? 'updateVideo();' : ''}
+            });
         })();
         `;
     }
@@ -523,6 +583,12 @@ export class FileDom {
             if (globalWindow?.location?.protocol === 'https:') {
                 finalImagePath = finalImagePath.replace(/^http:\/\//i, 'https://');
             }
+        }
+
+        if (this.isVideo) {
+            return `
+            ${this.getCorruptionWarningCss()}
+            `;
         }
 
         return `
