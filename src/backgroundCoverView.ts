@@ -195,7 +195,7 @@ export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<Conf
 
         if (element.label === t('actions')) {
             items.push(this.createActionItem(t('clearBackground'), ActionType.CloseBackground, 'trash'));
-//            items.push(this.createActionItem(t('refresh'), ActionType.UpdateBackground, 'refresh'));
+            items.push(this.createActionItem(t('refresh'), ActionType.UpdateBackground, 'refresh'));
             items.push(this.createActionItem(t('supportAuthor'), ActionType.OpenFilePath, 'heart', undefined, '//resources//support.jpg'));
         }
 

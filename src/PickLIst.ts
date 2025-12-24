@@ -270,15 +270,30 @@ export class PickList {
     }
 
     public getMainMenuItems(): ImgItem[] {
-        const items: ImgItem[] = [
+        const items: ImgItem[] = [];
+
+        items.push(
+            { label: 'Image Source / 图片来源', kind: QuickPickItemKind.Separator, imageType: 0 },
             { label: '$(file-media) Select Pictures', detail: '选择一张背景图', imageType: ActionType.SelectPictures },
             { label: '$(file-directory) Add Directory', detail: '添加图片目录', imageType: ActionType.AddDirectory },
+            { label: '$(pencil) Input : Path/Https', detail: '输入图片路径：本地/https/json(api)/html(a标签)/在线图库（帖子地址）', imageType: ActionType.InputPath },
+            { label: '$(ports-open-browser-icon) Online images', detail: '在线图库', imageType: ActionType.OnlineImages, path: "https://vs.20988.xyz/d/24-bei-jing-tu-tu-ku" }
+        );
+
+        const context = getContext();
+        const onlineFolder = context.globalState.get('backgroundCoverOnlineFolder');
+        if (onlineFolder) {
+            items.push({ label: '$(cloud-download) Refresh Online Folder', detail: '刷新在线文件夹图片列表', imageType: ActionType.RefreshOnlineFolder });
+        }
+
+        items.push(
+            { label: 'Appearance / 外观设置', kind: QuickPickItemKind.Separator, imageType: 0 },
             { label: '$(settings) Background Opacity', detail: '更新图片不透明度', imageType: ActionType.BackgroundOpacity },
             { label: '$(settings) Background Blur', detail: '模糊度', imageType: ActionType.BackgroundBlur },
-            { label: '$(layout) Size Mode', detail: '尺寸适应模式 / size adaptive mode', imageType: ActionType.SizeModeMenu },
-            { label: '$(pencil) Input : Path/Https', detail: '输入图片路径：本地/https/json(api)/html(a标签)/在线图库（帖子地址）', imageType: ActionType.InputPath },
-            { label: '$(eye-closed) Closing Background', detail: '关闭背景图', imageType: ActionType.CloseBackground },
-        ];
+            { label: '$(layout) Size Mode', detail: '尺寸适应模式 / size adaptive mode', imageType: ActionType.SizeModeMenu }
+        );
+
+        items.push({ label: 'Actions / 操作', kind: QuickPickItemKind.Separator, imageType: 0 });
 
         const autoStatus = this.config.get('autoStatus');
         const autoInterval = this.config.get('autoInterval', 0);
@@ -292,21 +307,23 @@ export class PickList {
             imageType: ActionType.AutoRandomSettings 
         });
 
-        const context = getContext();
-        const onlineFolder = context.globalState.get('backgroundCoverOnlineFolder');
-        if (onlineFolder) {
-            items.push({ label: '$(cloud-download) Refresh Online Folder', detail: '刷新在线文件夹图片列表', imageType: ActionType.RefreshOnlineFolder });
-        }
+        items.push(
+            { label: '$(refresh) Refresh Background', detail: '刷新背景图 / Refresh background', imageType: ActionType.UpdateBackground },
+            { label: '$(eye-closed) Closing Background', detail: '关闭背景图', imageType: ActionType.CloseBackground }
+        );
 
         items.push(
-            { label: '', description: '--------------------', imageType: 0, kind: QuickPickItemKind.Separator },
-            { label: '$(sparkle) Particle Effects🎉', detail: '粒子效果设置🎉', imageType: ActionType.ParticleSettings },
-            { label: '', description: '--------------------', imageType: 0, kind: QuickPickItemKind.Separator },
+            { label: 'Effects / 特效', kind: QuickPickItemKind.Separator, imageType: 0 },
+            { label: '$(sparkle) Particle Effects🎉', detail: '粒子效果设置🎉', imageType: ActionType.ParticleSettings }
+        );
+
+        items.push(
+            { label: 'About / 关于', kind: QuickPickItemKind.Separator, imageType: 0 },
             { label: '$(github) Github', detail: 'Github信息', imageType: ActionType.MoreMenu },
             { label: '$(heart) Support', detail: '请作者喝一杯咖啡吧~', imageType: ActionType.OpenFilePath, path: "//resources//support.jpg" },
-            { label: '$(organization) Wechat', detail: '微信群聊~', imageType: ActionType.OpenFilePath, path: "//resources//wx.jpg" },
-            { label: '$(ports-open-browser-icon) Online images', detail: '在线图库', imageType: ActionType.OnlineImages, path: "https://vs.20988.xyz/d/24-bei-jing-tu-tu-ku" }
+            { label: '$(organization) Wechat', detail: '微信群聊~', imageType: ActionType.OpenFilePath, path: "//resources//wx.jpg" }
         );
+
         return items;
     }
 
@@ -785,6 +802,7 @@ export class PickList {
     }
 
     public async updateBackgound(path?: string, clearOnlineCache: boolean = false, persist: boolean = true) {
+        if (!path) { path = this.config.get<string>('imagePath'); }
         if (!path) { return vsHelp.showInfo('Unfetched Picture Path / 未获取到图片路径'); }
         if (clearOnlineCache || !this.isOnlineUrl(path)) {
             this.clearOnlineFolder(true);

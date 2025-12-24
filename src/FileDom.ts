@@ -107,9 +107,10 @@ export class FileDom {
             !lowerPath.startsWith('https://') &&
             !lowerPath.startsWith('data:')
         ) {
-            const converted = await this.imageToBase64();
-            if (!converted) {
+            try {
                 this.localImgToVsc();
+            } catch (e) {
+                await this.imageToBase64();
             }
         }
     }

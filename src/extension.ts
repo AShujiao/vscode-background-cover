@@ -32,7 +32,7 @@ export function activate(context: ExtensionContext) {
 	// 创建底部按钮 - 背景图片配置
 	let backImgBtn = window.createStatusBarItem(StatusBarAlignment.Right, -999);
 	backImgBtn.text = '$(file-media)';
-	backImgBtn.command = 'extension.backgroundCover.start';
+	backImgBtn.command = 'extension.backgroundCover.showMenu';
 	backImgBtn.tooltip = 'Switch background image / 切换背景图';
 	backImgBtn.show();
 	context.subscriptions.push(backImgBtn);
@@ -78,9 +78,14 @@ export function activate(context: ExtensionContext) {
 	let randomCommand = commands.registerCommand('extension.backgroundCover.refresh', () => { PickList.randomUpdateBackground(); });
 	let startCommand = commands.registerCommand('extension.backgroundCover.start', () => { PickList.createItemLIst() });
 	let particleEffectCommand = commands.registerCommand('extension.backgroundCover.nest', () => { PickList.startNest() });
+	let showMenuCommand = commands.registerCommand('extension.backgroundCover.showMenu', () => {
+		commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
+		commands.executeCommand('workbench.view.extension.backgroundCover-explorer');
+	});
 	context.subscriptions.push(startCommand);
 	context.subscriptions.push(randomCommand);
 	context.subscriptions.push(particleEffectCommand);
+	context.subscriptions.push(showMenuCommand);
 
 	// webview
 	const readerViewProvider = new ReaderViewProvider();
@@ -89,7 +94,11 @@ export function activate(context: ExtensionContext) {
 		retainContextWhenHidden: true,
 	  },
 	});
-	commands.registerCommand('backgroundCover.refreshEntry',() => readerViewProvider.refresh());
+	commands.registerCommand('backgroundCover.refreshEntry',() => {
+		commands.executeCommand('setContext', 'backgroundCover.mode', 'gallery');
+		readerViewProvider.refresh()
+		}
+	);
 	commands.registerCommand('backgroundCover.home',() => {
 		commands.executeCommand('setContext', 'backgroundCover.mode', 'gallery');
 		readerViewProvider.home();
