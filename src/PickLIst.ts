@@ -166,8 +166,10 @@ export class PickList {
             console.log(`[BackgroundCover] Starting auto update task. Interval: ${interval}s`);
             PickList.intervalHandle = setInterval(() => {
                 const cfg = workspace.getConfiguration('backgroundCover');
-                // Check if we have a source for images
-                if (cfg.randomImageFolder || getContext().globalState.get('backgroundCoverOnlineFolder')) {
+                const context = getContext();
+                const hasOnlineFolder = context.globalState.get('backgroundCoverOnlineFolder');
+                const hasSingleSource = context.globalState.get('backgroundCoverSingleImageSource');
+                if (cfg.randomImageFolder || hasOnlineFolder || hasSingleSource) {
                     const pl = new PickList(cfg);
                     // Silent update: no persist, no UI messages
                     pl.autoUpdateBackground(false).catch(err => console.error(err));
@@ -497,6 +499,16 @@ export class PickList {
             }
         }
 
+        const singleSource = context.globalState.get<string>('backgroundCoverSingleImageSource');
+        if (singleSource && this.isOnlineUrl(singleSource)) {
+            if (persist) {
+                this.handleAction(ActionType.UpdateBackground, singleSource);
+            } else {
+                this.updateBackgound(singleSource, false, false);
+            }
+            return true;
+        }
+
         const randomImageFolder = this.config.get<string>('randomImageFolder');
         if (randomImageFolder && this.checkFolder(randomImageFolder)) {
             const files = this.getFolderImgList(randomImageFolder);
@@ -764,14 +776,14 @@ export class PickList {
             this.clearOnlineFolder(true);
         }
 
-        if (type === InputType.ParticleCount) {
+        if (type === InputType.Path) {
+            return this.updateBackgound(value, shouldClearOnlineCache);
+        } else if (type === InputType.ParticleCount) {
             this.setContextValue('backgroundCoverParticleCount', parseInt(value), true);
         } else if (type === InputType.ParticleColor) {
             this.setContextValue('backgroundCoverParticleColor', value, true);
         } else if (type === InputType.ParticleOpacity) {
             this.setContextValue('backgroundCoverParticleOpacity', parseFloat(value), true);
-        } else if (type === InputType.Path) {
-            await this.setConfigValue('imagePath', value, true);
         } else if (type === InputType.Opacity) {
             await this.setConfigValue('opacity', parseFloat(value), true);
         } else if (type === InputType.Blur) {
@@ -779,7 +791,11 @@ export class PickList {
         } else if (type === InputType.AutoRandomSettings) {
             const interval = parseInt(value);
             if (interval > 0) {
-                if (!this.config.get('randomImageFolder') && !getContext().globalState.get('backgroundCoverOnlineFolder')) {
+                const context = getContext();
+                const hasRandomFolder = this.config.get('randomImageFolder');
+                const hasOnlineFolder = context.globalState.get('backgroundCoverOnlineFolder');
+                const hasSingleSource = context.globalState.get('backgroundCoverSingleImageSource');
+                if (!hasRandomFolder && !hasOnlineFolder && !hasSingleSource) {
                     window.showWarningMessage('Please add a directory first! / 请先添加目录！');
                     return false;
                 }
@@ -808,7 +824,11 @@ export class PickList {
         if (clearOnlineCache || !this.isOnlineUrl(path)) {
             this.clearOnlineFolder(true);
         }
+        const shouldDisableAuto = persist && clearOnlineCache && this.isSingleImagePath(path);
         await this.setConfigValue('imagePath', path, true, persist);
+        if (shouldDisableAuto) {
+            await this.disableAutoRandomForSingleImage();
+        }
     }
 
     private async openFieldDialog(type: number) {
@@ -831,7 +851,7 @@ export class PickList {
         }
         if (type === 1) {
             this.clearOnlineFolder(true);
-            return this.setConfigValue('imagePath', fileUri.fsPath);
+            return this.updateBackgound(fileUri.fsPath, true);
         }
         return false;
     }
@@ -840,6 +860,15 @@ export class PickList {
         if (persist) {
             await this.config.update(name, value, ConfigurationTarget.Global);
             this.config = workspace.getConfiguration('backgroundCover');
+        }
+        if (name === 'imagePath') {
+            const context = getContext();
+            const hasOnlineFolder = context.globalState.get('backgroundCoverOnlineFolder');
+            if (typeof value === 'string' && value && this.isOnlineUrl(value) && !hasOnlineFolder) {
+                context.globalState.update('backgroundCoverSingleImageSource', value);
+            } else {
+                context.globalState.update('backgroundCoverSingleImageSource', undefined);
+            }
         }
         switch (name) {
             case 'opacity': this.opacity = value; break;
@@ -856,6 +885,29 @@ export class PickList {
         getContext().globalState.update(name, value);
         if (updateDom) { this.updateDom(); }
         return true;
+    }
+
+    private async disableAutoRandomForSingleImage(): Promise<void> {
+        const autoStatus = this.config.get<boolean>('autoStatus');
+        if (!autoStatus) {
+            return;
+        }
+        await this.config.update('autoStatus', false, ConfigurationTarget.Global);
+        this.config = workspace.getConfiguration('backgroundCover');
+        window.showInformationMessage('检测到单张图片，已自动关闭自动更新功能。 / Detected single image source, auto update disabled.');
+    }
+
+    private isSingleImagePath(value: string): boolean {
+        if (!value) {
+            return false;
+        }
+        const sanitized = value.split('?')[0].split('#')[0];
+        const ext = path.extname(sanitized).toLowerCase();
+        if (!ext) {
+            return false;
+        }
+        const singleExts = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.jfif', '.svg', '.mp4', '.webm', '.ogg', '.mov'];
+        return singleExts.includes(ext);
     }
 
     public setRandUpdate(value: boolean) {
