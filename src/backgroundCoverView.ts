@@ -38,7 +38,7 @@ const messages = {
         particleEffects: '粒子效果',
         actions: '操作',
         currentImage: '当前图片',
-        selectImage: '选择图片...',
+        selectImage: '选择图片/视频文件...',
         addDirectory: '添加目录...',
         inputPath: '输入路径/URL...',
         opacity: '透明度',
@@ -195,7 +195,7 @@ export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<Conf
 
         if (element.label === t('actions')) {
             items.push(this.createActionItem(t('clearBackground'), ActionType.CloseBackground, 'trash'));
-//            items.push(this.createActionItem(t('refresh'), ActionType.UpdateBackground, 'refresh'));
+            items.push(this.createActionItem(t('refresh'), ActionType.UpdateBackground, 'refresh'));
             items.push(this.createActionItem(t('supportAuthor'), ActionType.OpenFilePath, 'heart', undefined, '//resources//support.jpg'));
         }
 
