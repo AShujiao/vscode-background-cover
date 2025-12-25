@@ -144,16 +144,15 @@ export function activate(context: ExtensionContext) {
 	let ex:Extension<any>|undefined = extensions.getExtension('manasxx.background-cover');
 	let version:string           = ex ? ex.packageJSON['version'] : '';
 	
-	if(openVersion != version){
+	if(true){
 		context.globalState.update('ext_version',version);
 		vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
-🚀 重大更新 (v3.0)：
-1. 支持背景图热更新，无需重启 VSCode
-2. 新增左侧可视化配置面板
-3. 支持多图定时自动轮播
-4. 支持多语言
+🚀 更新内容 (v3.1.0)：
+1. 🎉 支持视频文件做为背景
+2. ✨ 增加刷新功能
+3. 🌐 左侧面板已做为默认菜单
 
-⚠️ 注意：首次使用需重新获取权限并重启一次 VSCode 后生效。
+⚠️ 注意：本次更新涉及底层变动，需重新获取权限（Hook）并重启一次 VSCode 后生效。
 
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}

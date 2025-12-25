@@ -20,14 +20,16 @@ interface WorkbenchTarget {
     css: string;
     bak: string;
 }
-
+/**
+ * 文件路径配置，支持服务器模式
+ */
 const WORKBENCH_TARGETS: WorkbenchTarget[] = [
     {
-        name: 'desktop',
-        root: path.join(env.appRoot, "out", "vs", "workbench"),
-        js: 'workbench.desktop.main.js',
-        css: 'workbench.desktop.main.css',
-        bak: 'workbench.desktop.main.js.bak'
+        name: 'desktop', // vscode目录
+        root: path.join(env.appRoot, "out", "vs", "workbench"), // 需要hook的文件目录
+        js: 'workbench.desktop.main.js', // 需要hook的css文件名
+        css: 'workbench.desktop.main.css', // 需要hook的js文件名
+        bak: 'workbench.desktop.main.js.bak' // 备份文件名
     },
     {
         name: 'code-server',
@@ -38,10 +40,12 @@ const WORKBENCH_TARGETS: WorkbenchTarget[] = [
     }
 ];
 
+// 选择当前运行环境对应的文件路径
 function getWorkbenchTarget(): WorkbenchTarget {
     return WORKBENCH_TARGETS.find((target) => fs.existsSync(path.join(target.root, target.js))) || WORKBENCH_TARGETS[0];
 }
 
+// 各路径静态变量
 const selectedWorkbench = getWorkbenchTarget();
 const JS_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.js);
 const CSS_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.css);
@@ -95,11 +99,13 @@ export class FileDom {
         });
     }
 
+    // 检测是否为视频文件
     private checkIsVideo(filePath: string): boolean {
         const ext = path.extname(filePath).toLowerCase();
         return ['.mp4', '.webm', '.ogg', '.mov'].includes(ext);
     }
 
+    // 本地图片转换为vscode可访问路径
     private async initializeImage(): Promise<void> {
         let lowerPath = this.imagePath.toLowerCase();
 
@@ -125,6 +131,7 @@ export class FileDom {
         }
     }
 
+    // 将在线图片下载并缓存到本地
     private async downloadAndCacheImage(): Promise<void> {
         try {
             const context = getContext();
@@ -171,6 +178,7 @@ export class FileDom {
         }
     }
 
+    // 下载文件
     private downloadFile(url: string, dest: string): Promise<void> {
         return new Promise((resolve, reject) => {
             const file = fs.createWriteStream(dest);
@@ -195,6 +203,7 @@ export class FileDom {
         });
     }
 
+    //应用补丁安装
     public async install(): Promise<boolean> {
         if (!(await this.checkFileExists())) {
             return false;
@@ -206,6 +215,7 @@ export class FileDom {
         return await this.applyPatch();
     }
 
+    // 检查文件是否存在
     private async checkFileExists(): Promise<boolean> {
         const isExist = await fse.pathExists(this.filePath);
         if (!isExist) {
@@ -215,6 +225,7 @@ export class FileDom {
         return true;
     }
 
+    // 旧版本清理
     private async handleLegacyCleanup(): Promise<void> {
         const vsContext = getContext();
         const clearCssNum = Number(vsContext.globalState.get('ext_backgroundCover_clear_v2')) || 0;
@@ -229,6 +240,7 @@ export class FileDom {
         }
     }
 
+    // 是否存在备份文件
     private async ensureBackup(): Promise<void> {
         const bakExist = await fse.pathExists(BAK_FILE_PATH);
         if (!bakExist) {
@@ -237,6 +249,7 @@ export class FileDom {
         }
     }
 
+    // 应用补丁
     private async applyPatch(): Promise<boolean> {
         const lockPath = path.join(os.tmpdir(), 'vscode-background.lock');
         let release: (() => Promise<void>) | undefined;
@@ -305,6 +318,7 @@ export class FileDom {
         }
     }
 
+    // 获取文件权限
     public async getFilePermission(filePath: string): Promise<void> {
         try {
             if (!(await fse.pathExists(filePath))) {
@@ -332,6 +346,7 @@ export class FileDom {
         }
     }
 
+    // 清理补丁内容
     public async uninstall(): Promise<boolean> {
         try {
             const content = this.clearCssContent(await this.getContent(this.filePath));
@@ -357,6 +372,7 @@ export class FileDom {
         }
     }
 
+    // 清除背景
     public async clearBackground(): Promise<boolean> {
         try {
             await this.writeWithPermission(CUSTOM_CSS_FILE_PATH, '');
@@ -368,10 +384,12 @@ export class FileDom {
         }
     }
 
+    // 读取原文件内容
     private async getContent(filePath: string): Promise<string> {
         return await fse.readFile(filePath, 'utf-8');
     }
 
+    // 写入文件内容
     private async saveContent(content: string): Promise<boolean> {
         if (this.bakStatus) {
             await this.bakFile();
@@ -387,6 +405,7 @@ export class FileDom {
         return true;
     }
 
+    // 写入文件内容，带权限处理
     private async writeWithPermission(filePath: string, content: string): Promise<void> {
         try {
             await fse.writeFile(filePath, content, { encoding: 'utf-8' });
@@ -396,6 +415,7 @@ export class FileDom {
         }
     }
 
+    // 写入备份文件
     private async bakFile(): Promise<void> {
         try {
             await fse.writeFile(BAK_FILE_PATH, this.bakJsContent, { encoding: 'utf-8' });
@@ -404,6 +424,7 @@ export class FileDom {
         }
     }
 
+    // 创建并写入备份文件
     private async createAndWriteBakFile(): Promise<void> {
         if (this.systemType === SystemType.WINDOWS) {
             await SudoPromptHelper.exec(`echo. > "${BAK_FILE_PATH}"`);
@@ -418,11 +439,13 @@ export class FileDom {
 
     public requiresReload: boolean = true;
 
+    // 写入css内容
     private async saveCssContent(): Promise<void> {
         const css = this.getCss();
         await this.writeWithPermission(CUSTOM_CSS_FILE_PATH, css);
     }
 
+    // 获取要应用的js内容
     private getJs(): string {
         const particleJs = this.getParticleJs();
 
@@ -435,6 +458,7 @@ export class FileDom {
         `;
     }
 
+    // 获取粒子效果js
     private getParticleJs(): string {
         const context = getContext();
         if (!context.globalState.get('backgroundCoverParticleEffect', false)) {
@@ -448,6 +472,7 @@ export class FileDom {
         return getParticleEffectJs(opacity, color, count);
     }
 
+    // 获取css内容
     private getCss(): string {
         const opacity = Math.min(this.imageOpacity, 0.8);
         const { sizeModelVal, repeatVal, positionVal } = this.getCssStyles();
@@ -505,6 +530,7 @@ export class FileDom {
         `;
     }
 
+    // 获取js内容
     private getLoaderJs(): string {
         const cssUrl = Uri.file(CUSTOM_CSS_FILE_PATH).with({ scheme: 'vscode-file', authority: 'vscode-app' }).toString();
         
@@ -538,14 +564,35 @@ export class FileDom {
                     url = url.replace(/^http:\\/\\//i, 'https://');
                 }
 
-                if (video.src !== url) {
-                    video.src = url;
+                // Ensure attributes are set
+                if (!video.loop) video.loop = true;
+                if (!video.muted) video.muted = true;
+
+                // Check if source actually changed to avoid reloading
+                // Use decodeURIComponent to handle encoded URLs (e.g. %20 for spaces)
+                let currentSrc = video.src;
+                let newSrc = url;
+                try {
+                    if (currentSrc !== newSrc && decodeURIComponent(currentSrc) !== decodeURIComponent(newSrc)) {
+                        video.src = newSrc;
+                    }
+                } catch (e) {
+                    if (currentSrc !== newSrc) {
+                        video.src = newSrc;
+                    }
                 }
+
                 video.style.opacity = config.opacity + '';
                 video.style.filter = 'blur(' + config.blur + 'px)';
                 video.style.mixBlendMode = config.blendMode;
                 
-                video.play().catch(e => console.error('BackgroundCover video play error:', e));
+                if (video.paused) {
+                    video.play().catch(e => {
+                        if (e.name !== 'AbortError') {
+                            console.error('BackgroundCover video play error:', e);
+                        }
+                    });
+                }
             }
         `;
 
@@ -636,6 +683,7 @@ export class FileDom {
         `;
     }
 
+    // 隐藏损坏提示
     private getCorruptionWarningCss(): string {
         const translations = [
             'installation appears to be corrupt',
@@ -648,6 +696,7 @@ export class FileDom {
         `).join('');
     }
 
+    // 获取css样式值
     private getCssStyles(): { sizeModelVal: string; repeatVal: string; positionVal: string } {
         let sizeModelVal = this.sizeModel;
         let repeatVal = "no-repeat";
@@ -699,6 +748,7 @@ export class FileDom {
         return { sizeModelVal, repeatVal, positionVal };
     }
 
+    // 转义模板字符串
     private escapeTemplateLiteral(value: string): string {
         if (!value) return value;
         return value
@@ -707,6 +757,7 @@ export class FileDom {
             .replace(/\$\{/g, '\\${');
     }
 
+    // 图片转为Base64
     private async imageToBase64(): Promise<boolean> {
         try {
             const extname = path.extname(this.imagePath).substr(1);

@@ -614,9 +614,10 @@ export class PickList {
     private getFolderImgList(pathUrl: string): string[] {
         if (!pathUrl || pathUrl === '') { return []; }
         return fs.readdirSync(path.resolve(pathUrl)).filter((s) => {
+            // 增加视频文件 '.mp4', '.webm', '.ogg', '.mov'
             return s.endsWith('.png') || s.endsWith('.PNG') || s.endsWith('.jpg') || s.endsWith('.JPG')
                 || s.endsWith('.jpeg') || s.endsWith('.gif') || s.endsWith('.webp') || s.endsWith('.bmp')
-                || s.endsWith('.jfif');
+                || s.endsWith('.jfif') || s.endsWith('.mp4') || s.endsWith('.webm') || s.endsWith('.ogg') || s.endsWith('.mov');
         });
     }
 
@@ -813,7 +814,7 @@ export class PickList {
     private async openFieldDialog(type: number) {
         const isFolders = type === 1 ? false : true;
         const isFiles = type === 2 ? false : true;
-        const filters = type === 1 ? { 'Images': ['png', 'jpg', 'gif', 'jpeg', 'jfif', 'webp', 'bmp', 'mp4'] } : undefined;
+        const filters = type === 1 ? { 'Images': ['png', 'jpg', 'gif', 'jpeg', 'jfif', 'webp', 'bmp', 'mp4', 'webm', 'ogg', 'mov'] } : undefined;
         const folderUris = await window.showOpenDialog({
             canSelectFolders: isFolders,
             canSelectFiles: isFiles,

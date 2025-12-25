@@ -2,7 +2,7 @@
     "name": "background-cover",
     "displayName": "background-cover",
     "description": "Add a picture you like to cover the entire vscode background (Hot Reload Supported). / 添加你喜欢的图片覆盖整个vscode背景（支持热更新）",
-    "version": "3.0.0",
+    "version": "3.1.0",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.38.0"
@@ -193,6 +193,11 @@
                     "command": "backgroundCover.support",
                     "when": "view == backgroundCover.readerView",
                     "group": "navigation@3"
+                },
+                                {
+                    "command": "backgroundCover.switchMode",
+                    "when": "view == backgroundCover.menu",
+                    "group": "navigation@0"
                 },
                 {
                     "command": "backgroundCover.home",
