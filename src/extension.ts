@@ -144,7 +144,7 @@ export function activate(context: ExtensionContext) {
 	let ex:Extension<any>|undefined = extensions.getExtension('manasxx.background-cover');
 	let version:string           = ex ? ex.packageJSON['version'] : '';
 	
-	if(true){
+	if(openVersion != version){
 		context.globalState.update('ext_version',version);
 		vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
 🚀 更新内容 (v3.1.0)：
