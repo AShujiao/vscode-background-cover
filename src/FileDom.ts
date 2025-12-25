@@ -122,7 +122,15 @@ export class FileDom {
             !lowerPath.startsWith('data:')
         ) {
             try {
-                this.localImgToVsc();
+                // macOS 下图片优先使用 Base64，因为 vscode-file 协议可能存在权限问题
+                if (this.systemType === SystemType.MACOS && !this.isVideo) {
+                    const success = await this.imageToBase64();
+                    if (!success) {
+                        this.localImgToVsc();
+                    }
+                } else {
+                    this.localImgToVsc();
+                }
             } catch (e) {
                 if (!this.isVideo) {
                     await this.imageToBase64();
@@ -770,8 +778,8 @@ export class FileDom {
     }
 
     private localImgToVsc(): void {
-        const separator = this.systemType === SystemType.LINUX ? "" : "/";
-        this.imagePath = Uri.parse(`vscode-file://vscode-app${separator}${this.imagePath}`).toString();
+        // 使用 Uri.file 自动处理路径分隔符和编码，避免手动拼接导致的路径错误（如 macOS 下的双斜杠问题）
+        this.imagePath = Uri.file(this.imagePath).with({ scheme: 'vscode-file', authority: 'vscode-app' }).toString();
     }
 
     private clearCssContent(content: string): string {

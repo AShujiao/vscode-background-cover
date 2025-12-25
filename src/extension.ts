@@ -147,7 +147,7 @@ export function activate(context: ExtensionContext) {
 	if(openVersion != version){
 		context.globalState.update('ext_version',version);
 		vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
-🚀 更新内容 (v3.1.0)：
+🚀 更新内容 (v3.1.1)：
 1. 🎉 支持视频文件做为背景
 2. ✨ 增加刷新功能
 3. 🌐 左侧面板已做为默认菜单
