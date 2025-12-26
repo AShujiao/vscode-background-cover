@@ -48,6 +48,8 @@ export enum ActionType {
     RefreshOnlineFolder = 19,
     AutoRandomSettings = 20,
     OpenCacheFolder = 21,
+    SelectPet = 26,
+    TogglePet = 27,
     
     // Particle Effects
     ParticleSettings = 30,
@@ -365,8 +367,64 @@ export class PickList {
             case ActionType.SetParticleColor: if (path) { this.setContextValue('backgroundCoverParticleColor', Color(path), true); } break;
             case ActionType.InputParticleColor: this.showInputBox(InputType.ParticleColor); break;
             
+            // Pet Assistant
+            case ActionType.SelectPet: this.showPetSelection(); break;
+            case ActionType.TogglePet: this.togglePet(); break;
+
             default: break;
         }
+    }
+
+    public getPetSelectionItems(): ImgItem[] {
+        const currentPet = getContext().globalState.get('backgroundCoverPetType', 'akita');
+        const pets = [
+            { label: 'Akita (Dog)', value: 'akita', desc: '秋田犬' },
+            { label: 'Totoro', value: 'totoro', desc: '龙猫' },
+            { label: 'Fox', value: 'fox', desc: '狐狸' },
+            { label: 'Clippy', value: 'clippy', desc: '大眼夹' },
+            { label: 'Rubber Duck', value: 'rubber-duck', desc: '小黄鸭' },
+            { label: 'Crab', value: 'crab', desc: '螃蟹' },
+            { label: 'Zappy', value: 'zappy', desc: 'Zappy' },
+            { label: 'Mod', value: 'mod', desc: 'Mod' },
+            { label: 'Cockatiel', value: 'cockatiel', desc: '玄凤鹦鹉' },
+            { label: 'Snake', value: 'snake', desc: '蛇' },
+            { label: 'Chicken', value: 'chicken', desc: '鸡' },
+            { label: 'Rat', value: 'rat', desc: '老鼠' },
+            { label: 'Turtle', value: 'turtle', desc: '乌龟' },
+            { label: 'Horse', value: 'horse', desc: '马' },
+            { label: 'Panda', value: 'panda', desc: '熊猫' },
+            { label: 'Rocky', value: 'rocky', desc: 'Rocky' },
+            { label: 'Snail', value: 'snail', desc: '蜗牛' },
+            { label: 'Deno', value: 'deno', desc: 'Deno' },
+            { label: 'Morph', value: 'morph', desc: 'Morph' },
+            { label: 'Skeleton', value: 'skeleton', desc: '骷髅' },
+        ];
+
+        return pets.map(p => ({
+            label: `$(github) ${p.label}`,
+            detail: `${p.desc} ${currentPet === p.value ? '$(check)' : ''}`,
+            imageType: ActionType.SelectPet,
+            path: p.value
+        }));
+    }
+
+    private showPetSelection() {
+        this.quickPick.items = this.getPetSelectionItems();
+        this.quickPick.onDidAccept(() => {
+            if (this.quickPick.selectedItems.length > 0) {
+                const selected = this.quickPick.selectedItems[0];
+                if (selected.path) {
+                    this.setContextValue('backgroundCoverPetType', selected.path, true);
+                    this.quickPick.hide();
+                }
+            }
+        });
+        this.quickPick.show();
+    }
+
+    private togglePet() {
+        const currentValue = getContext().globalState.get('backgroundCoverPetEnabled', true);
+        this.setContextValue('backgroundCoverPetEnabled', !currentValue, true);
     }
 
     private gotoPath(path?: string) {

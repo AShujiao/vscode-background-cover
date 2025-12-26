@@ -671,6 +671,68 @@ export class FileDom {
         `;
     }
 
+    // 获取宠物配置
+    private getPetConfig(): { enabled: boolean, walkUrl: string, idleUrl: string } {
+        try {
+            const context = getContext();
+            let enabled = true;
+            let type = 'akita';
+
+            if (context) {
+                enabled = context.globalState.get<boolean>('backgroundCoverPetEnabled', true);
+                type = context.globalState.get<string>('backgroundCoverPetType', 'akita');
+            }
+
+            const mapping: any = {
+                'akita': { folder: 'dog', idle: 'akita_idle_8fps.gif', walk: 'akita_walk_8fps.gif' },
+                'totoro': { folder: 'totoro', idle: 'gray_idle_8fps.gif', walk: 'gray_walk_8fps.gif' },
+                'fox': { folder: 'fox', idle: 'red_idle_8fps.gif', walk: 'red_walk_8fps.gif' },
+                'clippy': { folder: 'clippy', idle: 'black_idle_8fps.gif', walk: 'brown_walk_8fps.gif' },
+                'rubber-duck': { folder: 'rubber-duck', idle: 'yellow_idle_8fps.gif', walk: 'yellow_walk_8fps.gif' },
+                'crab': { folder: 'crab', idle: 'red_idle_8fps.gif', walk: 'red_walk_8fps.gif' },
+                'zappy': { folder: 'zappy', idle: 'yellow_idle_8fps.gif', walk: 'yellow_walk_8fps.gif' },
+                'mod': { folder: 'mod', idle: 'purple_idle_8fps.gif', walk: 'purple_walk_8fps.gif' },
+                'cockatiel': { folder: 'cockatiel', idle: 'brown_idle_8fps.gif', walk: 'brown_walk_8fps.gif' },
+                'snake': { folder: 'snake', idle: 'green_idle_8fps.gif', walk: 'green_walk_8fps.gif' },
+                'chicken': { folder: 'chicken', idle: 'white_idle_8fps.gif', walk: 'white_walk_8fps.gif' },
+                'rat': { folder: 'rat', idle: 'brown_idle_8fps.gif', walk: 'brown_walk_8fps.gif' },
+                'turtle': { folder: 'turtle', idle: 'green_idle_8fps.gif', walk: 'green_walk_8fps.gif' },
+                'horse': { folder: 'horse', idle: 'black_idle_8fps.gif', walk: 'black_walk_8fps.gif' },
+                'panda': { folder: 'panda', idle: 'black_idle_8fps.gif', walk: 'black_walk_8fps.gif' },
+                'rocky': { folder: 'rocky', idle: 'gray_idle_8fps.gif', walk: 'gray_walk_8fps.gif' },
+                'snail': { folder: 'snail', idle: 'brown_idle_8fps.gif', walk: 'brown_walk_8fps.gif' },
+                'deno': { folder: 'deno', idle: 'green_idle_8fps.gif', walk: 'green_walk_8fps.gif' },
+                'morph': { folder: 'morph', idle: 'purple_idle_8fps.gif', walk: 'purple_walk_8fps.gif' },
+                'skeleton': { folder: 'skeleton', idle: 'warrior_idle_8fps.gif', walk: 'warrior_walk_8fps.gif' },
+            };
+
+            const config = mapping[type] || mapping['akita'];
+            
+            // Resolve local path
+            const extensionRoot = context ? context.extensionPath : '';
+            
+            let walkUrl = '';
+            let idleUrl = '';
+
+            if (extensionRoot) {
+                const walkPath = path.join(extensionRoot, 'resources', 'pet', config.folder, config.walk);
+                const idlePath = path.join(extensionRoot, 'resources', 'pet', config.folder, config.idle);
+                
+                walkUrl = Uri.file(walkPath).with({ scheme: 'vscode-file', authority: 'vscode-app' }).toString();
+                idleUrl = Uri.file(idlePath).with({ scheme: 'vscode-file', authority: 'vscode-app' }).toString();
+            }
+
+            return { enabled, walkUrl, idleUrl };
+        } catch (e) {
+            console.error('[FileDom] Failed to get pet config:', e);
+            return { 
+                enabled: false, 
+                walkUrl: '', 
+                idleUrl: '' 
+            };
+        }
+    }
+
     // 获取js内容
     private getLoaderJs(): string {
         const cssDesktopUrl = Uri.file(CUSTOM_CSS_FILE_PATH).with({ scheme: 'vscode-file', authority: 'vscode-app' }).toString();
@@ -679,6 +741,12 @@ export class FileDom {
         const cssFileName = this.escapeTemplateLiteral(CUSTOM_CSS_FILE_NAME);
         const workbenchJsName = this.escapeTemplateLiteral(selectedWorkbench.js);
         const relativePlaceholder = this.escapeTemplateLiteral(RELATIVE_URL_PLACEHOLDER);
+
+        // Get pet config
+        const petConfig = this.getPetConfig();
+        const petEnabled = petConfig.enabled;
+        const petWalkUrl = this.escapeTemplateLiteral(petConfig.walkUrl);
+        const petIdleUrl = this.escapeTemplateLiteral(petConfig.idleUrl);
 
         const videoSetup = `
             function updateVideo(config) {
@@ -749,6 +817,11 @@ export class FileDom {
             const cssFileName = '${cssFileName}';
             const workbenchJsName = '${workbenchJsName}';
             const relativePlaceholder = '${relativePlaceholder}';
+
+            // Pet Config
+            const petEnabled = ${petEnabled};
+            const petWalkUrl = '${petWalkUrl}';
+            const petIdleUrl = '${petIdleUrl}';
 
             function ensureTrailingSlash(value) {
                 if (!value) {
@@ -955,6 +1028,204 @@ export class FileDom {
             window.addEventListener('focus', () => {
                 loadCss();
             });
+
+            // Little Assistant Logic
+            try {
+                if (!petEnabled) {
+                    // Clean up if disabled
+                    const assistant = document.getElementById('vscode-background-cover-assistant');
+                    if (assistant) assistant.remove();
+                } else {
+                    const assistantId = 'vscode-background-cover-assistant';
+                    const titlebarId = 'workbench.parts.titlebar';
+                    
+                    // Inject CSS for animations
+                    const styleId = 'vscode-background-cover-assistant-style';
+                    if (!document.getElementById(styleId)) {
+                        const style = document.createElement('style');
+                        style.id = styleId;
+                        style.textContent = \`
+                            @keyframes assistant-jump {
+                                0% { transform: translateY(0) scaleX(var(--dir, 1)); }
+                                50% { transform: translateY(-15px) scaleX(var(--dir, 1)); }
+                                100% { transform: translateY(0) scaleX(var(--dir, 1)); }
+                            }
+                            @keyframes title-shake {
+                                0% { transform: translate(1px, 1px) rotate(0deg); }
+                                10% { transform: translate(-1px, -2px) rotate(-1deg); }
+                                20% { transform: translate(-3px, 0px) rotate(1deg); }
+                                30% { transform: translate(3px, 2px) rotate(0deg); }
+                                40% { transform: translate(1px, -1px) rotate(1deg); }
+                                50% { transform: translate(-1px, 2px) rotate(-1deg); }
+                                60% { transform: translate(-3px, 1px) rotate(0deg); }
+                                70% { transform: translate(3px, 1px) rotate(-1deg); }
+                                80% { transform: translate(-1px, -1px) rotate(1deg); }
+                                90% { transform: translate(1px, 2px) rotate(0deg); }
+                                100% { transform: translate(1px, -2px) rotate(-1deg); }
+                            }
+                            .assistant-jumping {
+                                animation: assistant-jump 0.5s ease;
+                            }
+                            .title-shaking {
+                                animation: title-shake 0.5s;
+                                display: inline-block;
+                            }
+                        \`;
+                        document.head.appendChild(style);
+                    }
+
+                    const initAssistant = () => {
+                        if (document.getElementById(assistantId)) return;
+                        const titlebar = document.getElementById(titlebarId);
+                        if (!titlebar) return;
+
+                        const assistant = document.createElement('div');
+                        assistant.id = assistantId;
+                        
+                        // Use image instead of emoji
+                        const petImage = document.createElement('img');
+                        const walkUrl = petWalkUrl;
+                        const idleUrl = petIdleUrl;
+                        
+                        petImage.src = idleUrl;
+                        petImage.style.width = '30px'; // Adjust size
+                        petImage.style.height = 'auto';
+                        petImage.style.imageRendering = 'pixelated'; // Keep pixel art crisp
+                        
+                        assistant.appendChild(petImage);
+
+                        assistant.style.position = 'absolute';
+                        assistant.style.zIndex = '99999';
+                        assistant.style.top = '0px'; // Adjust top to fit image
+                        assistant.style.pointerEvents = 'none';
+                        assistant.style.transition = 'left 3s linear'; 
+                        assistant.style.left = '0px';
+                        // Set initial direction variable
+                        assistant.style.setProperty('--dir', '1');
+                        assistant.style.transform = 'scaleX(var(--dir))';
+                        
+                        titlebar.appendChild(assistant);
+
+                        let currentPos = 0;
+
+                        function triggerJump() {
+                            assistant.classList.remove('assistant-jumping');
+                            // Trigger reflow
+                            void assistant.offsetWidth;
+                            assistant.classList.add('assistant-jumping');
+                        }
+
+                        function triggerShake(element) {
+                            if (!element) return;
+                            element.classList.remove('title-shaking');
+                            void element.offsetWidth;
+                            element.classList.add('title-shaking');
+                        }
+
+                        function move() {
+                            if (!document.body.contains(assistant)) return;
+                            
+                            const containerWidth = titlebar.clientWidth;
+                            const assistantWidth = assistant.clientWidth || 30;
+                            const maxPos = containerWidth - assistantWidth;
+                            
+                            const nextPos = Math.floor(Math.random() * maxPos);
+                            const dist = Math.abs(nextPos - currentPos);
+                            const speed = 50; // px per second (slower for walking dog)
+                            const duration = dist / speed; 
+                            
+                            // Switch to walking animation
+                            petImage.src = walkUrl;
+
+                            assistant.style.transition = 'left ' + duration + 's linear';
+                            
+                            // Direction
+                            const dir = nextPos > currentPos ? 1 : -1;
+                            assistant.style.setProperty('--dir', dir.toString());
+                            
+                            assistant.style.left = nextPos + 'px';
+
+                            // Random jump logic
+                            const jumpChance = 0.5; // 50% chance to jump randomly
+                            if (Math.random() < jumpChance) {
+                                const jumpDelay = Math.random() * duration * 1000;
+                                setTimeout(() => {
+                                    triggerJump();
+                                }, jumpDelay);
+                            }
+
+                            // Collision detection logic for multiple elements
+                            const targets = titlebar.querySelectorAll('.window-title, .window-controls-container, .layout-control, .monaco-toolbar');
+                            
+                            targets.forEach(target => {
+                                if (!target) return;
+                                const targetRect = target.getBoundingClientRect();
+                                // Use offsetLeft relative to titlebar if possible, or calculate from rect
+                                // Since titlebar is relative/absolute, we need relative positions
+                                const titlebarRect = titlebar.getBoundingClientRect();
+                                const targetLeft = targetRect.left - titlebarRect.left;
+                                const targetRight = targetLeft + targetRect.width;
+
+                                // Check if path intersects with target
+                                const start = Math.min(currentPos, nextPos);
+                                const end = Math.max(currentPos, nextPos);
+
+                                if (start < targetRight && end > targetLeft) {
+                                    // Calculate when the collision happens
+                                    let distToCollision;
+                                    if (dir === 1) { // Moving right
+                                        distToCollision = targetLeft - currentPos;
+                                    } else { // Moving left
+                                        distToCollision = currentPos - targetRight;
+                                    }
+
+                                    // If already inside or very close, trigger immediately
+                                    if (distToCollision < 0) distToCollision = 0;
+                                    
+                                    const timeToCollision = (distToCollision / speed) * 1000;
+                                    
+                                    // Schedule jump and shake
+                                    setTimeout(() => {
+                                        triggerJump();
+                                        // Delay shake slightly to match the "hit" (jump down)
+                                        setTimeout(() => {
+                                            triggerShake(target);
+                                        }, 250);
+                                    }, timeToCollision);
+                                }
+                            });
+
+                            currentPos = nextPos;
+
+                            // After move, switch to idle
+                            setTimeout(() => {
+                                petImage.src = idleUrl;
+                                // Schedule next move
+                                setTimeout(move, 1000 + Math.random() * 3000);
+                            }, duration * 1000);
+                        }
+
+                        move();
+                    };
+
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', initAssistant);
+                    } else {
+                        initAssistant();
+                    }
+                    
+                    // Re-init if titlebar is re-created
+                    const observer = new MutationObserver(() => {
+                        if (!document.getElementById(assistantId)) {
+                            initAssistant();
+                        }
+                    });
+                    observer.observe(document.body, { childList: true, subtree: true });
+                }
+
+            } catch (e) {
+                console.error('[BackgroundCover] Assistant error:', e);
+            }
         })();
         `;
     }

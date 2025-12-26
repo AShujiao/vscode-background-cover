@@ -35,7 +35,10 @@ const messages = {
         setBlendMode: 'Set Blend Mode',
         toggle: 'Toggle',
         notSet: 'Not Set',
-        none: 'None'
+        none: 'None',
+        petAssistant: 'Pet Assistant',
+        togglePet: 'Toggle Pet',
+        selectPet: 'Select Pet'
     },
     zh: {
         imageSource: '图片来源',
@@ -68,7 +71,10 @@ const messages = {
         setBlendMode: '设置混合模式',
         toggle: '切换',
         notSet: '未设置',
-        none: '无'
+        none: '无',
+        petAssistant: '宠物助手',
+        togglePet: '切换宠物',
+        selectPet: '选择宠物'
     }
 };
 
@@ -164,7 +170,10 @@ export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<Conf
         // 4. Particle Effects
         items.push(new ConfigItem(t('particleEffects'), vscode.TreeItemCollapsibleState.Collapsed, 'group', undefined, undefined, undefined, undefined, 'sparkle'));
 
-        // 5. Actions
+        // 5. Pet Assistant
+        items.push(new ConfigItem(t('petAssistant'), vscode.TreeItemCollapsibleState.Collapsed, 'group', undefined, undefined, undefined, undefined, 'github'));
+
+        // 6. Actions
         items.push(new ConfigItem(t('actions'), vscode.TreeItemCollapsibleState.Expanded, 'group', undefined, undefined, undefined, undefined, 'tools'));
 
         return items;
@@ -238,6 +247,33 @@ export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<Conf
             items.push(this.createSettingItem(t('particleOpacity'), 'backgroundCoverParticleOpacity', opacity, ActionType.ParticleOpacity, 'eye'));
             items.push(this.createSettingItem(t('particleColor'), 'backgroundCoverParticleColor', color, ActionType.ParticleColor, 'symbol-color'));
             items.push(this.createSettingItem(t('particleCount'), 'backgroundCoverParticleCount', count, ActionType.ParticleCount, 'multiple-windows'));
+        }
+
+        if (element.label === t('petAssistant')) {
+            const context = getContext();
+            const enabled = context.globalState.get<boolean>('backgroundCoverPetEnabled', true);
+            const currentPet = context.globalState.get<string>('backgroundCoverPetType', 'akita');
+
+            // Toggle
+            const toggleItem = new ConfigItem(
+                t('togglePet'), 
+                vscode.TreeItemCollapsibleState.None, 
+                'setting', 
+                'backgroundCoverPetEnabled', 
+                enabled, 
+                ActionType.TogglePet, 
+                enabled ? 'ON' : 'OFF', 
+                enabled ? 'check' : 'circle-outline'
+            );
+            toggleItem.command = {
+                command: 'backgroundCover.runAction',
+                title: t('togglePet'),
+                arguments: [ActionType.TogglePet]
+            };
+            items.push(toggleItem);
+
+            // Select Pet
+            items.push(this.createActionItem(t('selectPet'), ActionType.SelectPet, 'github', currentPet));
         }
 
         if (element.label === t('actions')) {
