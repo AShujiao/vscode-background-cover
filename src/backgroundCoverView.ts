@@ -26,6 +26,7 @@ const messages = {
         clearBackground: 'Clear Background',
         refresh: 'Refresh',
         refreshFolder: 'Refresh Online Folder',
+        openCacheFolder: 'Open Cache Folder',
         supportAuthor: 'Support Author',
         setSizeMode: 'Set Size Mode',
         setBlendMode: 'Set Blend Mode',
@@ -55,6 +56,7 @@ const messages = {
         clearBackground: '清除背景',
         refresh: '刷新',
         refreshFolder: '刷新在线文件夹',
+        openCacheFolder: '打开缓存目录',
         supportAuthor: '支持作者',
         setSizeMode: '设置尺寸模式',
         setBlendMode: '设置混合模式',
@@ -207,6 +209,7 @@ export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<Conf
         if (element.label === t('actions')) {
             items.push(this.createActionItem(t('clearBackground'), ActionType.CloseBackground, 'trash'));
             items.push(this.createActionItem(t('refresh'), ActionType.UpdateBackground, 'refresh'));
+            items.push(this.createActionItem(t('openCacheFolder'), ActionType.OpenCacheFolder, 'folder-opened'));
             items.push(this.createActionItem(t('supportAuthor'), ActionType.OpenFilePath, 'heart', undefined, '//resources//support.jpg'));
         }
 

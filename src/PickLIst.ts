@@ -47,6 +47,7 @@ export enum ActionType {
     BackgroundBlur = 18,
     RefreshOnlineFolder = 19,
     AutoRandomSettings = 20,
+    OpenCacheFolder = 21,
     
     // Particle Effects
     ParticleSettings = 30,
@@ -353,6 +354,7 @@ export class PickList {
             case ActionType.BackgroundBlur: this.showInputBox(InputType.Blur); break;
             case ActionType.RefreshOnlineFolder: this.refreshOnlineFolder(); break;
             case ActionType.AutoRandomSettings: this.showInputBox(InputType.AutoRandomSettings); break;
+            case ActionType.OpenCacheFolder: this.openCacheFolder(); break;
             
             // Particle Effects
             case ActionType.ParticleSettings: this.particleEffectSettings(); break;
@@ -523,6 +525,16 @@ export class PickList {
             }
         }
         return true;
+    }
+
+    private openCacheFolder() {
+        const context = getContext();
+        const cacheDir = path.join(context.globalStorageUri.fsPath, 'images');
+        // 确保目录存在
+        if (!fs.existsSync(cacheDir)) {
+            fs.mkdirSync(cacheDir, { recursive: true });
+        }
+        env.openExternal(Uri.file(cacheDir));
     }
 
     private async refreshOnlineFolder() {
