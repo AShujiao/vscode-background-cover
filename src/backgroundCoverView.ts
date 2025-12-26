@@ -23,6 +23,9 @@ const messages = {
         sourceFolder: 'Source Folder',
         openSettings: 'Open Settings...',
         toggleParticles: 'Toggle Particles',
+        particleOpacity: 'Particle Opacity',
+        particleColor: 'Particle Color',
+        particleCount: 'Particle Count',
         clearBackground: 'Clear Background',
         refresh: 'Refresh',
         refreshFolder: 'Refresh Online Folder',
@@ -53,6 +56,9 @@ const messages = {
         sourceFolder: '来源目录',
         openSettings: '打开设置...',
         toggleParticles: '切换粒子效果',
+        particleOpacity: '粒子透明度',
+        particleColor: '粒子颜色',
+        particleCount: '粒子数量',
         clearBackground: '清除背景',
         refresh: '刷新',
         refreshFolder: '刷新在线文件夹',
@@ -202,8 +208,10 @@ export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<Conf
         }
 
         if (element.label === t('particleEffects')) {
-            items.push(this.createActionItem(t('openSettings'), ActionType.ParticleSettings, 'settings-gear'));
             items.push(this.createActionItem(t('toggleParticles'), ActionType.ToggleParticle, 'circle-filled'));
+            items.push(this.createActionItem(t('particleOpacity'), ActionType.ParticleOpacity, 'eye'));
+            items.push(this.createActionItem(t('particleColor'), ActionType.ParticleColor, 'symbol-color'));
+            items.push(this.createActionItem(t('particleCount'), ActionType.ParticleCount, 'multiple-windows'));
         }
 
         if (element.label === t('actions')) {
