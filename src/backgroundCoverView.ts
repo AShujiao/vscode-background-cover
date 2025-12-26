@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ActionType } from './PickList2';
+import { ActionType } from './PickList';
 import { getContext } from './global';
 
 // Localization
