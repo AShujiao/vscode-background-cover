@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ActionType } from './PickList';
-import { getContext } from './global';
+import { getContext, onDidChangeGlobalState } from './global';
 
 // Localization
 const messages = {
@@ -108,11 +108,14 @@ export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<Conf
     readonly onDidChangeTreeData: vscode.Event<ConfigItem | undefined | void> = this._onDidChangeTreeData.event;
 
     constructor() {
-        // Listen to configuration changes to refresh the tree
         vscode.workspace.onDidChangeConfiguration(e => {
             if (e.affectsConfiguration('backgroundCover')) {
                 this.refresh();
             }
+        });
+
+        onDidChangeGlobalState.event(() => {
+            this.refresh();
         });
     }
 
@@ -191,7 +194,7 @@ export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<Conf
 
         if (element.label === t('appearance')) {
             items.push(this.createSettingItem(t('opacity'), 'backgroundCover.opacity', config.get('opacity'), ActionType.BackgroundOpacity, 'eye'));
-            items.push(this.createSettingItem(t('blur'), 'backgroundCover.blur', config.get('blur'), ActionType.BackgroundBlur, 'blur'));
+            items.push(this.createSettingItem(t('blur'), 'backgroundCover.blur', config.get('blur'), ActionType.BackgroundBlur, 'star-half'));
             
             items.push(new ConfigItem(t('sizeMode'), vscode.TreeItemCollapsibleState.Collapsed, 'setting', 'backgroundCover.sizeModel', config.get('sizeModel'), undefined, config.get('sizeModel'), 'layout'));
             items.push(new ConfigItem(t('blendMode'), vscode.TreeItemCollapsibleState.Collapsed, 'setting', 'backgroundCover.blendModel', config.get('blendModel'), undefined, config.get('blendModel'), 'symbol-color'));
@@ -208,10 +211,33 @@ export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<Conf
         }
 
         if (element.label === t('particleEffects')) {
-            items.push(this.createActionItem(t('toggleParticles'), ActionType.ToggleParticle, 'circle-filled'));
-            items.push(this.createActionItem(t('particleOpacity'), ActionType.ParticleOpacity, 'eye'));
-            items.push(this.createActionItem(t('particleColor'), ActionType.ParticleColor, 'symbol-color'));
-            items.push(this.createActionItem(t('particleCount'), ActionType.ParticleCount, 'multiple-windows'));
+            const context = getContext();
+            const enabled = context.globalState.get<boolean>('backgroundCoverParticleEffect', false);
+            const opacity = context.globalState.get<number>('backgroundCoverParticleOpacity', 0.6);
+            const color = context.globalState.get<string>('backgroundCoverParticleColor', '#ffffff');
+            const count = context.globalState.get<number>('backgroundCoverParticleCount', 50);
+
+            // Toggle
+            const toggleItem = new ConfigItem(
+                t('toggleParticles'), 
+                vscode.TreeItemCollapsibleState.None, 
+                'setting', 
+                'backgroundCoverParticleEffect', 
+                enabled, 
+                ActionType.ToggleParticle, 
+                enabled ? 'ON' : 'OFF', 
+                enabled ? 'check' : 'circle-outline'
+            );
+            toggleItem.command = {
+                command: 'backgroundCover.runAction',
+                title: t('toggleParticles'),
+                arguments: [ActionType.ToggleParticle]
+            };
+            items.push(toggleItem);
+
+            items.push(this.createSettingItem(t('particleOpacity'), 'backgroundCoverParticleOpacity', opacity, ActionType.ParticleOpacity, 'eye'));
+            items.push(this.createSettingItem(t('particleColor'), 'backgroundCoverParticleColor', color, ActionType.ParticleColor, 'symbol-color'));
+            items.push(this.createSettingItem(t('particleCount'), 'backgroundCoverParticleCount', count, ActionType.ParticleCount, 'multiple-windows'));
         }
 
         if (element.label === t('actions')) {

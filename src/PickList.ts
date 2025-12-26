@@ -20,7 +20,7 @@ import {
 import { FileDom } from './FileDom';
 import { ImgItem } from './ImgItem';
 import vsHelp from './vsHelp';
-import { getContext } from './global';
+import { getContext, onDidChangeGlobalState } from './global';
 import { BlendHelper } from './BlendHelper';
 import Color, { getColorList } from './color'; // 导入颜色定义
 import { OnlineImageHelper } from './OnlineImageHelper';
@@ -895,6 +895,7 @@ export class PickList {
 
     private setContextValue(name: string, value: any, updateDom: Boolean = true) {
         getContext().globalState.update(name, value);
+        onDidChangeGlobalState.fire();
         if (updateDom) { this.updateDom(); }
         return true;
     }
