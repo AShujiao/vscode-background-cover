@@ -52,6 +52,26 @@ const CSS_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.css);
 const BAK_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.bak);
 const CUSTOM_CSS_FILE_NAME = 'css-background-cover.css';
 export const CUSTOM_CSS_FILE_PATH = path.join(selectedWorkbench.root, CUSTOM_CSS_FILE_NAME);
+const APP_OUT_PATH = path.join(env.appRoot, 'out');
+const WEB_RELATIVE_CSS_PATH = getWebRelativePath(CUSTOM_CSS_FILE_PATH);
+const CUSTOM_ASSET_DIR = path.join(selectedWorkbench.root, 'background-cover-assets');
+const IS_CODE_SERVER_TARGET = selectedWorkbench.name === 'code-server';
+const RELATIVE_URL_PLACEHOLDER = '__BACKGROUND_COVER_BASE__';
+const DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
+const DEFAULT_ACCEPT_HEADER = 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8';
+
+function getWebRelativePath(filePath: string): string | undefined {
+    try {
+        const relativePath = path.relative(APP_OUT_PATH, filePath);
+        if (!relativePath || relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+            return undefined;
+        }
+        return relativePath.split(path.sep).join('/');
+    } catch (error) {
+        console.warn(`[FileDom] Failed to compute web path for ${filePath}:`, error);
+        return undefined;
+    }
+}
 
 enum SystemType {
     WINDOWS = 'Windows_NT',
@@ -96,6 +116,7 @@ export class FileDom {
         
         this.initializePromise = this.initializeImage().catch((error: unknown) => {
             console.error('[FileDom] Failed to preprocess image:', error);
+            throw error;
         });
     }
 
@@ -122,10 +143,23 @@ export class FileDom {
             !lowerPath.startsWith('data:')
         ) {
             try {
-                this.localImgToVsc();
+                if (IS_CODE_SERVER_TARGET) {
+                    const assetUrl = await this.prepareCodeServerAsset(this.imagePath);
+                    if (assetUrl) {
+                        this.imagePath = assetUrl;
+                    } else if (!this.isVideo) {
+                        await this.imageToBase64();
+                    } else {
+                        this.localImgToVsc();
+                    }
+                } else {
+                    this.localImgToVsc();
+                }
             } catch (e) {
                 if (!this.isVideo) {
                     await this.imageToBase64();
+                } else {
+                    this.localImgToVsc();
                 }
             }
         }
@@ -141,30 +175,48 @@ export class FileDom {
             const urlHash = crypto.createHash('md5').update(this.imagePath).digest('hex');
             let ext = '.jpg';
             let isStaticImage = false;
+            let uniqueDownload = false;
 
             try {
                 const urlObj = new URL(this.imagePath);
-                ext = path.extname(urlObj.pathname) || '.jpg';
-                if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.mp4', '.webm', '.ogg', '.mov'].includes(ext.toLowerCase())) {
-                    isStaticImage = true;
+                const detectedExt = path.extname(urlObj.pathname);
+                if (!detectedExt) {
+                    uniqueDownload = true;
+                } else {
+                    ext = detectedExt;
+                    if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.mp4', '.webm', '.ogg', '.mov'].includes(ext.toLowerCase())) {
+                        isStaticImage = true;
+                    } else {
+                        uniqueDownload = true;
+                    }
                 }
             } catch {
-                // ignore
+                uniqueDownload = true;
             }
             
             const cachePath = path.join(cacheDir, `${urlHash}${ext}`);
 
-            if (isStaticImage && await fse.pathExists(cachePath)) {
+            if (isStaticImage && !uniqueDownload && await fse.pathExists(cachePath)) {
                 this.imagePath = cachePath;
                 return;
             }
 
-            const tempPath = `${cachePath}.tmp`;
+            const timestamp = Date.now();
+            const tempPath = path.join(cacheDir, `${urlHash}-${timestamp}${ext}.tmp`);
 
             try {
-                await this.downloadFile(this.imagePath, tempPath);
-                await fse.move(tempPath, cachePath, { overwrite: true });
-                this.imagePath = cachePath;
+                const { contentType } = await this.downloadFile(this.imagePath, tempPath);
+                let finalExt = ext;
+                if ((!ext || ext === '.img' || uniqueDownload) && contentType) {
+                    finalExt = this.getExtensionFromContentType(contentType) || finalExt;
+                }
+
+                const targetPath = (!uniqueDownload && isStaticImage)
+                    ? cachePath
+                    : path.join(cacheDir, `${urlHash}-${timestamp}${finalExt || '.img'}`);
+
+                await fse.move(tempPath, targetPath, { overwrite: true });
+                this.imagePath = targetPath;
             } catch (error) {
                 if (await fse.pathExists(cachePath)) {
                     this.imagePath = cachePath;
@@ -175,31 +227,76 @@ export class FileDom {
             }
         } catch (error) {
             console.error('[FileDom] Failed to download image:', error);
+            throw error;
         }
     }
 
     // 下载文件
-    private downloadFile(url: string, dest: string): Promise<void> {
+    private downloadFile(url: string, dest: string, redirectCount = 0): Promise<{ contentType?: string }> {
         return new Promise((resolve, reject) => {
-            const file = fs.createWriteStream(dest);
-            const protocol = url.startsWith('https') ? https : http;
-            
-            const request = protocol.get(url, (response) => {
-                if (response.statusCode !== 200) {
-                    reject(new Error(`Failed to download: ${response.statusCode}`));
+            let urlObj: URL;
+            try {
+                urlObj = new URL(url);
+            } catch (error) {
+                reject(error);
+                return;
+            }
+
+            const headers = {
+                'User-Agent': DEFAULT_USER_AGENT,
+                'Accept': DEFAULT_ACCEPT_HEADER,
+                'Referer': `${urlObj.protocol}//${urlObj.host}/`,
+            } as Record<string, string>;
+
+            const protocolHandler = urlObj.protocol === 'https:' ? https : http;
+            const request = protocolHandler.request(urlObj, { method: 'GET', headers }, (response) => {
+                const statusCode = response.statusCode ?? 0;
+
+                if ([301, 302, 303, 307, 308].includes(statusCode)) {
+                    const location = response.headers.location;
+                    if (!location) {
+                        response.resume();
+                        reject(new Error(`Failed to download: ${statusCode}`));
+                        return;
+                    }
+                    if (redirectCount > 5) {
+                        response.resume();
+                        reject(new Error('Too many redirects'));
+                        return;
+                    }
+                    const nextUrl = new URL(location, urlObj).toString();
+                    response.resume();
+                    this.downloadFile(nextUrl, dest, redirectCount + 1).then(resolve).catch(reject);
                     return;
                 }
+
+                if (statusCode !== 200) {
+                    response.resume();
+                    reject(new Error(`Failed to download: ${statusCode}`));
+                    return;
+                }
+
+                const file = fs.createWriteStream(dest);
                 response.pipe(file);
                 file.on('finish', () => {
                     file.close();
-                    resolve();
+                    resolve({ contentType: response.headers['content-type'] as string | undefined });
+                });
+                file.on('error', (err) => {
+                    fs.unlink(dest, () => reject(err));
                 });
             });
-            
+
+            request.on('timeout', () => {
+                request.destroy(new Error('Request timeout'));
+            });
+
             request.on('error', (err) => {
-                fs.unlink(dest, () => {});
                 reject(err);
             });
+
+            request.setTimeout(15000);
+            request.end();
         });
     }
 
@@ -532,8 +629,13 @@ export class FileDom {
 
     // 获取js内容
     private getLoaderJs(): string {
-        const cssUrl = Uri.file(CUSTOM_CSS_FILE_PATH).with({ scheme: 'vscode-file', authority: 'vscode-app' }).toString();
-        
+        const cssDesktopUrl = Uri.file(CUSTOM_CSS_FILE_PATH).with({ scheme: 'vscode-file', authority: 'vscode-app' }).toString();
+        const escapedDesktopUrl = this.escapeTemplateLiteral(cssDesktopUrl);
+        const webCssPath = WEB_RELATIVE_CSS_PATH ? this.escapeTemplateLiteral(WEB_RELATIVE_CSS_PATH) : '';
+        const cssFileName = this.escapeTemplateLiteral(CUSTOM_CSS_FILE_NAME);
+        const workbenchJsName = this.escapeTemplateLiteral(selectedWorkbench.js);
+        const relativePlaceholder = this.escapeTemplateLiteral(RELATIVE_URL_PLACEHOLDER);
+
         const videoSetup = `
             function updateVideo(config) {
                 let video = document.getElementById('background-cover-video');
@@ -598,7 +700,135 @@ export class FileDom {
 
         return `
         (function() {
-            const cssUrl = '${cssUrl}';
+            const cssDesktopUrl = '${escapedDesktopUrl}';
+            const relativeCssPath = '${webCssPath}';
+            const cssFileName = '${cssFileName}';
+            const workbenchJsName = '${workbenchJsName}';
+            const relativePlaceholder = '${relativePlaceholder}';
+
+            function ensureTrailingSlash(value) {
+                if (!value) {
+                    return '';
+                }
+                return value.endsWith('/') ? value : value + '/';
+            }
+
+            function getCssBaseHref(url) {
+                if (!url) {
+                    return '';
+                }
+                let clean = url;
+                const hashIndex = clean.indexOf('#');
+                if (hashIndex !== -1) {
+                    clean = clean.substring(0, hashIndex);
+                }
+                const queryIndex = clean.indexOf('?');
+                if (queryIndex !== -1) {
+                    clean = clean.substring(0, queryIndex);
+                }
+                const slashIndex = clean.lastIndexOf('/');
+                if (slashIndex === -1) {
+                    return ensureTrailingSlash(clean);
+                }
+                return ensureTrailingSlash(clean.substring(0, slashIndex + 1));
+            }
+
+            function replaceRelativeTokens(value, baseHref) {
+                if (!value || value.indexOf(relativePlaceholder) === -1) {
+                    return value;
+                }
+                return value.split(relativePlaceholder).join(baseHref);
+            }
+
+            function deriveFromScript() {
+                if (typeof document === 'undefined') {
+                    return undefined;
+                }
+
+                const buildFromSrc = (src) => {
+                    try {
+                        return new URL(cssFileName, src).toString();
+                    } catch (error) {
+                        console.error('[BackgroundCover] Script URL resolve error:', error);
+                        return undefined;
+                    }
+                };
+
+                const current = document.currentScript;
+                if (current && current.src) {
+                    const candidate = buildFromSrc(current.src);
+                    if (candidate) {
+                        return candidate;
+                    }
+                }
+
+                const scripts = document.getElementsByTagName ? document.getElementsByTagName('script') : [];
+                for (let i = scripts.length - 1; i >= 0; i--) {
+                    const tag = scripts[i];
+                    if (tag && tag.src && tag.src.indexOf(workbenchJsName) !== -1) {
+                        const candidate = buildFromSrc(tag.src);
+                        if (candidate) {
+                            return candidate;
+                        }
+                    }
+                }
+
+                return undefined;
+            }
+
+            const resolveCssUrl = () => {
+                const scriptResolved = deriveFromScript();
+                if (scriptResolved) {
+                    return scriptResolved;
+                }
+
+                const relativePath = relativeCssPath;
+                if (relativePath) {
+                    const bases = [];
+                    const monacoEnv = typeof globalThis !== 'undefined' ? globalThis.MonacoEnvironment || {} : {};
+                    if (monacoEnv.baseUrl) {
+                        bases.push(monacoEnv.baseUrl);
+                    }
+                    if (monacoEnv.appOrigin) {
+                        bases.push(monacoEnv.appOrigin);
+                    }
+                    if (typeof document !== 'undefined' && document.baseURI) {
+                        bases.push(document.baseURI);
+                    }
+                    if (typeof window !== 'undefined' && window.location) {
+                        const { origin, href } = window.location;
+                        if (origin) {
+                            bases.push(origin + '/');
+                        }
+                        if (href) {
+                            const slashIndex = href.lastIndexOf('/');
+                            if (slashIndex !== -1) {
+                                bases.push(href.substring(0, slashIndex + 1));
+                            }
+                        }
+                    }
+
+                    for (const base of bases) {
+                        try {
+                            return new URL(relativePath, base).toString();
+                        } catch (error) {
+                            console.error('[BackgroundCover] Base URL failed:', error);
+                        }
+                    }
+
+                    if (!relativePath.startsWith('http')) {
+                        try {
+                            return new URL(relativePath, '/').toString();
+                        } catch (error) {
+                            console.error('[BackgroundCover] Relative URL failed:', error);
+                        }
+                    }
+                }
+
+                return cssDesktopUrl;
+            };
+            const cssUrl = resolveCssUrl();
+            const cssBaseHref = getCssBaseHref(cssUrl);
             
             ${videoSetup}
 
@@ -617,12 +847,14 @@ export class FileDom {
             function loadCss() {
                 const url = cssUrl + '?t=' + Date.now();
                 fetch(url).then(r => r.text()).then(css => {
-                    updateStyleTag(css);
+                    const resolvedCss = replaceRelativeTokens(css, cssBaseHref);
+                    updateStyleTag(resolvedCss);
                     
-                    const match = css.match(/\\/\\*background-cover-video-start\\*\\/([\\s\\S]*?)\\/\\*background-cover-video-end\\*\\//);
+                    const match = resolvedCss.match(/\\/\\*background-cover-video-start\\*\\/([\\s\\S]*?)\\/\\*background-cover-video-end\\*\\//);
                     if (match) {
                         try {
                             const config = JSON.parse(match[1]);
+                            config.url = replaceRelativeTokens(config.url, cssBaseHref);
                             updateVideo(config);
                         } catch(e) {
                             console.error('[BackgroundCover] Video config parse error:', e);
@@ -766,6 +998,66 @@ export class FileDom {
             return true;
         } catch {
             return false;
+        }
+    }
+
+    private async prepareCodeServerAsset(sourcePath: string): Promise<string | undefined> {
+        try {
+            await fse.ensureDir(CUSTOM_ASSET_DIR);
+            const buffer = await fse.readFile(path.resolve(sourcePath));
+            const hash = crypto.createHash('md5').update(buffer).digest('hex');
+            const ext = path.extname(sourcePath) || '.img';
+            const fileName = `${hash}${ext}`;
+            const destPath = path.join(CUSTOM_ASSET_DIR, fileName);
+
+            if (!(await fse.pathExists(destPath))) {
+                await fse.writeFile(destPath, buffer);
+            }
+
+            const relativeUrl = this.getRelativeAssetUrl(destPath);
+            if (!relativeUrl) {
+                return undefined;
+            }
+
+            const normalized = relativeUrl.replace(/^\/+/, '');
+            return `${RELATIVE_URL_PLACEHOLDER}/${normalized}`;
+        } catch (error) {
+            console.error('[FileDom] Failed to prepare code-server asset:', error);
+            return undefined;
+        }
+    }
+
+    private getExtensionFromContentType(contentType?: string): string | undefined {
+        if (!contentType) {
+            return undefined;
+        }
+        const cleanType = contentType.split(';')[0].trim().toLowerCase();
+        const map: Record<string, string> = {
+            'image/jpeg': '.jpg',
+            'image/jpg': '.jpg',
+            'image/png': '.png',
+            'image/gif': '.gif',
+            'image/webp': '.webp',
+            'image/bmp': '.bmp',
+            'image/svg+xml': '.svg',
+            'video/mp4': '.mp4',
+            'video/webm': '.webm',
+            'video/ogg': '.ogg',
+            'video/quicktime': '.mov'
+        };
+        return map[cleanType] || undefined;
+    }
+
+    private getRelativeAssetUrl(targetPath: string): string | undefined {
+        try {
+            const relative = path.relative(selectedWorkbench.root, targetPath);
+            if (!relative || relative.startsWith('..')) {
+                return undefined;
+            }
+            return relative.split(path.sep).join('/');
+        } catch (error) {
+            console.error('[FileDom] Failed to resolve asset url:', error);
+            return undefined;
         }
     }
 

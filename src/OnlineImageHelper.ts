@@ -15,7 +15,7 @@ export class OnlineImageHelper {
             const isImage = await this.isImageUrl(urlString);
             if (isImage) {
                 console.log('[OnlineImageHelper] 检测为单张图片');
-                return this.isImageFileName(urlString) ? [urlString] : [urlString, urlString];
+                return [urlString];
             }
             // url是否为vs.20988.xyz
             if (urlString.includes('vs.20988.xyz')) {
@@ -40,10 +40,10 @@ export class OnlineImageHelper {
                 return htmlImages;
             }
             console.log('[OnlineImageHelper] 无法识别URL类型，当作单图处理');
-            return this.isImageFileName(urlString) ? [urlString] : [urlString, urlString];
+            return [urlString];
         } catch (error: any) {
             console.error('[OnlineImageHelper] 获取在线图片失败:', error?.message || error);
-            return this.isImageFileName(urlString) ? [urlString] : [urlString, urlString];
+            return [urlString];
         }
     }
 

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { ActionType } from './PickList';
+import { getContext } from './global';
 
 // Localization
 const messages = {
@@ -24,6 +25,7 @@ const messages = {
         toggleParticles: 'Toggle Particles',
         clearBackground: 'Clear Background',
         refresh: 'Refresh',
+        refreshFolder: 'Refresh Online Folder',
         supportAuthor: 'Support Author',
         setSizeMode: 'Set Size Mode',
         setBlendMode: 'Set Blend Mode',
@@ -52,6 +54,7 @@ const messages = {
         toggleParticles: '切换粒子效果',
         clearBackground: '清除背景',
         refresh: '刷新',
+        refreshFolder: '刷新在线文件夹',
         supportAuthor: '支持作者',
         setSizeMode: '设置尺寸模式',
         setBlendMode: '设置混合模式',
@@ -159,6 +162,9 @@ export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<Conf
     private getGroupChildren(element: ConfigItem, config: vscode.WorkspaceConfiguration): ConfigItem[] {
         const items: ConfigItem[] = [];
 
+        const context = getContext();
+        const onlineFolder = context?.globalState.get<string>('backgroundCoverOnlineFolder');
+
         if (element.label === t('imageSource')) {
             const currentPath = config.get<string>('imagePath') || t('none');
             const displayPath = currentPath.length > 30 ? '...' + currentPath.substr(-30) : currentPath;
@@ -168,6 +174,11 @@ export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<Conf
             items.push(this.createActionItem(t('selectImage'), ActionType.SelectPictures, 'folder-opened'));
             items.push(this.createActionItem(t('addDirectory'), ActionType.AddDirectory, 'file-directory'));
             items.push(this.createActionItem(t('inputPath'), ActionType.InputPath, 'link'));
+
+            if (onlineFolder) {
+                const displayOnlineFolder = onlineFolder.length > 30 ? '...' + onlineFolder.substr(-30) : onlineFolder;
+                items.push(this.createActionItem(t('refreshFolder'), ActionType.RefreshOnlineFolder, 'cloud-download', displayOnlineFolder));
+            }
         }
 
         if (element.label === t('appearance')) {
