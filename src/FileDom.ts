@@ -1070,6 +1070,36 @@ export class FileDom {
                                 animation: title-shake 0.5s;
                                 display: inline-block;
                             }
+                            .pet-message {
+                                position: absolute;
+                                top: 32px;
+                                left: 50%;
+                                transform: translateX(-50%);
+                                background: rgba(255, 255, 255, 0.9);
+                                color: #000;
+                                padding: 4px 8px;
+                                border-radius: 4px;
+                                font-size: 12px;
+                                white-space: nowrap;
+                                pointer-events: none;
+                                opacity: 0;
+                                transition: opacity 0.3s;
+                                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                                z-index: 100000;
+                            }
+                            .pet-message.show {
+                                opacity: 1;
+                            }
+                            .pet-message::after {
+                                content: '';
+                                position: absolute;
+                                bottom: 100%;
+                                left: 50%;
+                                margin-left: -4px;
+                                border-width: 4px;
+                                border-style: solid;
+                                border-color: transparent transparent rgba(255, 255, 255, 0.9) transparent;
+                            }
                         \`;
                         document.head.appendChild(style);
                     }
@@ -1107,6 +1137,49 @@ export class FileDom {
                         titlebar.appendChild(assistant);
 
                         let currentPos = 0;
+
+                        const messages = [
+                            "写代码辛苦了，休息一下吧",
+                            "记得喝水哦",
+                            "今天也是元气满满的一天！",
+                            "Bug 都会消失的！",
+                            "站起来活动一下吧",
+                            "眼睛累了吗？眺望一下远方",
+                            "加油！你是最棒的！",
+                            "Coding is fun!",
+                            "记得保存哦",
+                            "不要熬夜太晚",
+                            "又在写 Bug 吗？",
+                            "这个需求做不完的...",
+                            "产品经理又改需求了？",
+                            "记得提交代码，不然白写了",
+                            "头发还剩多少？",
+                            "Hello World!",
+                            "PHP 是世界上最好的语言",
+                            "这个 Bug 是 Feature",
+                            "删库跑路？",
+                            "Ctrl+C Ctrl+V 大法好"
+                        ];
+
+                        function showMessage() {
+                            const msg = messages[Math.floor(Math.random() * messages.length)];
+                            const bubble = document.createElement('div');
+                            bubble.className = 'pet-message';
+                            bubble.textContent = msg;
+                            // Reset transform to avoid flipping text
+                            bubble.style.transform = 'translateX(-50%) scaleX(' + assistant.style.getPropertyValue('--dir') + ')';
+                            
+                            assistant.appendChild(bubble);
+                            
+                            // Trigger reflow
+                            void bubble.offsetWidth;
+                            bubble.classList.add('show');
+                            
+                            setTimeout(() => {
+                                bubble.classList.remove('show');
+                                setTimeout(() => bubble.remove(), 300);
+                            }, 3000);
+                        }
 
                         function triggerJump() {
                             assistant.classList.remove('assistant-jumping');
@@ -1146,7 +1219,7 @@ export class FileDom {
                             assistant.style.left = nextPos + 'px';
 
                             // Random jump logic
-                            const jumpChance = 0.5; // 50% chance to jump randomly
+                            const jumpChance = 0.3; // 30% chance to jump randomly
                             if (Math.random() < jumpChance) {
                                 const jumpDelay = Math.random() * duration * 1000;
                                 setTimeout(() => {
@@ -1200,8 +1273,19 @@ export class FileDom {
                             // After move, switch to idle
                             setTimeout(() => {
                                 petImage.src = idleUrl;
+
+                                // Random message logic (only when idle)
+                                const messageChance = 0.8; // 50% chance to show message
+                                let delay = 1000 + Math.random() * 3000;
+
+                                if (Math.random() < messageChance) {
+                                    showMessage();
+                                    // If message is shown, ensure we wait long enough for it to disappear (3s)
+                                    if (delay < 3500) delay = 3500 + Math.random() * 2000;
+                                }
+
                                 // Schedule next move
-                                setTimeout(move, 1000 + Math.random() * 3000);
+                                setTimeout(move, delay);
                             }, duration * 1000);
                         }
 

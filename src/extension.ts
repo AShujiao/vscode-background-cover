@@ -130,7 +130,7 @@ export function activate(context: ExtensionContext) {
 	}));
 
 	// Initialize context
-	commands.executeCommand('setContext', 'backgroundCover.mode', 'gallery');
+	commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
 
 	// 监听主题变化
 	window.onDidChangeActiveColorTheme((event) => {
