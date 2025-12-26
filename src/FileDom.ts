@@ -5,7 +5,7 @@ import * as crypto from 'crypto';
 import * as https from 'https';
 import * as http from 'http';
 import { URL } from 'url';
-import { env, Uri, window, WorkspaceConfiguration } from 'vscode';
+import { env, Uri, window, WorkspaceConfiguration, UIKind } from 'vscode';
 import * as lockfile from 'proper-lockfile';
 import version from './version';
 import { SudoPromptHelper } from './SudoPromptHelper';
@@ -42,7 +42,51 @@ const WORKBENCH_TARGETS: WorkbenchTarget[] = [
 
 // 选择当前运行环境对应的文件路径
 function getWorkbenchTarget(): WorkbenchTarget {
-    return WORKBENCH_TARGETS.find((target) => fs.existsSync(path.join(target.root, target.js))) || WORKBENCH_TARGETS[0];
+    const preferredHost = determineHostPreference();
+
+    const pickByName = (name: string): WorkbenchTarget | undefined => {
+        return WORKBENCH_TARGETS.find((target) => target.name === name && fs.existsSync(path.join(target.root, target.js)));
+    };
+
+    if (preferredHost === 'desktop') {
+        const desktopTarget = pickByName('desktop');
+        if (desktopTarget) {
+            return desktopTarget;
+        }
+    }
+
+    if (preferredHost === 'code-server') {
+        const webTarget = pickByName('code-server');
+        if (webTarget) {
+            return webTarget;
+        }
+    }
+
+    return pickByName('desktop') || pickByName('code-server') || WORKBENCH_TARGETS[0];
+}
+
+function determineHostPreference(): 'desktop' | 'code-server' | undefined {
+    const appHost = typeof env.appHost === 'string' ? env.appHost.toLowerCase() : undefined;
+    if (appHost === 'desktop') {
+        return 'desktop';
+    }
+    if (appHost === 'web') {
+        return 'code-server';
+    }
+
+    if (env.uiKind === UIKind.Desktop) {
+        return 'desktop';
+    }
+    if (env.uiKind === UIKind.Web) {
+        return 'code-server';
+    }
+
+    const appName = (env.appName || '').toLowerCase();
+    if (appName.includes('code-server') || appName.includes('vscode server')) {
+        return 'code-server';
+    }
+
+    return undefined;
 }
 
 // 各路径静态变量
@@ -53,9 +97,9 @@ const BAK_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.bak);
 const CUSTOM_CSS_FILE_NAME = 'css-background-cover.css';
 export const CUSTOM_CSS_FILE_PATH = path.join(selectedWorkbench.root, CUSTOM_CSS_FILE_NAME);
 const APP_OUT_PATH = path.join(env.appRoot, 'out');
-const WEB_RELATIVE_CSS_PATH = getWebRelativePath(CUSTOM_CSS_FILE_PATH);
-const CUSTOM_ASSET_DIR = path.join(selectedWorkbench.root, 'background-cover-assets');
 const IS_CODE_SERVER_TARGET = selectedWorkbench.name === 'code-server';
+const WEB_RELATIVE_CSS_PATH = IS_CODE_SERVER_TARGET ? getWebRelativePath(CUSTOM_CSS_FILE_PATH) : undefined;
+const CUSTOM_ASSET_DIR = path.join(selectedWorkbench.root, 'background-cover-assets');
 const RELATIVE_URL_PLACEHOLDER = '__BACKGROUND_COVER_BASE__';
 const DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
 const DEFAULT_ACCEPT_HEADER = 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8';
