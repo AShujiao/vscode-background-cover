@@ -18,7 +18,7 @@ import {
 	workspace, // 获取 VSCode 版本
 } from 'vscode';
 import * as fs from 'fs';
-import { PickList } from './PickList';
+import { PickList } from './PickList2';
 import { ImgItem } from './ImgItem';
 import vsHelp from './vsHelp';
 import ReaderViewProvider from './readerView';
