@@ -6,7 +6,7 @@ import {
   Disposable,
   window
 } from 'vscode';
-import { PickList } from './PickList';
+import { PickList } from './PickLIst';
 import { getContext } from './global';
 
 export default class ReaderViewProvider implements WebviewViewProvider {
