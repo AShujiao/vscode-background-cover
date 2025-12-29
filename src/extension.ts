@@ -130,7 +130,7 @@ export function activate(context: ExtensionContext) {
 	}));
 
 	// Initialize context
-	commands.executeCommand('setContext', 'backgroundCover.mode', 'gallery');
+	commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
 
 	// 监听主题变化
 	window.onDidChangeActiveColorTheme((event) => {
@@ -147,10 +147,10 @@ export function activate(context: ExtensionContext) {
 	if(openVersion != version){
 		context.globalState.update('ext_version',version);
 		vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
-🚀 更新内容 (v3.1.0)：
-1. 🎉 支持视频文件做为背景
-2. ✨ 增加刷新功能
-3. 🌐 左侧面板已做为默认菜单
+🚀 更新内容 (v3.2.0)：
+1. 🎉 新增顶部导航栏小宠物
+2. ✨ 增加查看缓存文件功能
+3. 🌐 缓存管理与优化
 
 ⚠️ 注意：本次更新涉及底层变动，需重新获取权限（Hook）并重启一次 VSCode 后生效。
 

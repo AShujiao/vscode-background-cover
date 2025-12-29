@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ActionType } from './PickList';
-import { getContext } from './global';
+import { getContext, onDidChangeGlobalState } from './global';
 
 // Localization
 const messages = {
@@ -23,15 +23,22 @@ const messages = {
         sourceFolder: 'Source Folder',
         openSettings: 'Open Settings...',
         toggleParticles: 'Toggle Particles',
+        particleOpacity: 'Particle Opacity',
+        particleColor: 'Particle Color',
+        particleCount: 'Particle Count',
         clearBackground: 'Clear Background',
         refresh: 'Refresh',
         refreshFolder: 'Refresh Online Folder',
+        openCacheFolder: 'Open Cache Folder',
         supportAuthor: 'Support Author',
         setSizeMode: 'Set Size Mode',
         setBlendMode: 'Set Blend Mode',
         toggle: 'Toggle',
         notSet: 'Not Set',
-        none: 'None'
+        none: 'None',
+        petAssistant: 'Top Pet',
+        togglePet: 'Toggle',
+        selectPet: 'Select Pet'
     },
     zh: {
         imageSource: '图片来源',
@@ -52,15 +59,22 @@ const messages = {
         sourceFolder: '来源目录',
         openSettings: '打开设置...',
         toggleParticles: '切换粒子效果',
+        particleOpacity: '粒子透明度',
+        particleColor: '粒子颜色',
+        particleCount: '粒子数量',
         clearBackground: '清除背景',
         refresh: '刷新',
         refreshFolder: '刷新在线文件夹',
+        openCacheFolder: '打开缓存目录',
         supportAuthor: '支持作者',
         setSizeMode: '设置尺寸模式',
         setBlendMode: '设置混合模式',
         toggle: '切换',
         notSet: '未设置',
-        none: '无'
+        none: '无',
+        petAssistant: '顶部小宠物',
+        togglePet: '开启/关闭',
+        selectPet: '选择宠物'
     }
 };
 
@@ -100,11 +114,14 @@ export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<Conf
     readonly onDidChangeTreeData: vscode.Event<ConfigItem | undefined | void> = this._onDidChangeTreeData.event;
 
     constructor() {
-        // Listen to configuration changes to refresh the tree
         vscode.workspace.onDidChangeConfiguration(e => {
             if (e.affectsConfiguration('backgroundCover')) {
                 this.refresh();
             }
+        });
+
+        onDidChangeGlobalState.event(() => {
+            this.refresh();
         });
     }
 
@@ -153,7 +170,10 @@ export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<Conf
         // 4. Particle Effects
         items.push(new ConfigItem(t('particleEffects'), vscode.TreeItemCollapsibleState.Collapsed, 'group', undefined, undefined, undefined, undefined, 'sparkle'));
 
-        // 5. Actions
+        // 5. Pet Assistant
+        items.push(new ConfigItem(t('petAssistant'), vscode.TreeItemCollapsibleState.Collapsed, 'group', undefined, undefined, undefined, undefined, 'github'));
+
+        // 6. Actions
         items.push(new ConfigItem(t('actions'), vscode.TreeItemCollapsibleState.Expanded, 'group', undefined, undefined, undefined, undefined, 'tools'));
 
         return items;
@@ -183,7 +203,7 @@ export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<Conf
 
         if (element.label === t('appearance')) {
             items.push(this.createSettingItem(t('opacity'), 'backgroundCover.opacity', config.get('opacity'), ActionType.BackgroundOpacity, 'eye'));
-            items.push(this.createSettingItem(t('blur'), 'backgroundCover.blur', config.get('blur'), ActionType.BackgroundBlur, 'blur'));
+            items.push(this.createSettingItem(t('blur'), 'backgroundCover.blur', config.get('blur'), ActionType.BackgroundBlur, 'star-half'));
             
             items.push(new ConfigItem(t('sizeMode'), vscode.TreeItemCollapsibleState.Collapsed, 'setting', 'backgroundCover.sizeModel', config.get('sizeModel'), undefined, config.get('sizeModel'), 'layout'));
             items.push(new ConfigItem(t('blendMode'), vscode.TreeItemCollapsibleState.Collapsed, 'setting', 'backgroundCover.blendModel', config.get('blendModel'), undefined, config.get('blendModel'), 'symbol-color'));
@@ -200,13 +220,66 @@ export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<Conf
         }
 
         if (element.label === t('particleEffects')) {
-            items.push(this.createActionItem(t('openSettings'), ActionType.ParticleSettings, 'settings-gear'));
-            items.push(this.createActionItem(t('toggleParticles'), ActionType.ToggleParticle, 'circle-filled'));
+            const context = getContext();
+            const enabled = context.globalState.get<boolean>('backgroundCoverParticleEffect', false);
+            const opacity = context.globalState.get<number>('backgroundCoverParticleOpacity', 0.6);
+            const color = context.globalState.get<string>('backgroundCoverParticleColor', '#ffffff');
+            const count = context.globalState.get<number>('backgroundCoverParticleCount', 50);
+
+            // Toggle
+            const toggleItem = new ConfigItem(
+                t('toggleParticles'), 
+                vscode.TreeItemCollapsibleState.None, 
+                'setting', 
+                'backgroundCoverParticleEffect', 
+                enabled, 
+                ActionType.ToggleParticle, 
+                enabled ? 'ON' : 'OFF', 
+                enabled ? 'check' : 'circle-outline'
+            );
+            toggleItem.command = {
+                command: 'backgroundCover.runAction',
+                title: t('toggleParticles'),
+                arguments: [ActionType.ToggleParticle]
+            };
+            items.push(toggleItem);
+
+            items.push(this.createSettingItem(t('particleOpacity'), 'backgroundCoverParticleOpacity', opacity, ActionType.ParticleOpacity, 'eye'));
+            items.push(this.createSettingItem(t('particleColor'), 'backgroundCoverParticleColor', color, ActionType.ParticleColor, 'symbol-color'));
+            items.push(this.createSettingItem(t('particleCount'), 'backgroundCoverParticleCount', count, ActionType.ParticleCount, 'multiple-windows'));
+        }
+
+        if (element.label === t('petAssistant')) {
+            const context = getContext();
+            const enabled = context.globalState.get<boolean>('backgroundCoverPetEnabled', true);
+            const currentPet = context.globalState.get<string>('backgroundCoverPetType', 'akita');
+
+            // Toggle
+            const toggleItem = new ConfigItem(
+                t('togglePet'), 
+                vscode.TreeItemCollapsibleState.None, 
+                'setting', 
+                'backgroundCoverPetEnabled', 
+                enabled, 
+                ActionType.TogglePet, 
+                enabled ? 'ON' : 'OFF', 
+                enabled ? 'check' : 'circle-outline'
+            );
+            toggleItem.command = {
+                command: 'backgroundCover.runAction',
+                title: t('togglePet'),
+                arguments: [ActionType.TogglePet]
+            };
+            items.push(toggleItem);
+
+            // Select Pet
+            items.push(this.createActionItem(t('selectPet'), ActionType.SelectPet, 'github', currentPet));
         }
 
         if (element.label === t('actions')) {
             items.push(this.createActionItem(t('clearBackground'), ActionType.CloseBackground, 'trash'));
             items.push(this.createActionItem(t('refresh'), ActionType.UpdateBackground, 'refresh'));
+            items.push(this.createActionItem(t('openCacheFolder'), ActionType.OpenCacheFolder, 'folder-opened'));
             items.push(this.createActionItem(t('supportAuthor'), ActionType.OpenFilePath, 'heart', undefined, '//resources//support.jpg'));
         }
 
