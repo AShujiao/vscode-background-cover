@@ -147,7 +147,7 @@ export function activate(context: ExtensionContext) {
 	if(openVersion != version){
 		context.globalState.update('ext_version',version);
 		vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
-🚀 更新内容 (v3.2.0)：
+🚀 更新内容 (v3.2.1)：
 1. 🎉 新增顶部导航栏小宠物
 2. ✨ 增加查看缓存文件功能
 3. 🌐 缓存管理与优化
