@@ -36,8 +36,8 @@ const messages = {
         toggle: 'Toggle',
         notSet: 'Not Set',
         none: 'None',
-        petAssistant: 'Pet Assistant',
-        togglePet: 'Toggle Pet',
+        petAssistant: 'Top Pet',
+        togglePet: 'Toggle',
         selectPet: 'Select Pet'
     },
     zh: {
@@ -72,8 +72,8 @@ const messages = {
         toggle: '切换',
         notSet: '未设置',
         none: '无',
-        petAssistant: '宠物助手',
-        togglePet: '切换宠物',
+        petAssistant: '顶部小宠物',
+        togglePet: '开启/关闭',
         selectPet: '选择宠物'
     }
 };
