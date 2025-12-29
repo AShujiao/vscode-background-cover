@@ -1474,8 +1474,8 @@ export class FileDom {
     }
 
     private localImgToVsc(): void {
-        const separator = this.systemType === SystemType.LINUX ? "" : "/";
-        this.imagePath = Uri.parse(`vscode-file://vscode-app${separator}${this.imagePath}`).toString();
+        // 使用 Uri.file 自动处理路径分隔符和编码，避免手动拼接导致的路径错误（如 macOS 下的双斜杠问题）
+        this.imagePath = Uri.file(this.imagePath).with({ scheme: 'vscode-file', authority: 'vscode-app' }).toString();
     }
 
     private clearCssContent(content: string): string {
