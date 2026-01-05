@@ -76,7 +76,10 @@ export function activate(context: ExtensionContext) {
 	}));
 
 	let randomCommand = commands.registerCommand('extension.backgroundCover.refresh', () => { PickList.randomUpdateBackground(); });
-	let startCommand = commands.registerCommand('extension.backgroundCover.start', () => { PickList.createItemLIst() });
+	let startCommand = commands.registerCommand('extension.backgroundCover.start', () => { 
+		commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
+		commands.executeCommand('workbench.view.extension.backgroundCover-explorer');
+	});
 	let particleEffectCommand = commands.registerCommand('extension.backgroundCover.nest', () => { PickList.startNest() });
 	let showMenuCommand = commands.registerCommand('extension.backgroundCover.showMenu', () => {
 		commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
@@ -147,10 +150,9 @@ export function activate(context: ExtensionContext) {
 	if(openVersion != version){
 		context.globalState.update('ext_version',version);
 		vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
-🚀 更新内容 (v3.2.2)：
-1. 🎉 兼容linux系统
-
-⚠️ 注意：本次更新涉及底层变动，需重新获取权限（Hook）并重启一次 VSCode 后生效。
+🚀 更新内容：
+    1.  顶部小宠物默认为关闭状态
+    2.  增加小宠物MOD（皮卡丘、恐龙）及留言
 
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}
