@@ -107,9 +107,10 @@ A: 插件会自动请求密码，或手动 `sudo chown` 相关文件。
 
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 3.2.2 (2025/12/29)
+#### ver 3.2.3 (2026/01/05)
 
-    1. 修复linux系统异常
+    1. 顶部小宠物默认为关闭状态
+    2. 增加小宠物MOD（皮卡丘、恐龙）及留言
 
 ---
 

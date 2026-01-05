@@ -675,11 +675,11 @@ export class FileDom {
     private getPetConfig(): { enabled: boolean, walkUrl: string, idleUrl: string } {
         try {
             const context = getContext();
-            let enabled = true;
+            let enabled = false;
             let type = 'akita';
 
             if (context) {
-                enabled = context.globalState.get<boolean>('backgroundCoverPetEnabled', true);
+                enabled = context.globalState.get<boolean>('backgroundCoverPetEnabled', false);
                 type = context.globalState.get<string>('backgroundCoverPetType', 'akita');
             }
 
@@ -691,19 +691,16 @@ export class FileDom {
                 'rubber-duck': { folder: 'rubber-duck', idle: 'yellow_idle_8fps.gif', walk: 'yellow_walk_8fps.gif' },
                 'crab': { folder: 'crab', idle: 'red_idle_8fps.gif', walk: 'red_walk_8fps.gif' },
                 'zappy': { folder: 'zappy', idle: 'yellow_idle_8fps.gif', walk: 'yellow_walk_8fps.gif' },
-                'mod': { folder: 'mod', idle: 'purple_idle_8fps.gif', walk: 'purple_walk_8fps.gif' },
                 'cockatiel': { folder: 'cockatiel', idle: 'brown_idle_8fps.gif', walk: 'brown_walk_8fps.gif' },
                 'snake': { folder: 'snake', idle: 'green_idle_8fps.gif', walk: 'green_walk_8fps.gif' },
                 'chicken': { folder: 'chicken', idle: 'white_idle_8fps.gif', walk: 'white_walk_8fps.gif' },
-                'rat': { folder: 'rat', idle: 'brown_idle_8fps.gif', walk: 'brown_walk_8fps.gif' },
                 'turtle': { folder: 'turtle', idle: 'green_idle_8fps.gif', walk: 'green_walk_8fps.gif' },
-                'horse': { folder: 'horse', idle: 'black_idle_8fps.gif', walk: 'black_walk_8fps.gif' },
                 'panda': { folder: 'panda', idle: 'black_idle_8fps.gif', walk: 'black_walk_8fps.gif' },
-                'rocky': { folder: 'rocky', idle: 'gray_idle_8fps.gif', walk: 'gray_walk_8fps.gif' },
                 'snail': { folder: 'snail', idle: 'brown_idle_8fps.gif', walk: 'brown_walk_8fps.gif' },
                 'deno': { folder: 'deno', idle: 'green_idle_8fps.gif', walk: 'green_walk_8fps.gif' },
+                'deno2': { folder: 'deno2', idle: 'deno2_idle_8fps.gif', walk: 'deno2_walk_8fps.gif' },
                 'morph': { folder: 'morph', idle: 'purple_idle_8fps.gif', walk: 'purple_walk_8fps.gif' },
-                'skeleton': { folder: 'skeleton', idle: 'warrior_idle_8fps.gif', walk: 'warrior_walk_8fps.gif' },
+                'pika': { folder: 'pika', idle: 'pika_still.gif', walk: 'pika_run.gif' },
             };
 
             const config = mapping[type] || mapping['akita'];
@@ -1171,7 +1168,37 @@ export class FileDom {
                             "别忘了吃午饭",
                             "记得下班打OW",
                             "记得锻炼身体",
-                            "Ctrl+C Ctrl+V 大法好"
+                            "Ctrl+C Ctrl+V 大法好",
+                            "听说你又写了个死循环？",
+                            "键盘敲烂，月薪过万",
+                            "只要我不看，Bug就不存在",
+                            "重启试试？",
+                            "这代码谁写的？哦，是我自己...",
+                            "一杯茶，一包烟，一个Bug改一天",
+                            "面向工资编程",
+                            "你的发际线还好吗？",
+                            "注释比代码难写",
+                            "上线即崩盘",
+                            "又在带薪拉屎？",
+                            "这个变量名是谁起的？",
+                            "测试说没问题，上线就挂",
+                            "我在写Bug，顺便写点代码",
+                            "不要相信注释，看代码",
+                            "今天摸鱼了吗？",
+                            "需求文档又变了",
+                            "这行代码我也不懂，但它能跑",
+                            "正在删除系统核心文件...",
+                            "你的电脑需要重启",
+                            "404 Not Found",
+                            "500 Internal Server Error",
+                            "正在格式化C盘...",
+                            "警告：头发余额不足",
+                            "正在连接火星服务器...",
+                            "代码写得真烂 (来自未来的你)",
+                            "不要乱动，我在看着你",
+                            "快去修那个 P0 Bug",
+                            "今晚通宵吗？",
+                            "咖啡续命"
                         ];
 
                         function showMessage() {
