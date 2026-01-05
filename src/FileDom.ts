@@ -691,19 +691,16 @@ export class FileDom {
                 'rubber-duck': { folder: 'rubber-duck', idle: 'yellow_idle_8fps.gif', walk: 'yellow_walk_8fps.gif' },
                 'crab': { folder: 'crab', idle: 'red_idle_8fps.gif', walk: 'red_walk_8fps.gif' },
                 'zappy': { folder: 'zappy', idle: 'yellow_idle_8fps.gif', walk: 'yellow_walk_8fps.gif' },
-                'mod': { folder: 'mod', idle: 'purple_idle_8fps.gif', walk: 'purple_walk_8fps.gif' },
                 'cockatiel': { folder: 'cockatiel', idle: 'brown_idle_8fps.gif', walk: 'brown_walk_8fps.gif' },
                 'snake': { folder: 'snake', idle: 'green_idle_8fps.gif', walk: 'green_walk_8fps.gif' },
                 'chicken': { folder: 'chicken', idle: 'white_idle_8fps.gif', walk: 'white_walk_8fps.gif' },
-                'rat': { folder: 'rat', idle: 'brown_idle_8fps.gif', walk: 'brown_walk_8fps.gif' },
                 'turtle': { folder: 'turtle', idle: 'green_idle_8fps.gif', walk: 'green_walk_8fps.gif' },
-                'horse': { folder: 'horse', idle: 'black_idle_8fps.gif', walk: 'black_walk_8fps.gif' },
                 'panda': { folder: 'panda', idle: 'black_idle_8fps.gif', walk: 'black_walk_8fps.gif' },
-                'rocky': { folder: 'rocky', idle: 'gray_idle_8fps.gif', walk: 'gray_walk_8fps.gif' },
                 'snail': { folder: 'snail', idle: 'brown_idle_8fps.gif', walk: 'brown_walk_8fps.gif' },
                 'deno': { folder: 'deno', idle: 'green_idle_8fps.gif', walk: 'green_walk_8fps.gif' },
+                'deno2': { folder: 'deno2', idle: 'deno2_idle_8fps.gif', walk: 'deno2_walk_8fps.gif' },
                 'morph': { folder: 'morph', idle: 'purple_idle_8fps.gif', walk: 'purple_walk_8fps.gif' },
-                'skeleton': { folder: 'skeleton', idle: 'warrior_idle_8fps.gif', walk: 'warrior_walk_8fps.gif' },
+                'pika': { folder: 'pika', idle: 'pika_still.gif', walk: 'pika_run.gif' },
             };
 
             const config = mapping[type] || mapping['akita'];
