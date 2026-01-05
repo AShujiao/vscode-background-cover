@@ -675,11 +675,11 @@ export class FileDom {
     private getPetConfig(): { enabled: boolean, walkUrl: string, idleUrl: string } {
         try {
             const context = getContext();
-            let enabled = true;
+            let enabled = false;
             let type = 'akita';
 
             if (context) {
-                enabled = context.globalState.get<boolean>('backgroundCoverPetEnabled', true);
+                enabled = context.globalState.get<boolean>('backgroundCoverPetEnabled', false);
                 type = context.globalState.get<string>('backgroundCoverPetType', 'akita');
             }
 

@@ -420,7 +420,7 @@ export class PickList {
     }
 
     private togglePet() {
-        const currentValue = getContext().globalState.get('backgroundCoverPetEnabled', true);
+        const currentValue = getContext().globalState.get('backgroundCoverPetEnabled', false);
         this.setContextValue('backgroundCoverPetEnabled', !currentValue, true);
     }
 
