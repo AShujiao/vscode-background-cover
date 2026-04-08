@@ -75,6 +75,7 @@ enum InputType {
 export class PickList {
     public static itemList: PickList | undefined;
     private static intervalHandle: NodeJS.Timeout | undefined;
+    private static isAutoRunning: boolean = false;
 
     private readonly quickPick: QuickPick<ImgItem> | any;
     private _disposables: Disposable[] = [];
@@ -167,15 +168,25 @@ export class PickList {
 
         if (autoStatus && interval > 0) {
             console.log(`[BackgroundCover] Starting auto update task. Interval: ${interval}s`);
-            PickList.intervalHandle = setInterval(() => {
+            PickList.intervalHandle = setInterval(async () => {
+                if (PickList.isAutoRunning) {
+                    console.log('[BackgroundCover] Previous auto update still running, skipping this round');
+                    return;
+                }
                 const cfg = workspace.getConfiguration('backgroundCover');
                 const context = getContext();
                 const hasOnlineFolder = context.globalState.get('backgroundCoverOnlineFolder');
                 const hasSingleSource = context.globalState.get('backgroundCoverSingleImageSource');
                 if (cfg.randomImageFolder || hasOnlineFolder || hasSingleSource) {
-                    const pl = new PickList(cfg);
-                    // Silent update: no persist, no UI messages
-                    pl.autoUpdateBackground(false).catch(err => console.error(err));
+                    PickList.isAutoRunning = true;
+                    try {
+                        const pl = new PickList(cfg);
+                        await pl.autoUpdateBackground(false);
+                    } catch (err) {
+                        console.error(err);
+                    } finally {
+                        PickList.isAutoRunning = false;
+                    }
                 }
             }, interval * 1000);
         }
