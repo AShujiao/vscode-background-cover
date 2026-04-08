@@ -392,6 +392,11 @@ export class FileDom {
 
     // 应用补丁
     private async applyPatch(): Promise<boolean> {
+        if (this.initializePromise) {
+            await this.initializePromise;
+            this.initializePromise = undefined;
+        }
+
         const lockPath = path.join(os.tmpdir(), 'vscode-background.lock');
         let release: (() => Promise<void>) | undefined;
 
@@ -409,11 +414,6 @@ export class FileDom {
                 },
                 stale: 20000
             });
-
-            if (this.initializePromise) {
-                await this.initializePromise;
-                this.initializePromise = undefined;
-            }
 
             // Save CSS first
             try {
