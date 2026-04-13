@@ -151,9 +151,11 @@ export function activate(context: ExtensionContext) {
 		context.globalState.update('ext_version',version);
 		vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
 🚀 更新内容：
-    1.  顶部小宠物默认为关闭状态
-    2.  增加小宠物MOD（皮卡丘、恐龙）及留言
+    1.  修复远程随机图片自动切换时 "Lock file is already being held" 错误 (#193 by @Aierlanta)
+    2.  优化自动轮播任务防止并发执行 (#193 by @Aierlanta)
+    3.  修复 code-server 模式下静态资源缓存导致背景不更新的问题 (#194 by @WaaSakura)
 
+感谢 @Aierlanta 和 @WaaSakura 的贡献！
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}
 }

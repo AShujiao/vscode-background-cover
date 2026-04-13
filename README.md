@@ -107,10 +107,13 @@ A: 插件会自动请求密码，或手动 `sudo chown` 相关文件。
 
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 3.2.3 (2026/01/05)
+#### ver 3.2.5 (2026/04/13)
 
-    1. 顶部小宠物默认为关闭状态
-    2. 增加小宠物MOD（皮卡丘、恐龙）及留言
+1. 修复使用远程随机图片API自动切换时出现 "Lock file is already being held" 错误 ([#193](https://github.com/AShujiao/vscode-background-cover/pull/193) by @Aierlanta) 
+2. 优化自动轮播任务防止并发执行 ([#193](https://github.com/AShujiao/vscode-background-cover/pull/193) by @Aierlanta) 
+3. 修复 code-server 模式下静态资源浏览器缓存导致背景不更新的问题 ([#194](https://github.com/AShujiao/vscode-background-cover/pull/194) by @WaaSakura)
+
+    感谢 @Aierlanta 和 @WaaSakura 的贡献！
 
 ---
 
@@ -122,6 +125,7 @@ A: 插件会自动请求密码，或手动 `sudo chown` 相关文件。
 
 ## 贡献者
 默认展示所有贡献者，如需移除请提交 PR。
+
 [<img alt="AShujiao" src="https://avatars2.githubusercontent.com/u/14969576?s=460&v=4" width="90">](https://github.com/AShujiao)
 [<img alt="yjhmelody" src="https://avatars0.githubusercontent.com/u/16250688?s=460&v=4" width="90">](https://github.com/yjhmelody)
 [<img alt="shalldie" src="https://avatars3.githubusercontent.com/u/9987486?s=460&v=4" width="90">](https://github.com/shalldie)
@@ -131,7 +135,7 @@ A: 插件会自动请求密码，或手动 `sudo chown` 相关文件。
 [<img alt="lauset" src="https://avatars.githubusercontent.com/u/47267800?v=4" width="90">](https://github.com/lauset)
 [<img alt="wuqirui" src="https://avatars.githubusercontent.com/u/53338059?v=4" width="90">](https://github.com/hhdqirui)
 [<img alt="WaaSakura" src="https://avatars.githubusercontent.com/u/54162467?v=4" width="90">](https://github.com/WaaSakura)
-
+[<img alt="Aierlanta" src="https://avatars.githubusercontent.com/u/90670661?v=4" width="90">](https://github.com/Aierlanta)
 
 ### 相关信息
 

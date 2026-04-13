@@ -212,3 +212,11 @@
 
     1. 顶部小宠物默认为关闭状态
     2. 增加小宠物MOD（皮卡丘、恐龙）及留言
+
+#### ver 3.2.5 (2026/04/13)
+
+    1. 修复使用远程随机图片API自动切换时出现 "Lock file is already being held" 错误 ([#193](https://github.com/AShujiao/vscode-background-cover/pull/193) by @Aierlanta)
+    2. 优化自动轮播任务防止并发执行 ([#193](https://github.com/AShujiao/vscode-background-cover/pull/193) by @Aierlanta)
+    3. 修复 code-server 模式下静态资源浏览器缓存导致背景不更新的问题 ([#194](https://github.com/AShujiao/vscode-background-cover/pull/194) by @WaaSakura)
+
+    感谢 @Aierlanta 和 @WaaSakura 的贡献！
