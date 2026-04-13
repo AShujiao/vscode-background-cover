@@ -19,6 +19,7 @@ interface WorkbenchTarget {
     js: string;
     css: string;
     bak: string;
+    html?: string;
 }
 /**
  * 文件路径配置，支持服务器模式
@@ -36,7 +37,8 @@ const WORKBENCH_TARGETS: WorkbenchTarget[] = [
         root: path.join(env.appRoot, "out", "vs", "code", "browser", "workbench"),
         js: 'workbench.js',
         css: 'workbench.css',
-        bak: 'workbench.js.bak'
+        bak: 'workbench.js.bak',
+        html: 'workbench.html'
     }
 ];
 
@@ -94,6 +96,7 @@ const selectedWorkbench = getWorkbenchTarget();
 const JS_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.js);
 const CSS_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.css);
 const BAK_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.bak);
+const HTML_FILE_PATH = selectedWorkbench.html ? path.join(selectedWorkbench.root, selectedWorkbench.html) : undefined;
 const CUSTOM_CSS_FILE_NAME = 'css-background-cover.css';
 export const CUSTOM_CSS_FILE_PATH = path.join(selectedWorkbench.root, CUSTOM_CSS_FILE_NAME);
 const APP_OUT_PATH = path.join(env.appRoot, 'out');
@@ -101,6 +104,7 @@ const IS_CODE_SERVER_TARGET = selectedWorkbench.name === 'code-server';
 const WEB_RELATIVE_CSS_PATH = IS_CODE_SERVER_TARGET ? getWebRelativePath(CUSTOM_CSS_FILE_PATH) : undefined;
 const CUSTOM_ASSET_DIR = path.join(selectedWorkbench.root, 'background-cover-assets');
 const RELATIVE_URL_PLACEHOLDER = '__BACKGROUND_COVER_BASE__';
+const HTML_CACHE_BUST_PARAM = 'background-cover';
 const DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
 const DEFAULT_ACCEPT_HEADER = 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8';
 
@@ -427,11 +431,13 @@ export class FileDom {
             if (!content) return false;
 
             const currentContent = await this.getContent(this.filePath);
+            const patchHash = crypto.createHash('md5').update(content).digest('hex').slice(0, 8);
             
             // Check if we need to update JS
             const match = currentContent.match(new RegExp(`\\/\\*ext-${this.extName}-start\\*\\/([\\s\\S]*?)\\/\\*ext-${this.extName}-end\\*\\/`));
             if (match && match[0].trim() === content.trim()) {
-                this.requiresReload = false;
+                const htmlChanged = await this.saveCodeServerHtmlContent(`${version}-${patchHash}`);
+                this.requiresReload = htmlChanged;
                 return true;
             }
 
@@ -443,7 +449,9 @@ export class FileDom {
             }
 
             const newContent = bakContent + content;
-            return await this.saveContent(newContent);
+            const isSaved = await this.saveContent(newContent);
+            await this.saveCodeServerHtmlContent(`${version}-${patchHash}`);
+            return isSaved;
 
         } catch (error: any) {
             await window.showErrorMessage(`Installation failed: ${error.message}`);
@@ -505,6 +513,8 @@ export class FileDom {
                     }
                 }
             }
+
+            await this.clearCodeServerHtmlContent();
 
             return true;
         } catch (error) {
@@ -584,6 +594,83 @@ export class FileDom {
     private async saveCssContent(): Promise<void> {
         const css = this.getCss();
         await this.writeWithPermission(CUSTOM_CSS_FILE_PATH, css);
+    }
+
+    // code-server 静态资源会被浏览器长缓存，给 workbench.js URL 增加版本参数以确保首次注入后能加载新文件。
+    private async saveCodeServerHtmlContent(cacheKey: string): Promise<boolean> {
+        if (!IS_CODE_SERVER_TARGET || !HTML_FILE_PATH || !(await fse.pathExists(HTML_FILE_PATH))) {
+            return false;
+        }
+
+        const content = await this.getContent(HTML_FILE_PATH);
+        const patchedContent = this.patchCodeServerWorkbenchHtml(content, cacheKey);
+
+        if (patchedContent === content) {
+            return false;
+        }
+
+        await this.writeWithPermission(HTML_FILE_PATH, patchedContent);
+        return true;
+    }
+
+    private async clearCodeServerHtmlContent(): Promise<void> {
+        if (!IS_CODE_SERVER_TARGET || !HTML_FILE_PATH || !(await fse.pathExists(HTML_FILE_PATH))) {
+            return;
+        }
+
+        const content = await this.getContent(HTML_FILE_PATH);
+        const patchedContent = this.clearCodeServerWorkbenchHtmlPatch(content);
+
+        if (patchedContent !== content) {
+            await this.writeWithPermission(HTML_FILE_PATH, patchedContent);
+        }
+    }
+
+    private patchCodeServerWorkbenchHtml(content: string, cacheKey: string): string {
+        const workbenchScriptRegex = /(<script\b[^>]*\bsrc=["'])([^"']*\/out\/vs\/code\/browser\/workbench\/workbench\.js(?:\?[^"']*)?)(["'][^>]*>\s*<\/script>)/g;
+        return content.replace(workbenchScriptRegex, (_match: string, prefix: string, scriptUrl: string, suffix: string) => {
+            return `${prefix}${this.withHtmlCacheBust(scriptUrl, cacheKey)}${suffix}`;
+        });
+    }
+
+    private clearCodeServerWorkbenchHtmlPatch(content: string): string {
+        const workbenchScriptRegex = /(<script\b[^>]*\bsrc=["'])([^"']*\/out\/vs\/code\/browser\/workbench\/workbench\.js(?:\?[^"']*)?)(["'][^>]*>\s*<\/script>)/g;
+        return content.replace(workbenchScriptRegex, (_match: string, prefix: string, scriptUrl: string, suffix: string) => {
+            return `${prefix}${this.withoutHtmlCacheBust(scriptUrl)}${suffix}`;
+        });
+    }
+
+    private withHtmlCacheBust(scriptUrl: string, cacheKey: string): string {
+        const hashIndex = scriptUrl.indexOf('#');
+        const hash = hashIndex === -1 ? '' : scriptUrl.substring(hashIndex);
+        const urlWithoutHash = hashIndex === -1 ? scriptUrl : scriptUrl.substring(0, hashIndex);
+        const queryIndex = urlWithoutHash.indexOf('?');
+        const base = queryIndex === -1 ? urlWithoutHash : urlWithoutHash.substring(0, queryIndex);
+        const query = queryIndex === -1 ? '' : urlWithoutHash.substring(queryIndex + 1);
+        const paramPrefix = `${HTML_CACHE_BUST_PARAM}=`;
+        const params = query.split('&').filter((param) => param && !param.startsWith(paramPrefix));
+
+        params.push(`${paramPrefix}${encodeURIComponent(cacheKey)}`);
+
+        return `${base}?${params.join('&')}${hash}`;
+    }
+
+    private withoutHtmlCacheBust(scriptUrl: string): string {
+        const hashIndex = scriptUrl.indexOf('#');
+        const hash = hashIndex === -1 ? '' : scriptUrl.substring(hashIndex);
+        const urlWithoutHash = hashIndex === -1 ? scriptUrl : scriptUrl.substring(0, hashIndex);
+        const queryIndex = urlWithoutHash.indexOf('?');
+
+        if (queryIndex === -1) {
+            return scriptUrl;
+        }
+
+        const base = urlWithoutHash.substring(0, queryIndex);
+        const query = urlWithoutHash.substring(queryIndex + 1);
+        const paramPrefix = `${HTML_CACHE_BUST_PARAM}=`;
+        const params = query.split('&').filter((param) => param && !param.startsWith(paramPrefix));
+
+        return `${base}${params.length ? `?${params.join('&')}` : ''}${hash}`;
     }
 
     // 获取要应用的js内容
