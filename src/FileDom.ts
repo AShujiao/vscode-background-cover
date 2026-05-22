@@ -5,7 +5,7 @@ import * as crypto from 'crypto';
 import * as https from 'https';
 import * as http from 'http';
 import { URL } from 'url';
-import { env, Uri, window, WorkspaceConfiguration, UIKind } from 'vscode';
+import { commands, env, Uri, window, WorkspaceConfiguration, UIKind } from 'vscode';
 import * as lockfile from 'proper-lockfile';
 import version from './version';
 import { SudoPromptHelper } from './SudoPromptHelper';
@@ -486,7 +486,7 @@ export class FileDom {
             return true;
 
         } catch (error: any) {
-            await window.showErrorMessage(`Installation failed: ${error.message}`);
+            await this.handlePatchError(error);
             return false;
         } finally {
             if (release) {
@@ -496,6 +496,67 @@ export class FileDom {
                     console.error(`Failed to unlock ${lockPath}:`, err);
                 }
             }
+        }
+    }
+
+    /**
+     * Categorize an installation error (permission, lock, missing file, unknown)
+     * and offer the user contextual recovery actions instead of a flat message.
+     */
+    private async handlePatchError(error: any): Promise<void> {
+        const rawMsg: string = (error && (error.message || error.toString())) || 'Unknown error';
+        const code: string = (error && error.code) ? String(error.code) : '';
+        const lower = (rawMsg + ' ' + code).toLowerCase();
+
+        type Kind = 'permission' | 'locked' | 'missing' | 'unknown';
+        let kind: Kind = 'unknown';
+        if (/eacces|eperm|access\s*denied|operation\s*not\s*permitted|权限/.test(lower)) {
+            kind = 'permission';
+        } else if (/ebusy|lock\s*file|already\s*being\s*held|locked/.test(lower)) {
+            kind = 'locked';
+        } else if (/enoent|no\s*such\s*file|not\s*found/.test(lower)) {
+            kind = 'missing';
+        }
+
+        const intro: Record<Kind, string> = {
+            permission: '权限不足：写入 VSCode 核心文件失败。请尝试以管理员身份重新打开 VSCode，或关闭其他正在写入该文件的进程。 / Permission denied while patching VSCode core file.',
+            locked:     '文件被占用：另一个 VSCode 实例可能正在写入相同文件。请关闭其他窗口后重试。 / The workbench file is locked by another process.',
+            missing:    '未找到 VSCode 核心文件：可能在你升级 / 修复 VSCode 后路径已变化。 / Required VSCode core file is missing.',
+            unknown:    '安装补丁失败 / Failed to install background patch.'
+        };
+
+        const buttons: string[] = ['Retry / 重试'];
+        if (kind === 'permission' && this.systemType === SystemType.WINDOWS) {
+            buttons.push('Reopen as Admin / 以管理员身份重开');
+        }
+        buttons.push('Open Log / 查看日志');
+
+        const detail = `${intro[kind]}\n\n[${kind.toUpperCase()}] ${rawMsg}`;
+        console.error('[FileDom] applyPatch error:', error);
+
+        const choice = await window.showErrorMessage(detail, ...buttons);
+        if (!choice) { return; }
+        if (choice === 'Retry / 重试') {
+            // Re-attempt without recursion blowing the stack; small delay so any
+            // transient lock has a chance to clear.
+            setTimeout(() => { void this.applyPatch(); }, 300);
+            return;
+        }
+        if (choice === 'Reopen as Admin / 以管理员身份重开') {
+            await window.showInformationMessage(
+                '请手动关闭当前 VSCode 窗口，然后右键 VSCode 图标 → "以管理员身份运行"。 / Close VSCode, then right-click its icon and choose "Run as administrator".',
+                { modal: true },
+                'OK'
+            );
+            return;
+        }
+        if (choice === 'Open Log / 查看日志') {
+            try {
+                await commands.executeCommand('workbench.action.toggleDevTools');
+            } catch (e) {
+                console.warn('[FileDom] toggleDevTools failed:', e);
+            }
+            return;
         }
     }
 

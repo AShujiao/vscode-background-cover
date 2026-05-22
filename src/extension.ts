@@ -111,9 +111,14 @@ export function activate(context: ExtensionContext) {
 	});
 	commands.registerCommand('backgroundCover.support',() => readerViewProvider.support());
 
-	// Register Tree Data Provider
+	// Register Tree Data Provider (with drag-and-drop support)
 	const backgroundCoverViewProvider = new BackgroundCoverViewProvider();
-	window.registerTreeDataProvider('backgroundCover.menu', backgroundCoverViewProvider);
+	const backgroundCoverTreeView = window.createTreeView('backgroundCover.menu', {
+		treeDataProvider: backgroundCoverViewProvider,
+		dragAndDropController: backgroundCoverViewProvider,
+		canSelectMany: false
+	});
+	context.subscriptions.push(backgroundCoverTreeView);
 
 	// Register Command for Tree Item Click
 	context.subscriptions.push(commands.registerCommand('backgroundCover.runAction', (type: number, path?: string) => {

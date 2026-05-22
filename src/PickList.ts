@@ -353,7 +353,7 @@ export class PickList {
             case ActionType.AddDirectory: this.openFieldDialog(2); break;
             case ActionType.ManualSelection: this.openFieldDialog(1); break;
             case ActionType.UpdateBackground: this.updateBackgound(path); break;
-            case ActionType.BackgroundOpacity: this.showInputBox(InputType.Opacity); break;
+            case ActionType.BackgroundOpacity: this.showOpacitySlider(); break;
             case ActionType.InputPath: this.showInputBox(InputType.Path); break;
             case ActionType.CloseBackground: this.updateDom(true); break;
             case ActionType.ReloadWindow: commands.executeCommand('workbench.action.reloadWindow'); break;
@@ -364,7 +364,7 @@ export class PickList {
             case ActionType.SizeModeMenu: this.showSizeModeMenu(); break;
             case ActionType.SetSizeMode: this.setSizeModel(path); break;
             case ActionType.OnlineImages: commands.executeCommand('workbench.view.extension.backgroundCover-explorer'); break;
-            case ActionType.BackgroundBlur: this.showInputBox(InputType.Blur); break;
+            case ActionType.BackgroundBlur: this.showBlurSlider(); break;
             case ActionType.RefreshOnlineFolder: this.refreshOnlineFolder(); break;
             case ActionType.AutoRandomSettings: this.showInputBox(InputType.AutoRandomSettings); break;
             case ActionType.OpenCacheFolder: this.openCacheFolder(); break;
@@ -692,13 +692,137 @@ export class PickList {
                     path: path.join(randomPath, randomFile)
                 });
                 items.push({ label: '', description: '', imageType: 0, kind: QuickPickItemKind.Separator });
-                items = items.concat(files.map(
-                    (e) => new ImgItem('$(tag) ' + e, e, ActionType.UpdateBackground, path.join(randomPath, e))
-                ));
+
+                // Build per-file metadata (size, mtime) once
+                const meta = new Map<string, { size: number; mtime: number }>();
+                for (const f of files) {
+                    try {
+                        const st = fs.statSync(path.join(randomPath, f));
+                        meta.set(f, { size: st.size, mtime: st.mtimeMs });
+                    } catch {
+                        meta.set(f, { size: 0, mtime: 0 });
+                    }
+                }
+
+                // Current image (so we can mark it with a check)
+                const currentImg = (this.config.get<string>('imagePath') || '').toLowerCase();
+                const normalize = (p: string) => p.replace(/\\/g, '/').toLowerCase();
+
+                // Most-recently-used list (kept in globalState, capped at 5)
+                const context = getContext();
+                const recent = context.globalState.get<string[]>('backgroundCoverRecentImages', []) || [];
+                const recentSet = new Set(recent.map((r) => normalize(r)));
+
+                const isCurrent = (f: string) => normalize(path.join(randomPath, f)) === normalize(currentImg);
+                const isRecent  = (f: string) => recentSet.has(normalize(path.join(randomPath, f)));
+
+                // Bucket: current first, then recent (preserving recency order), then the rest alphabetically.
+                const current = files.filter(isCurrent);
+                const recentBucket = recent
+                    .map((full) => files.find((f) => normalize(path.join(randomPath, f)) === normalize(full)))
+                    .filter((f): f is string => !!f && !isCurrent(f));
+                const restBucket = files
+                    .filter((f) => !isCurrent(f) && !isRecent(f))
+                    .sort((a, b) => a.localeCompare(b));
+                const ordered = [...current, ...recentBucket, ...restBucket];
+
+                const toItem = (f: string): ImgItem => {
+                    const m = meta.get(f) || { size: 0, mtime: 0 };
+                    const sizeStr = this.formatFileSize(m.size);
+                    const tags: string[] = [];
+                    if (isCurrent(f)) { tags.push('$(check) current'); }
+                    if (isRecent(f) && !isCurrent(f)) { tags.push('$(history) recent'); }
+                    const isVideo = this.isVideoFile(f);
+                    const fullPath = path.join(randomPath, f);
+                    // Videos: keep $(file-media) text icon (no per-file thumbnail).
+                    // Images: pass Uri.file(...) as iconPath so VS Code renders a 16px thumbnail.
+                    const icon = isVideo
+                        ? '$(file-media)'
+                        : (isCurrent(f) ? '$(check)' : '');
+                    const labelText = icon ? `${icon} ${f}` : f;
+                    const detailText = `${sizeStr}${tags.length ? '   ' + tags.join('  ') : ''}`;
+                    return new ImgItem(
+                        labelText,
+                        detailText,
+                        ActionType.UpdateBackground,
+                        fullPath,
+                        isVideo ? undefined : Uri.file(fullPath)
+                    );
+                };
+
+                items = items.concat(ordered.map(toItem));
             }
         }
+
+        // --- Live preview wiring: hovering an item temporarily applies it ---
+        const originalImg = this.imgPath;
+        let committed = false;
+        let previewTimer: NodeJS.Timeout | undefined;
+
+        this.quickPick.onDidChangeActive((active: ImgItem[]) => {
+            if (!active || active.length === 0) { return; }
+            const a = active[0];
+            if (!a.path || a.imageType !== ActionType.UpdateBackground) { return; }
+            // Skip preview for video files — switching video sources is heavier.
+            if (this.isVideoFile(a.path)) { return; }
+            if (previewTimer) { clearTimeout(previewTimer); }
+            previewTimer = setTimeout(() => {
+                this.applyImagePreview(a.path!);
+            }, 120);
+        });
+
+        this.quickPick.onDidAccept(() => {
+            committed = true;
+            if (previewTimer) { clearTimeout(previewTimer); }
+        });
+
+        this.quickPick.onDidHide(async () => {
+            if (previewTimer) { clearTimeout(previewTimer); }
+            if (!committed && originalImg && originalImg !== this.imgPath) {
+                await this.applyImagePreview(originalImg);
+            }
+        });
+
         this.quickPick.items = items;
         this.quickPick.show();
+    }
+
+    /** Live-preview an image (no persistence) by swapping imgPath and re-rendering. */
+    private async applyImagePreview(filePath: string): Promise<void> {
+        if (!filePath) { return; }
+        this.imgPath = filePath;
+        try {
+            await this.updateDom();
+        } catch (e) {
+            console.error('[BackgroundCover] image preview failed:', e);
+        }
+    }
+
+    /** Common video file extensions used by the extension. */
+    private isVideoFile(f: string): boolean {
+        const lower = f.toLowerCase();
+        return lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.ogg') || lower.endsWith('.mov');
+    }
+
+    /** Push a path to the front of the recent-used list (globalState), keep at most 5. */
+    private pushRecentImage(filePath: string): void {
+        try {
+            if (!filePath) { return; }
+            const context = getContext();
+            const normalize = (p: string) => p.replace(/\\/g, '/').toLowerCase();
+            const prev = context.globalState.get<string[]>('backgroundCoverRecentImages', []) || [];
+            const next = [filePath, ...prev.filter((p) => normalize(p) !== normalize(filePath))].slice(0, 5);
+            context.globalState.update('backgroundCoverRecentImages', next);
+        } catch (e) {
+            console.warn('[BackgroundCover] pushRecentImage failed:', e);
+        }
+    }
+
+    /** Pretty-print byte size into KB/MB. */
+    private formatFileSize(bytes: number): string {
+        if (!bytes || bytes < 1024) { return `${bytes}B`; }
+        if (bytes < 1024 * 1024) { return `${(bytes / 1024).toFixed(1)}KB`; }
+        return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
     }
 
     private getFolderImgList(pathUrl: string): string[] {
@@ -717,6 +841,150 @@ export class PickList {
         if (!fsStatus) { return false; }
         const stat = fs.statSync(folderPath);
         return stat.isDirectory();
+    }
+
+    /**
+     * Show an opacity slider with live preview.
+     * Arrow keys preview each preset instantly; Enter commits; ESC restores.
+     */
+    private showOpacitySlider() {
+        const presets: { value: number; label: string }[] = [
+            { value: 0,    label: '0%   (Off / 关闭)' },
+            { value: 0.05, label: '5%' },
+            { value: 0.1,  label: '10%' },
+            { value: 0.15, label: '15%' },
+            { value: 0.2,  label: '20%  (Default / 默认)' },
+            { value: 0.25, label: '25%' },
+            { value: 0.3,  label: '30%' },
+            { value: 0.4,  label: '40%' },
+            { value: 0.5,  label: '50%' },
+            { value: 0.6,  label: '60%' },
+            { value: 0.7,  label: '70%' },
+            { value: 0.8,  label: '80%  (Max / 最大)' },
+        ];
+        this.showSliderPicker(
+            'opacity',
+            this.opacity,
+            presets,
+            'Background Opacity / 背景透明度（←→ 预览，Enter 确认，ESC 还原）'
+        );
+    }
+
+    /**
+     * Show a blur slider with live preview.
+     */
+    private showBlurSlider() {
+        const presets: { value: number; label: string }[] = [
+            { value: 0,   label: '0px   (Off / 关闭)' },
+            { value: 2,   label: '2px' },
+            { value: 5,   label: '5px' },
+            { value: 10,  label: '10px' },
+            { value: 20,  label: '20px' },
+            { value: 30,  label: '30px' },
+            { value: 50,  label: '50px' },
+            { value: 80,  label: '80px' },
+            { value: 100, label: '100px (Max / 最大)' },
+        ];
+        this.showSliderPicker(
+            'blur',
+            this.blur,
+            presets,
+            'Background Blur / 背景模糊度（←→ 预览，Enter 确认，ESC 还原）'
+        );
+    }
+
+    /**
+     * Reusable slider-style picker with live preview & restore-on-cancel.
+     */
+    private showSliderPicker(
+        configKey: 'opacity' | 'blur',
+        originalValue: number,
+        presets: { value: number; label: string }[],
+        placeholder: string
+    ) {
+        // Hide the parent invoker quickPick (if any) so only the slider is on screen.
+        if (this.quickPick) {
+            try { this.quickPick.hide(); } catch { /* ignored */ }
+        }
+
+        const picker = window.createQuickPick<ImgItem>();
+        picker.placeholder = placeholder;
+        picker.matchOnDescription = false;
+        picker.matchOnDetail = false;
+        picker.ignoreFocusOut = false;
+
+        const items: ImgItem[] = presets.map((p) => ({
+            label: p.label,
+            description: p.value === originalValue ? '$(check) current / 当前' : '',
+            detail: this.renderSliderBar(p.value, presets[presets.length - 1].value),
+            imageType: 0,
+            path: String(p.value),
+        }));
+        picker.items = items;
+
+        // Pre-select the row matching the current value (if any).
+        const activeItem = items.find((it) => Number(it.path) === originalValue);
+        if (activeItem) {
+            picker.activeItems = [activeItem];
+        }
+
+        // Debounced live preview as the user moves the highlight.
+        let previewTimer: NodeJS.Timeout | undefined;
+        let committed = false;
+
+        picker.onDidChangeActive((active) => {
+            if (!active || active.length === 0) { return; }
+            const v = Number(active[0].path);
+            if (Number.isNaN(v)) { return; }
+            if (previewTimer) { clearTimeout(previewTimer); }
+            previewTimer = setTimeout(() => {
+                this.applyPreview(configKey, v);
+            }, 80);
+        });
+
+        picker.onDidAccept(async () => {
+            const selected = picker.selectedItems[0];
+            if (!selected) { return; }
+            const v = Number(selected.path);
+            if (Number.isNaN(v)) { return; }
+            committed = true;
+            if (previewTimer) { clearTimeout(previewTimer); }
+            picker.hide();
+            await this.setConfigValue(configKey, v, true);
+        });
+
+        picker.onDidHide(async () => {
+            if (previewTimer) { clearTimeout(previewTimer); }
+            // ESC / focus loss without commit: restore original look.
+            if (!committed) {
+                await this.applyPreview(configKey, originalValue);
+            }
+            picker.dispose();
+        });
+
+        picker.show();
+    }
+
+    /** Apply opacity/blur for live preview without touching settings.json. */
+    private async applyPreview(configKey: 'opacity' | 'blur', value: number): Promise<void> {
+        if (configKey === 'opacity') {
+            this.opacity = value;
+        } else {
+            this.blur = value;
+        }
+        try {
+            await this.updateDom();
+        } catch (e) {
+            console.error('[BackgroundCover] preview failed:', e);
+        }
+    }
+
+    /** Render a 12-cell unicode bar e.g. ████░░░░░░░░ for the slider detail row. */
+    private renderSliderBar(value: number, max: number): string {
+        const cells = 16;
+        const ratio = max > 0 ? Math.max(0, Math.min(1, value / max)) : 0;
+        const filled = Math.round(ratio * cells);
+        return '█'.repeat(filled) + '░'.repeat(cells - filled) + `  ${value}`;
     }
 
     private async showInputBox(type: InputType) {
@@ -899,6 +1167,17 @@ export class PickList {
     public async updateBackgound(path?: string, clearOnlineCache: boolean = false, persist: boolean = true) {
         if (!path) { path = this.config.get<string>('imagePath'); }
         if (!path) { return vsHelp.showInfo('Unfetched Picture Path / 未获取到图片路径'); }
+
+        // Large local-file pre-check: warn user before applying anything > 5MB so
+        // they don't get blindsided by a multi-second freeze on switch.
+        if (persist && !this.isOnlineUrl(path)) {
+            const proceed = await this.confirmLargeLocalImage(path);
+            if (!proceed) { return false; }
+        }
+
+        // Record into the most-recently-used list (for QuickPick reordering).
+        if (persist) { this.pushRecentImage(path); }
+
         if (clearOnlineCache || !this.isOnlineUrl(path)) {
             this.clearOnlineFolder(true);
         }
@@ -906,6 +1185,28 @@ export class PickList {
         await this.setConfigValue('imagePath', path, true, persist);
         if (shouldDisableAuto) {
             await this.disableAutoRandomForSingleImage();
+        }
+    }
+
+    /**
+     * Warn before applying a >5MB local image; returns true if the user wants to proceed.
+     */
+    private async confirmLargeLocalImage(filePath: string): Promise<boolean> {
+        try {
+            if (!fs.existsSync(filePath)) { return true; }
+            const stat = fs.statSync(filePath);
+            if (!stat.isFile()) { return true; }
+            const sizeMB = stat.size / (1024 * 1024);
+            if (sizeMB <= 5) { return true; }
+            const sizeLabel = `${sizeMB.toFixed(1)}MB`;
+            const choice = await window.showWarningMessage(
+                `图片体积较大 (${sizeLabel})，应用时可能会出现短暂卡顿。是否继续？ / Large image (${sizeLabel}) may cause a brief stutter. Continue?`,
+                'Continue / 继续', 'Cancel / 取消'
+            );
+            return choice === 'Continue / 继续';
+        } catch (e) {
+            console.warn('[BackgroundCover] confirmLargeLocalImage failed:', e);
+            return true;
         }
     }
 
