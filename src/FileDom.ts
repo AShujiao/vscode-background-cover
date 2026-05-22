@@ -13,6 +13,11 @@ import * as fse from 'fs-extra';
 import { getContext } from './global';
 import { getParticleEffectJs } from './ParticleEffect';
 
+interface AdditionalBundle {
+    // Path relative to env.appRoot/out, e.g. 'vs/sessions/sessions.desktop.main.js'.
+    relativePath: string;
+}
+
 interface WorkbenchTarget {
     name: string;
     root: string;
@@ -20,6 +25,11 @@ interface WorkbenchTarget {
     css: string;
     bak: string;
     html?: string;
+    // Additional renderer bundles that should receive the same loader IIFE so
+    // VSCode auxiliary windows (AgentView / Open Agents Window) also pick up
+    // the background. CSS is still authored once in the main workbench dir;
+    // each bundle just self-injects a <style> referencing it.
+    additionalBundles?: AdditionalBundle[];
 }
 /**
  * 文件路径配置，支持服务器模式
@@ -30,7 +40,14 @@ const WORKBENCH_TARGETS: WorkbenchTarget[] = [
         root: path.join(env.appRoot, "out", "vs", "workbench"), // 需要hook的文件目录
         js: 'workbench.desktop.main.js', // 需要hook的css文件名
         css: 'workbench.desktop.main.css', // 需要hook的js文件名
-        bak: 'workbench.desktop.main.js.bak' // 备份文件名
+        bak: 'workbench.desktop.main.js.bak', // 备份文件名
+        // AgentView (Agent Sessions) auxiliary window — separate Electron BrowserWindow
+        // loaded from sessions.html → sessions.desktop.main.js. Patching it lets the
+        // background show up there too. Optional: the file is only present in VSCode
+        // builds that ship the AgentView; older builds will be skipped at runtime.
+        additionalBundles: [
+            { relativePath: path.join('vs', 'sessions', 'sessions.desktop.main.js') }
+        ]
     },
     {
         name: 'code-server',
@@ -100,6 +117,16 @@ const HTML_FILE_PATH = selectedWorkbench.html ? path.join(selectedWorkbench.root
 const CUSTOM_CSS_FILE_NAME = 'css-background-cover.css';
 export const CUSTOM_CSS_FILE_PATH = path.join(selectedWorkbench.root, CUSTOM_CSS_FILE_NAME);
 const APP_OUT_PATH = path.join(env.appRoot, 'out');
+// Each entry is an additional bundle that needs the same loader IIFE injected
+// (e.g. sessions.desktop.main.js for the AgentView window). Bak path mirrors
+// the original with a .bak suffix so the file can be restored later.
+const ADDITIONAL_BUNDLE_PATHS: { jsPath: string; bakPath: string }[] = (selectedWorkbench.additionalBundles ?? []).map((b) => ({
+    jsPath: path.join(APP_OUT_PATH, b.relativePath),
+    bakPath: path.join(APP_OUT_PATH, b.relativePath + '.bak')
+}));
+// Exported so the standalone vscode:uninstall script can use the same set
+// when restoring files at extension removal time.
+export const ADDITIONAL_BUNDLE_RELATIVE_PATHS: string[] = (selectedWorkbench.additionalBundles ?? []).map((b) => b.relativePath);
 const IS_CODE_SERVER_TARGET = selectedWorkbench.name === 'code-server';
 const WEB_RELATIVE_CSS_PATH = IS_CODE_SERVER_TARGET ? getWebRelativePath(CUSTOM_CSS_FILE_PATH) : undefined;
 const CUSTOM_ASSET_DIR = path.join(selectedWorkbench.root, 'background-cover-assets');
@@ -430,28 +457,33 @@ export class FileDom {
             const content = this.getJs().trim();
             if (!content) return false;
 
-            const currentContent = await this.getContent(this.filePath);
             const patchHash = crypto.createHash('md5').update(content).digest('hex').slice(0, 8);
-            
-            // Check if we need to update JS
-            const match = currentContent.match(new RegExp(`\\/\\*ext-${this.extName}-start\\*\\/([\\s\\S]*?)\\/\\*ext-${this.extName}-end\\*\\/`));
-            if (match && match[0].trim() === content.trim()) {
-                const htmlChanged = await this.saveCodeServerHtmlContent(`${version}-${patchHash}`);
-                this.requiresReload = htmlChanged;
-                return true;
+
+            // Patch main workbench bundle. captureBak: true means if no backup exists
+            // yet we save the pre-patch content for safety.
+            const mainResult = await this.patchOneJsFile(this.filePath, BAK_FILE_PATH, content, true);
+            if (mainResult === 'failed') return false;
+
+            // Patch any additional bundles (AgentView etc). Skipping ones that don't
+            // exist keeps us forward/backward compatible across VSCode versions.
+            let anyAdditionalChanged = false;
+            for (const { jsPath, bakPath } of ADDITIONAL_BUNDLE_PATHS) {
+                if (!(await fse.pathExists(jsPath))) continue;
+                const r = await this.patchOneJsFile(jsPath, bakPath, content, false);
+                if (r === 'patched') anyAdditionalChanged = true;
+                if (r === 'failed') {
+                    // Don't abort the whole install — the main window is already
+                    // fine, the auxiliary one just won't have a background.
+                    console.error(`[FileDom] Failed to patch additional bundle: ${jsPath}`);
+                }
             }
 
-            this.requiresReload = true;
-            const bakContent = this.clearCssContent(currentContent);
-            
-            if (this.bakStatus) {
-                this.bakJsContent = bakContent;
-            }
-
-            const newContent = bakContent + content;
-            const isSaved = await this.saveContent(newContent);
-            await this.saveCodeServerHtmlContent(`${version}-${patchHash}`);
-            return isSaved;
+            const htmlChanged = await this.saveCodeServerHtmlContent(`${version}-${patchHash}`);
+            // Reload window if any JS bundle was rewritten or the HTML cache key
+            // changed. The main reload covers main + sessions windows that are
+            // currently open in this VSCode session.
+            this.requiresReload = mainResult === 'patched' || anyAdditionalChanged || htmlChanged;
+            return true;
 
         } catch (error: any) {
             await window.showErrorMessage(`Installation failed: ${error.message}`);
@@ -464,6 +496,79 @@ export class FileDom {
                     console.error(`Failed to unlock ${lockPath}:`, err);
                 }
             }
+        }
+    }
+
+    // Patch one JS bundle: replace any existing background-cover marker block
+    // with `content`, or append it if absent. Optionally captures a pre-patch
+    // backup the first time it sees the file unpatched.
+    //
+    // Returns 'unchanged' if the file already matches, 'patched' if rewritten,
+    // 'failed' if the write didn't go through.
+    private async patchOneJsFile(
+        jsPath: string,
+        bakPath: string,
+        content: string,
+        captureBak: boolean
+    ): Promise<'unchanged' | 'patched' | 'failed'> {
+        try {
+            const currentContent = await this.getContent(jsPath);
+            const markerRe = new RegExp(`\\/\\*ext-${this.extName}-start\\*\\/([\\s\\S]*?)\\/\\*ext-${this.extName}-end\\*\\/`);
+            const match = currentContent.match(markerRe);
+            if (match && match[0].trim() === content.trim()) {
+                return 'unchanged';
+            }
+
+            const stripped = this.clearCssContent(currentContent);
+
+            // Capture the original (pre-patch) content as backup if requested
+            // and we haven't backed up before. Two cases handled differently:
+            // - Main bundle: relies on the bakStatus/bakJsContent flow that the
+            //   constructor + ensureBackup() already prepared for `this.filePath`.
+            // - Additional bundles: write directly here on first sight.
+            if (captureBak) {
+                if (jsPath === this.filePath) {
+                    if (this.bakStatus) {
+                        this.bakJsContent = stripped;
+                    }
+                } else {
+                    if (!(await fse.pathExists(bakPath))) {
+                        try {
+                            await this.writeWithPermission(bakPath, stripped);
+                        } catch (err) {
+                            console.error(`[FileDom] Failed to write backup ${bakPath}:`, err);
+                        }
+                    }
+                }
+            } else if (!(await fse.pathExists(bakPath))) {
+                // Even when not "first-time captureBak", make sure each additional
+                // bundle gets a one-shot backup the first time we touch it. This
+                // way uninstall has something to fall back to if the marker block
+                // ever drifts.
+                try {
+                    await this.writeWithPermission(bakPath, stripped);
+                } catch (err) {
+                    console.error(`[FileDom] Failed to write backup ${bakPath}:`, err);
+                }
+            }
+
+            const newContent = stripped + content;
+            if (jsPath === this.filePath) {
+                // Keep main-bundle path going through the existing saveContent()
+                // so the legacy upCssContent + bakFile machinery still fires.
+                return (await this.saveContent(newContent)) ? 'patched' : 'failed';
+            }
+
+            try {
+                await this.writeWithPermission(jsPath, newContent);
+                return 'patched';
+            } catch (err) {
+                console.error(`[FileDom] writeWithPermission failed for ${jsPath}:`, err);
+                return 'failed';
+            }
+        } catch (err) {
+            console.error(`[FileDom] patchOneJsFile error for ${jsPath}:`, err);
+            return 'failed';
         }
     }
 
@@ -500,7 +605,23 @@ export class FileDom {
         try {
             const content = this.clearCssContent(await this.getContent(this.filePath));
             await this.saveContent(content);
-            
+
+            // Strip our loader from any additional bundles (AgentView sessions
+            // bundle on desktop). Missing files are tolerated — that just means
+            // this VSCode build doesn't ship the auxiliary bundle.
+            for (const { jsPath } of ADDITIONAL_BUNDLE_PATHS) {
+                if (!(await fse.pathExists(jsPath))) continue;
+                try {
+                    const raw = await this.getContent(jsPath);
+                    const cleaned = this.clearCssContent(raw);
+                    if (cleaned !== raw) {
+                        await this.writeWithPermission(jsPath, cleaned);
+                    }
+                } catch (err) {
+                    console.error(`[FileDom] Failed to strip patch from ${jsPath}:`, err);
+                }
+            }
+
             // Remove CSS file
             if (await fse.pathExists(CUSTOM_CSS_FILE_PATH)) {
                 try {
@@ -833,63 +954,66 @@ export class FileDom {
         const petIdleUrl = this.escapeTemplateLiteral(petConfig.idleUrl);
 
         const videoSetup = `
-            function updateVideo(config) {
-                let video = document.getElementById('background-cover-video');
-                if (!config) {
-                    if (video) video.remove();
-                    return;
-                }
-                if (!video) {
-                    video = document.createElement('video');
-                    video.id = 'background-cover-video';
-                    video.autoplay = true;
-                    video.loop = true;
-                    video.muted = true;
-                    video.style.position = 'absolute';
-                    video.style.top = '0';
-                    video.style.left = '0';
-                    video.style.width = '100%';
-                    video.style.height = '100%';
-                    video.style.objectFit = 'cover';
-                    video.style.zIndex = '2';
-                    video.style.pointerEvents = 'none';
-                    document.body.prepend(video);
-                }
-                
-                let url = config.url;
-                // HTTPS upgrade logic
-                if (url.toLowerCase().startsWith('http://') && window.location.protocol === 'https:') {
-                    url = url.replace(/^http:\\/\\//i, 'https://');
-                }
-
-                // Ensure attributes are set
-                if (!video.loop) video.loop = true;
-                if (!video.muted) video.muted = true;
-
-                // Check if source actually changed to avoid reloading
-                // Use decodeURIComponent to handle encoded URLs (e.g. %20 for spaces)
-                let currentSrc = video.src;
-                let newSrc = url;
+            function applyVideo(targetWindow, config) {
                 try {
-                    if (currentSrc !== newSrc && decodeURIComponent(currentSrc) !== decodeURIComponent(newSrc)) {
-                        video.src = newSrc;
+                    const doc = targetWindow && targetWindow.document;
+                    if (!doc || !doc.body) return;
+                    let video = doc.getElementById('background-cover-video');
+                    if (!config) {
+                        if (video) video.remove();
+                        return;
+                    }
+                    if (!video) {
+                        video = doc.createElement('video');
+                        video.id = 'background-cover-video';
+                        video.autoplay = true;
+                        video.loop = true;
+                        video.muted = true;
+                        video.style.position = 'absolute';
+                        video.style.top = '0';
+                        video.style.left = '0';
+                        video.style.width = '100%';
+                        video.style.height = '100%';
+                        video.style.objectFit = 'cover';
+                        video.style.zIndex = '2';
+                        video.style.pointerEvents = 'none';
+                        doc.body.prepend(video);
+                    }
+
+                    let url = config.url;
+                    const loc = targetWindow.location;
+                    if (loc && url.toLowerCase().startsWith('http://') && loc.protocol === 'https:') {
+                        url = url.replace(/^http:\\/\\//i, 'https://');
+                    }
+
+                    if (!video.loop) video.loop = true;
+                    if (!video.muted) video.muted = true;
+
+                    let currentSrc = video.src;
+                    let newSrc = url;
+                    try {
+                        if (currentSrc !== newSrc && decodeURIComponent(currentSrc) !== decodeURIComponent(newSrc)) {
+                            video.src = newSrc;
+                        }
+                    } catch (e) {
+                        if (currentSrc !== newSrc) {
+                            video.src = newSrc;
+                        }
+                    }
+
+                    video.style.opacity = config.opacity + '';
+                    video.style.filter = 'blur(' + config.blur + 'px)';
+                    video.style.mixBlendMode = config.blendMode;
+
+                    if (video.paused) {
+                        video.play().catch(e => {
+                            if (e.name !== 'AbortError') {
+                                console.error('BackgroundCover video play error:', e);
+                            }
+                        });
                     }
                 } catch (e) {
-                    if (currentSrc !== newSrc) {
-                        video.src = newSrc;
-                    }
-                }
-
-                video.style.opacity = config.opacity + '';
-                video.style.filter = 'blur(' + config.blur + 'px)';
-                video.style.mixBlendMode = config.blendMode;
-                
-                if (video.paused) {
-                    video.play().catch(e => {
-                        if (e.name !== 'AbortError') {
-                            console.error('BackgroundCover video play error:', e);
-                        }
-                    });
+                    console.error('[BackgroundCover] applyVideo error:', e);
                 }
             }
         `;
@@ -1033,39 +1157,135 @@ export class FileDom {
             
             ${videoSetup}
 
-            function updateStyleTag(css) {
-                let style = document.getElementById('background-cover-style');
-                if (!style) {
-                    style = document.createElement('style');
-                    style.id = 'background-cover-style';
-                    document.head.appendChild(style);
-                }
-                if (style.textContent !== css) {
-                    style.textContent = css;
+            function applyStyle(targetWindow, css) {
+                try {
+                    const doc = targetWindow && targetWindow.document;
+                    if (!doc || !doc.head) return;
+                    let style = doc.getElementById('background-cover-style');
+                    if (!style) {
+                        style = doc.createElement('style');
+                        style.id = 'background-cover-style';
+                        doc.head.appendChild(style);
+                    }
+                    if (style.textContent !== css) {
+                        style.textContent = css;
+                    }
+                } catch (e) {
+                    console.error('[BackgroundCover] applyStyle error:', e);
                 }
             }
-            
+
+            // Track auxiliary windows opened by VSCode (e.g. the new AgentView "Open Agents Window",
+            // floating editor windows, etc.). Each auxiliary window is a separate Electron BrowserWindow
+            // with its own document/body, so we must mirror the <style> and <video> into each.
+            const auxWindows = new Set();
+            let lastCss = '';
+            let lastVideoConfig = null;
+
+            function isWindowAlive(w) {
+                try {
+                    return !!(w && !w.closed && w.document);
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            function applyToWindow(w) {
+                if (!isWindowAlive(w)) return;
+                applyStyle(w, lastCss);
+                applyVideo(w, lastVideoConfig);
+            }
+
+            function applyToAll() {
+                applyToWindow(window);
+                auxWindows.forEach(w => {
+                    if (isWindowAlive(w)) {
+                        applyToWindow(w);
+                    } else {
+                        auxWindows.delete(w);
+                    }
+                });
+            }
+
+            function registerAuxWindow(newWindow) {
+                if (!newWindow || newWindow === window) return;
+                if (auxWindows.has(newWindow)) return;
+                auxWindows.add(newWindow);
+
+                // VSCode opens auxiliary windows with about:blank then rewrites the document.
+                // Apply on a short retry schedule so we catch the post-rewrite head/body.
+                let attempts = 0;
+                const maxAttempts = 40; // ~20s total
+                const tick = () => {
+                    attempts++;
+                    if (!isWindowAlive(newWindow)) {
+                        auxWindows.delete(newWindow);
+                        return;
+                    }
+                    try {
+                        applyToWindow(newWindow);
+                    } catch (e) {
+                        // ignore transient errors during window init
+                    }
+                    if (attempts < maxAttempts) {
+                        setTimeout(tick, 500);
+                    }
+                };
+                tick();
+
+                try {
+                    newWindow.addEventListener('unload', () => {
+                        auxWindows.delete(newWindow);
+                    }, { once: true });
+                } catch (e) {
+                    // ignore
+                }
+            }
+
+            // Hook window.open so we capture every auxiliary window VSCode opens.
+            try {
+                const originalOpen = window.open ? window.open.bind(window) : null;
+                if (originalOpen) {
+                    window.open = function() {
+                        const result = originalOpen.apply(null, arguments);
+                        try {
+                            if (result && result !== window) {
+                                registerAuxWindow(result);
+                            }
+                        } catch (e) {
+                            console.error('[BackgroundCover] window.open hook error:', e);
+                        }
+                        return result;
+                    };
+                }
+            } catch (e) {
+                console.error('[BackgroundCover] window.open patch error:', e);
+            }
+
             function loadCss() {
                 const url = cssUrl + '?t=' + Date.now();
                 fetch(url).then(r => r.text()).then(css => {
                     const resolvedCss = replaceRelativeTokens(css, cssBaseHref);
-                    updateStyleTag(resolvedCss);
-                    
+                    lastCss = resolvedCss;
+
                     const match = resolvedCss.match(/\\/\\*background-cover-video-start\\*\\/([\\s\\S]*?)\\/\\*background-cover-video-end\\*\\//);
                     if (match) {
                         try {
                             const config = JSON.parse(match[1]);
                             config.url = replaceRelativeTokens(config.url, cssBaseHref);
-                            updateVideo(config);
+                            lastVideoConfig = config;
                         } catch(e) {
                             console.error('[BackgroundCover] Video config parse error:', e);
+                            lastVideoConfig = null;
                         }
                     } else {
-                        updateVideo(null);
+                        lastVideoConfig = null;
                     }
+
+                    applyToAll();
                 }).catch(e => console.error('[BackgroundCover] Load error:', e));
             }
-            
+
             // Initial load
             loadCss();
 
