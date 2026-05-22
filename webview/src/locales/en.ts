@@ -47,5 +47,14 @@ export default {
 
     language:          'Language',
     langEnglish:       'English',
-    langChinese:       '中文'
+    langChinese:       '中文',
+
+    folderLibrary:        'Folder Library',
+    folderLibraryEmpty:   'No images in the source folder.',
+    folderLibraryMore:    'Showing first {shown} of {n} items',
+    presetColors:         'Preset Colors',
+    customColor:          'Custom Color',
+    intervalSeconds:      'Interval (seconds)',
+    applyChanges:         'Reload to apply changes',
+    applyChangesHint:     'Some decoration changes only take effect after a reload.'
 };

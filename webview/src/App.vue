@@ -2,8 +2,11 @@
     <div class="studio" :data-theme="theme">
         <header class="studio-header">
             <div class="brand">
-                <el-icon class="brand-icon"><Picture /></el-icon>
-                <span class="brand-title">{{ t('appTitle') }}</span>
+                <span class="brand-icon">
+                    <img v-if="brand.logo" :src="brand.logo" :alt="brand.name || 'logo'" />
+                    <el-icon v-else><Picture /></el-icon>
+                </span>
+                <span class="brand-title">{{ brand.name || t('appTitle') }}</span>
             </div>
             <div class="header-actions">
                 <el-dropdown trigger="click" @command="onLangChange">
@@ -66,7 +69,7 @@ import DecorationTab from './views/DecorationTab.vue';
 import { useTheme } from './composables/useTheme';
 import { useBridge } from './composables/useBridge';
 import { useI18n, setLocale, type Locale } from './composables/useI18n';
-import { applyState } from './composables/useStore';
+import { applyState, brand } from './composables/useStore';
 
 const { t, locale } = useI18n();
 const bridge = useBridge();
@@ -179,6 +182,13 @@ onMounted(() => {
     justify-content: center;
     background: var(--studio-btn-grad);
     box-shadow: var(--studio-btn-glow);
+    overflow: hidden;
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
 }
 
 .brand-title {

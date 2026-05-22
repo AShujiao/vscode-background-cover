@@ -14,8 +14,9 @@ import {
     window,
     Disposable
 } from 'vscode';
-import { PickList } from './PickList';
+import { PickList, PET_LIST } from './PickList';
 import { onDidChangeGlobalState } from './global';
+import { getColorEntries } from './color';
 
 /**
  * Vue-powered single-pane configuration webview.
@@ -94,11 +95,48 @@ export class StudioViewProvider implements WebviewViewProvider {
             name: this.basename(p)
         }));
 
+        const folder = cfg.get<string>('randomImageFolder') || '';
+        let folderImages: { path: string; display: string; name: string }[] = [];
+        let folderImagesTotal = 0;
+        try {
+            if (folder && fs.existsSync(folder) && fs.statSync(folder).isDirectory()) {
+                const names = PickList.listFolderImages(folder);
+                folderImagesTotal = names.length;
+                folderImages = names.slice(0, 2000).map(name => {
+                    const full = path.join(folder, name);
+                    return { path: full, display: this.toWebviewUri(full), name };
+                });
+            }
+        } catch {
+            folderImages = [];
+            folderImagesTotal = 0;
+        }
+
+        const petRoot = Uri.joinPath(this.ctx.extensionUri, 'resources', 'pet');
+        const pets = PET_LIST.map(p => {
+            const thumbUri = Uri.joinPath(petRoot, p.folder, p.idle);
+            let thumb = '';
+            try { thumb = this.view!.webview.asWebviewUri(thumbUri).toString(); } catch { thumb = ''; }
+            return { value: p.value, label: p.label, desc: p.desc, thumb };
+        });
+
+        const colorPalette = getColorEntries();
+
+        let brandLogo = '';
+        try {
+            const logoUri = Uri.joinPath(this.ctx.extensionUri, 'resources', 'background-cover.png');
+            brandLogo = this.view.webview.asWebviewUri(logoUri).toString();
+        } catch { brandLogo = ''; }
+        const pkg = (this.ctx.extension && (this.ctx.extension as any).packageJSON) || {};
+        const brandName: string = pkg.displayName || pkg.name || 'background-cover';
+
         this.view.webview.postMessage({
             type: 'state',
             data: {
                 locale: (gs.get<string>('backgroundCoverLocale') as 'en' | 'zh' | undefined)
                     ?? (env.language.startsWith('zh') ? 'zh' : 'en'),
+                brandLogo,
+                brandName,
                 config: {
                     opacity: cfg.get('opacity') ?? 0.2,
                     blur: cfg.get('blur') ?? 0,
@@ -117,7 +155,11 @@ export class StudioViewProvider implements WebviewViewProvider {
                     particleColor: gs.get('backgroundCoverParticleColor') ?? '#ffffff',
                     particleCount: gs.get('backgroundCoverParticleCount') ?? 60,
                     particleOpacity: gs.get('backgroundCoverParticleOpacity') ?? 0.5,
-                    recentImages
+                    recentImages,
+                    folderImages,
+                    folderImagesTotal,
+                    pets,
+                    colorPalette
                 }
             }
         });
@@ -206,6 +248,7 @@ export class StudioViewProvider implements WebviewViewProvider {
             if (p) { this.allowedRoots.add(path.normalize(p)); }
         };
         add(Uri.joinPath(this.ctx.extensionUri, 'webview-dist').fsPath);
+        add(Uri.joinPath(this.ctx.extensionUri, 'resources').fsPath);
         add(this.ctx.globalStorageUri?.fsPath);
         add(this.ctx.storageUri?.fsPath);
         (workspace.workspaceFolders || []).forEach(f => add(f.uri.fsPath));

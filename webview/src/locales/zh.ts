@@ -47,5 +47,14 @@ export default {
 
     language:          '语言',
     langEnglish:       'English',
-    langChinese:       '中文'
+    langChinese:       '中文',
+
+    folderLibrary:        '目录内文件',
+    folderLibraryEmpty:   '所选目录中没有图片或视频',
+    folderLibraryMore:    '共 {n} 项，已显示前 {shown} 项',
+    presetColors:         '预设颜色',
+    customColor:          '自定义颜色',
+    intervalSeconds:      '间隔（秒）',
+    applyChanges:         '重启窗口生效',
+    applyChangesHint:     '部分装饰修改需要重启窗口后才能生效'
 };

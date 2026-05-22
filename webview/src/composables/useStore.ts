@@ -24,6 +24,10 @@ export interface StudioState {
     particleCount: number;
     particleOpacity: number;
     recentImages: Array<{ path: string; display: string; name: string }>;
+    folderImages: Array<{ path: string; display: string; name: string }>;
+    folderImagesTotal: number;
+    pets: Array<{ value: string; label: string; desc: string; thumb: string }>;
+    colorPalette: Array<{ name: string; rgb: string; hex: string }>;
 }
 
 export const config = reactive<StudioConfig>({
@@ -45,11 +49,27 @@ export const state = reactive<StudioState>({
     particleColor: '#ffffff',
     particleCount: 60,
     particleOpacity: 0.5,
-    recentImages: []
+    recentImages: [],
+    folderImages: [],
+    folderImagesTotal: 0,
+    pets: [],
+    colorPalette: []
+});
+
+export interface StudioBrand {
+    logo: string;
+    name: string;
+}
+
+export const brand = reactive<StudioBrand>({
+    logo: '',
+    name: ''
 });
 
 export function applyState(data: any) {
     if (!data) { return; }
     if (data.config) { Object.assign(config, data.config); }
     if (data.state)  { Object.assign(state,  data.state); }
+    if (typeof data.brandLogo === 'string') { brand.logo = data.brandLogo; }
+    if (typeof data.brandName === 'string') { brand.name = data.brandName; }
 }

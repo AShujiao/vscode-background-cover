@@ -18,11 +18,17 @@
             </div>
 
             <div class="row">
-                <span class="row-label">{{ t('interval') }}</span>
-                <el-button link type="primary" @click="onInterval">
-                    {{ config.autoInterval || 10 }}s
-                    <el-icon><ArrowRight /></el-icon>
-                </el-button>
+                <span class="row-label">{{ t('intervalSeconds') }}</span>
+                <el-input-number
+                    :model-value="Number(config.autoInterval ?? 10)"
+                    :min="3"
+                    :max="3600"
+                    :step="1"
+                    size="small"
+                    controls-position="right"
+                    class="interval-input"
+                    @change="onIntervalChange"
+                />
             </div>
 
             <div class="row">
@@ -103,7 +109,15 @@ const shortFolder = computed(() => {
     return p.length > 26 ? '…' + p.slice(-25) : p;
 });
 
-function onInterval()     { bridge.post({ type: 'runAction', action: ActionType.AutoRandomSettings }); }
+let intervalTimer: number | undefined;
+
+function onIntervalChange(v: number | undefined) {
+    const value = Number(v ?? 10);
+    if (intervalTimer) { clearTimeout(intervalTimer); }
+    intervalTimer = window.setTimeout(() => {
+        bridge.post({ type: 'setConfig', key: 'autoInterval', value });
+    }, 300);
+}
 function onSourceFolder() { bridge.post({ type: 'runAction', action: ActionType.AddDirectory }); }
 function onOpenCache()    { bridge.post({ type: 'runAction', action: ActionType.OpenCacheFolder }); }
 function onSupport()      { bridge.post({ type: 'runAction', action: ActionType.OpenFilePath, path: '//resources//support.jpg' }); }
@@ -152,12 +166,29 @@ function onSupport()      { bridge.post({ type: 'runAction', action: ActionType.
 
 .block-select { width: 100%; }
 
+.interval-input { width: 120px; }
+
 .quick-actions {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    .el-button { width: 100%; justify-content: center; }
+    width: 100%;
 }
 
-.block-btn { width: 100%; }
+.block-btn.block-btn {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center;
+    margin: 0 !important;
+}
+
+.block-btn :deep(> span) {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
 </style>

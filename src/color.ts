@@ -51,3 +51,21 @@ export default (color:string)=>{
 export const getColorList = ()=>{
 	return Object.keys(Color);
 }
+
+export interface ColorEntry {
+	name: string;   // dictionary key (e.g. "White-白色")
+	rgb: string;    // "R,G,B"
+	hex: string;    // "#rrggbb"
+}
+
+export const getColorEntries = (): ColorEntry[] => {
+	return Object.keys(Color).map((name) => {
+		const rgb = Color[name];
+		const [r, g, b] = rgb.split(',').map((s) => Number(s.trim()) || 0);
+		const hex = '#' + [r, g, b].map((n) => {
+			const v = Math.max(0, Math.min(255, n));
+			return v.toString(16).padStart(2, '0');
+		}).join('');
+		return { name, rgb, hex };
+	});
+};

@@ -72,10 +72,41 @@ enum InputType {
     ParticleCount = 12
 }
 
+export interface PetEntry {
+    value: string;
+    label: string;
+    desc: string;
+    folder: string;
+    idle: string;
+    walk: string;
+}
+
+/** Single source of truth for available pets (used by PickList + FileDom + Studio webview). */
+export const PET_LIST: PetEntry[] = [
+    { value: 'akita',       label: 'Akita (Dog)', desc: '秋田犬',  folder: 'dog',         idle: 'akita_idle_8fps.gif',  walk: 'akita_walk_8fps.gif' },
+    { value: 'totoro',      label: 'Totoro',      desc: '龙猫',    folder: 'totoro',      idle: 'gray_idle_8fps.gif',   walk: 'gray_walk_8fps.gif' },
+    { value: 'fox',         label: 'Fox',         desc: '狐狸',    folder: 'fox',         idle: 'red_idle_8fps.gif',    walk: 'red_walk_8fps.gif' },
+    { value: 'pika',        label: 'Pika',        desc: '皮卡丘',  folder: 'pika',        idle: 'pika_still.gif',       walk: 'pika_run.gif' },
+    { value: 'deno2',       label: 'Deno2',       desc: '恐龙2',   folder: 'deno2',       idle: 'deno2_idle_8fps.gif',  walk: 'deno2_walk_8fps.gif' },
+    { value: 'clippy',      label: 'Clippy',      desc: '大眼夹',  folder: 'clippy',      idle: 'black_idle_8fps.gif',  walk: 'brown_walk_8fps.gif' },
+    { value: 'rubber-duck', label: 'Rubber Duck', desc: '小黄鸭',  folder: 'rubber-duck', idle: 'yellow_idle_8fps.gif', walk: 'yellow_walk_8fps.gif' },
+    { value: 'crab',        label: 'Crab',        desc: '螃蟹',    folder: 'crab',        idle: 'red_idle_8fps.gif',    walk: 'red_walk_8fps.gif' },
+    { value: 'zappy',       label: 'Zappy',       desc: '闪电',    folder: 'zappy',       idle: 'yellow_idle_8fps.gif', walk: 'yellow_walk_8fps.gif' },
+    { value: 'cockatiel',   label: 'Cockatiel',   desc: '玄凤鹦鹉',folder: 'cockatiel',   idle: 'brown_idle_8fps.gif',  walk: 'brown_walk_8fps.gif' },
+    { value: 'snake',       label: 'Snake',       desc: '蛇',      folder: 'snake',       idle: 'green_idle_8fps.gif',  walk: 'green_walk_8fps.gif' },
+    { value: 'chicken',     label: 'Chicken',     desc: '鸡',      folder: 'chicken',     idle: 'white_idle_8fps.gif',  walk: 'white_walk_8fps.gif' },
+    { value: 'turtle',      label: 'Turtle',      desc: '乌龟',    folder: 'turtle',      idle: 'green_idle_8fps.gif',  walk: 'green_walk_8fps.gif' },
+    { value: 'panda',       label: 'Panda',       desc: '熊猫',    folder: 'panda',       idle: 'black_idle_8fps.gif',  walk: 'black_walk_8fps.gif' },
+    { value: 'snail',       label: 'Snail',       desc: '蜗牛',    folder: 'snail',       idle: 'brown_idle_8fps.gif',  walk: 'brown_walk_8fps.gif' },
+    { value: 'deno',        label: 'Deno',        desc: '恐龙',    folder: 'deno',        idle: 'green_idle_8fps.gif',  walk: 'green_walk_8fps.gif' },
+    { value: 'morph',       label: 'Morph',       desc: 'Morph',   folder: 'morph',       idle: 'purple_idle_8fps.gif', walk: 'purple_walk_8fps.gif' },
+];
+
 export class PickList {
     public static itemList: PickList | undefined;
     private static intervalHandle: NodeJS.Timeout | undefined;
     private static isAutoRunning: boolean = false;
+    private static _reloadTriggerSeq: number = 0;
 
     private readonly quickPick: QuickPick<ImgItem> | any;
     private _disposables: Disposable[] = [];
@@ -107,7 +138,13 @@ export class PickList {
         PickList.itemList = new PickList(config);
         PickList.itemList.updateDom(false, nowBlenaStr as string).then((requiresReload) => {
             if (requiresReload) {
-                commands.executeCommand('workbench.action.reloadWindow');
+                // Avoid auto-reloading: the Studio "Reload to apply" button in
+                // the Decoration tab gives the user explicit control. We just
+                // hint via the status bar so they know the change is staged.
+                window.setStatusBarMessage(
+                    '部分修改需重启窗口生效（装饰栏 → 重启生效） / Restart required for some changes.',
+                    6000
+                );
             }
         }).catch(error => {
             console.error("Error updating the DOM:", error);
@@ -388,27 +425,7 @@ export class PickList {
 
     public getPetSelectionItems(): ImgItem[] {
         const currentPet = getContext().globalState.get('backgroundCoverPetType', 'akita');
-        const pets = [
-            { label: 'Akita (Dog)', value: 'akita', desc: '秋田犬' },
-            { label: 'Totoro', value: 'totoro', desc: '龙猫' },
-            { label: 'Fox', value: 'fox', desc: '狐狸' },
-            { label: 'Pika', value: 'pika', desc: '皮卡丘' },
-            { label: 'Deno2', value: 'deno2', desc: '恐龙2' },
-            { label: 'Clippy', value: 'clippy', desc: '大眼夹' },
-            { label: 'Rubber Duck', value: 'rubber-duck', desc: '小黄鸭' },
-            { label: 'Crab', value: 'crab', desc: '螃蟹' },
-            { label: 'Zappy', value: 'zappy', desc: '闪电' },
-            { label: 'Cockatiel', value: 'cockatiel', desc: '玄凤鹦鹉' },
-            { label: 'Snake', value: 'snake', desc: '蛇' },
-            { label: 'Chicken', value: 'chicken', desc: '鸡' },
-            { label: 'Turtle', value: 'turtle', desc: '乌龟' },
-            { label: 'Panda', value: 'panda', desc: '熊猫' },
-            { label: 'Snail', value: 'snail', desc: '蜗牛' },
-            { label: 'Deno', value: 'deno', desc: '恐龙' },
-            { label: 'Morph', value: 'morph', desc: 'Morph' },
-        ];
-
-        return pets.map(p => ({
+        return PET_LIST.map(p => ({
             label: `$(github) ${p.label}`,
             detail: `${p.desc} ${currentPet === p.value ? '$(check)' : ''}`,
             imageType: ActionType.SelectPet,
@@ -554,7 +571,7 @@ export class PickList {
                     if (persist) {
                         this.handleAction(ActionType.UpdateBackground, randomImage);
                     } else {
-                        this.updateBackgound(randomImage, false, false);
+                        await this.updateBackgound(randomImage, false, false);
                     }
                     return true;
                 }
@@ -572,7 +589,7 @@ export class PickList {
             if (persist) {
                 this.handleAction(ActionType.UpdateBackground, singleSource);
             } else {
-                this.updateBackgound(singleSource, false, false);
+                await this.updateBackgound(singleSource, false, false);
             }
             return true;
         }
@@ -586,7 +603,7 @@ export class PickList {
                 if (persist) {
                     this.handleAction(ActionType.UpdateBackground, file);
                 } else {
-                    this.updateBackgound(file, false, false);
+                    await this.updateBackgound(file, false, false);
                 }
             }
         }
@@ -811,7 +828,7 @@ export class PickList {
             const context = getContext();
             const normalize = (p: string) => p.replace(/\\/g, '/').toLowerCase();
             const prev = context.globalState.get<string[]>('backgroundCoverRecentImages', []) || [];
-            const next = [filePath, ...prev.filter((p) => normalize(p) !== normalize(filePath))].slice(0, 5);
+            const next = [filePath, ...prev.filter((p) => normalize(p) !== normalize(filePath))].slice(0, 20);
             context.globalState.update('backgroundCoverRecentImages', next);
         } catch (e) {
             console.warn('[BackgroundCover] pushRecentImage failed:', e);
@@ -825,7 +842,7 @@ export class PickList {
         return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
     }
 
-    private getFolderImgList(pathUrl: string): string[] {
+    public static listFolderImages(pathUrl: string): string[] {
         if (!pathUrl || pathUrl === '') { return []; }
         return fs.readdirSync(path.resolve(pathUrl)).filter((s) => {
             // 增加视频文件 '.mp4', '.webm', '.ogg', '.mov'
@@ -833,6 +850,10 @@ export class PickList {
                 || s.endsWith('.jpeg') || s.endsWith('.gif') || s.endsWith('.webp') || s.endsWith('.bmp')
                 || s.endsWith('.jfif') || s.endsWith('.mp4') || s.endsWith('.webm') || s.endsWith('.ogg') || s.endsWith('.mov');
         });
+    }
+
+    private getFolderImgList(pathUrl: string): string[] {
+        return PickList.listFolderImages(pathUrl);
     }
 
     private checkFolder(folderPath: string) {
@@ -1318,13 +1339,18 @@ export class PickList {
                     if (this.quickPick) {
                         this.quickPick.hide();
                     }
-                    const triggerMsg = window.setStatusBarMessage('background-cover-reload-trigger');
-                    
+                    // Unique trigger per call so the MutationObserver in the
+                    // injected loader always detects a DOM change (VSCode may
+                    // skip mutation events if the text is identical).
+                    PickList._reloadTriggerSeq += 1;
+                    const triggerText = `background-cover-reload-trigger:${PickList._reloadTriggerSeq}`;
+                    const triggerMsg = window.setStatusBarMessage(triggerText);
+
                     setTimeout(() => {
                         triggerMsg.dispose();
                         window.setStatusBarMessage('Background updated successfully! / 背景更新成功！', 5000);
                     }, 1000);
-                    
+
                     return false;
                 }
 

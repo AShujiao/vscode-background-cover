@@ -9,6 +9,7 @@ export const ActionType = {
     BackgroundOpacity:   5,
     InputPath:           6,
     CloseBackground:     7,
+    ReloadWindow:        8,
     OpenFilePath:        14,
     BackgroundBlur:      18,
     RefreshOnlineFolder: 19,

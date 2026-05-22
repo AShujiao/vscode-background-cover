@@ -61,6 +61,80 @@
             </div>
         </el-card>
 
+        <!-- Folder library (in-panel replacement for the native QuickPick after "Add Folder") -->
+        <el-card v-if="config.randomImageFolder" class="grid-card" shadow="never">
+            <template #header>
+                <div class="folder-header">
+                    <span class="card-title">
+                        <el-icon><FolderOpened /></el-icon>
+                        {{ t('folderLibrary') }}
+                        <el-tag size="small" round>{{ state.folderImagesTotal }}</el-tag>
+                    </span>
+                    <span class="folder-path" :title="config.randomImageFolder">
+                        {{ shortFolder }}
+                    </span>
+                </div>
+            </template>
+
+            <el-empty
+                v-if="state.folderImages.length === 0"
+                :description="t('folderLibraryEmpty')"
+                :image-size="60"
+            />
+            <div v-else>
+                <div class="thumb-grid">
+                    <div
+                        v-for="img in pagedFolderImages"
+                        :key="img.path"
+                        class="thumb"
+                        :class="{ 'is-active': img.path === config.imagePath }"
+                        :title="img.name"
+                        @click="onApplyFolderImage(img.path)"
+                    >
+                        <video
+                            v-if="img.display && isVideoPath(img.path)"
+                            :src="img.display"
+                            muted
+                            loop
+                            playsinline
+                            preload="metadata"
+                            @mouseenter="onHover($event, true)"
+                            @mouseleave="onHover($event, false)"
+                        />
+                        <img v-else-if="img.display" :src="img.display" :alt="img.name" loading="lazy" />
+                        <div v-else class="thumb-fallback">
+                            <el-icon><Picture /></el-icon>
+                        </div>
+                        <div v-if="isVideoPath(img.path)" class="thumb-kind">
+                            <el-icon><VideoCamera /></el-icon>
+                        </div>
+                        <div class="thumb-name">{{ img.name }}</div>
+                        <div v-if="img.path === config.imagePath" class="thumb-badge">
+                            <el-icon><Check /></el-icon>
+                        </div>
+                    </div>
+                </div>
+                <div v-if="folderTotalPages > 1" class="folder-pager">
+                    <el-pagination
+                        :current-page="folderPage"
+                        :page-size="folderPageSize"
+                        :total="state.folderImages.length"
+                        layout="prev, pager, next"
+                        :pager-count="5"
+                        small
+                        background
+                        @current-change="onFolderPageChange"
+                    />
+                </div>
+                <div
+                    v-if="state.folderImagesTotal > state.folderImages.length"
+                    class="folder-more"
+                >
+                    {{ t('folderLibraryMore').replace('{n}', String(state.folderImagesTotal)).replace('{shown}', String(state.folderImages.length)) }}
+                </div>
+            </div>
+        </el-card>
+
         <!-- Input path -->
         <el-card class="grid-card" shadow="never">
             <template #header>
@@ -77,7 +151,8 @@
 </template>
 
 <script setup lang="ts">
-import { Plus, FolderAdd, PictureFilled, Picture, Check, Link, VideoCamera } from '@element-plus/icons-vue';
+import { computed, ref, watch } from 'vue';
+import { Plus, FolderAdd, FolderOpened, PictureFilled, Picture, Check, Link, VideoCamera } from '@element-plus/icons-vue';
 import { useI18n } from '../composables/useI18n';
 import { useBridge } from '../composables/useBridge';
 import { config, state } from '../composables/useStore';
@@ -87,11 +162,35 @@ import { isVideoPath } from '../utils/media';
 const { t } = useI18n();
 const bridge = useBridge();
 
+const shortFolder = computed(() => {
+    const p = config.randomImageFolder || '';
+    if (!p) { return ''; }
+    return p.length > 28 ? '…' + p.slice(-27) : p;
+});
+
+const folderPageSize = 20;
+const folderPage = ref(1);
+const folderTotalPages = computed(() => Math.max(1, Math.ceil(state.folderImages.length / folderPageSize)));
+const pagedFolderImages = computed(() => {
+    const start = (folderPage.value - 1) * folderPageSize;
+    return state.folderImages.slice(start, start + folderPageSize);
+});
+function onFolderPageChange(p: number) { folderPage.value = p; }
+
+// Reset to page 1 whenever the folder source or list size changes.
+watch(() => config.randomImageFolder, () => { folderPage.value = 1; });
+watch(() => state.folderImages.length, () => {
+    if (folderPage.value > folderTotalPages.value) { folderPage.value = 1; }
+});
+
 function onPick()      { bridge.post({ type: 'runAction', action: ActionType.SelectPictures }); }
 function onAddDir()    { bridge.post({ type: 'runAction', action: ActionType.AddDirectory }); }
 function onInputPath() { bridge.post({ type: 'runAction', action: ActionType.InputPath }); }
 function onSelectRecent(path: string) {
     bridge.post({ type: 'runAction', action: ActionType.UpdateBackground, path });
+}
+function onApplyFolderImage(path: string) {
+    bridge.post({ type: 'setConfig', key: 'imagePath', value: path });
 }
 
 function onHover(ev: Event, entering: boolean) {
@@ -223,4 +322,38 @@ function onHover(ev: Event, entering: boolean) {
 }
 
 .block-btn { width: 100%; }
+
+.folder-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+}
+
+.folder-path {
+    font-size: 10px;
+    color: var(--vscode-descriptionForeground);
+    font-family: 'Consolas', 'SFMono-Regular', Menlo, monospace;
+    max-width: 60%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    direction: rtl;
+}
+
+.folder-more {
+    margin-top: 10px;
+    padding: 6px 4px;
+    border-top: var(--studio-divider);
+    font-size: 11px;
+    text-align: center;
+    color: var(--vscode-descriptionForeground);
+}
+
+.folder-pager {
+    display: flex;
+    justify-content: center;
+    margin-top: 10px;
+}
 </style>

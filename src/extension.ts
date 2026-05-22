@@ -19,7 +19,6 @@ import {
 } from 'vscode';
 import * as fs from 'fs';
 import { PickList } from './PickList';
-import { ImgItem } from './ImgItem';
 import vsHelp from './vsHelp';
 import ReaderViewProvider from './readerView';
 import { setContext } from './global';
@@ -136,8 +135,10 @@ export function activate(context: ExtensionContext) {
 	// Register Command for Tree Item Click
 	context.subscriptions.push(commands.registerCommand('backgroundCover.runAction', (type: number, path?: string) => {
 		const config = workspace.getConfiguration('backgroundCover');
-		const quickPick = window.createQuickPick<ImgItem>();
-		const pickList = new PickList(config, quickPick);
+		// No QuickPick: webview-originated actions must not flash a native popup
+		// or open the legacy "Reloading takes effect?" prompt. The Studio panel
+		// is the user-facing UI now.
+		const pickList = new PickList(config);
 		pickList.handleAction(type, path);
 	}));
 
