@@ -25,6 +25,7 @@ import ReaderViewProvider from './readerView';
 import { setContext } from './global';
 import { CUSTOM_CSS_FILE_PATH } from './FileDom';
 import { BackgroundCoverViewProvider } from './backgroundCoverView';
+import { StudioViewProvider } from './StudioViewProvider';
 
 
 export function activate(context: ExtensionContext) {
@@ -97,17 +98,29 @@ export function activate(context: ExtensionContext) {
 		retainContextWhenHidden: true,
 	  },
 	});
+
+	// New Vue-powered Studio webview (primary configuration UI)
+	const studioViewProvider = new StudioViewProvider(context);
+	context.subscriptions.push(window.registerWebviewViewProvider(
+		StudioViewProvider.viewType,
+		studioViewProvider,
+		{ webviewOptions: { retainContextWhenHidden: true } }
+	));
+
 	commands.registerCommand('backgroundCover.refreshEntry',() => {
 		commands.executeCommand('setContext', 'backgroundCover.mode', 'gallery');
-		readerViewProvider.refresh()
+		readerViewProvider.refresh();
+		studioViewProvider.navigate('gallery');
 		}
 	);
 	commands.registerCommand('backgroundCover.home',() => {
 		commands.executeCommand('setContext', 'backgroundCover.mode', 'gallery');
 		readerViewProvider.home();
+		studioViewProvider.navigate('gallery');
 	});
 	commands.registerCommand('backgroundCover.switchMode',() => {
 		commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
+		studioViewProvider.navigate('home');
 	});
 	commands.registerCommand('backgroundCover.support',() => readerViewProvider.support());
 

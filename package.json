@@ -160,15 +160,21 @@
         "views": {
             "backgroundCover-explorer": [
                 {
+                    "id": "backgroundCover.studio",
+                    "type": "webview",
+                    "name": "Studio",
+                    "when": "backgroundCover.mode == 'menu'"
+                },
+                {
                     "id": "backgroundCover.menu",
                     "name": "Menu",
-                    "when": "backgroundCover.mode == 'menu'"
+                    "when": "backgroundCover.mode == 'legacyMenu'"
                 },
                 {
                     "id": "backgroundCover.readerView",
                     "type": "webview",
                     "name": "Online Gallery",
-                    "when": "backgroundCover.mode != 'menu'"
+                    "when": "backgroundCover.mode != 'menu' && backgroundCover.mode != 'legacyMenu'"
                 }
             ]
         },
@@ -213,6 +219,16 @@
                     "command": "backgroundCover.support",
                     "when": "view == backgroundCover.menu",
                     "group": "navigation@3"
+                },
+                {
+                    "command": "backgroundCover.refreshEntry",
+                    "when": "view == backgroundCover.studio",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "backgroundCover.support",
+                    "when": "view == backgroundCover.studio",
+                    "group": "navigation@3"
                 }
             ]
         }
@@ -227,10 +243,12 @@
     },
     "homepage": "https://github.com/AShujiao/vscode-background-cover/blob/master/README.md#manasxx-readme",
     "scripts": {
-        "vscode:prepublish": "npm run compile",
+        "vscode:prepublish": "npm run build:webview && npm run compile",
         "vscode:uninstall": "node ./out/uninstall",
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
+        "build:webview": "cd webview && npm install --silent && npm run build",
+        "watch:webview": "cd webview && npm run dev",
         "test": "npm run compile && node ./node_modules/vscode/bin/test",
         "check": "tslint -p ./"
     },

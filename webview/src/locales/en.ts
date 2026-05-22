@@ -1,0 +1,51 @@
+export default {
+    appTitle:          'Background Cover Studio',
+    tabHome:           'Home',
+    tabLocal:          'Local',
+    tabOnline:         'Online',
+    tabAdvanced:       'Advanced',
+    tabDecoration:     'Decoration',
+
+    currentBackground: 'Current Background',
+    none:              'None',
+    opacity:           'Opacity',
+    blur:              'Blur',
+    selectImage:       'Select Image / Video',
+    clearBackground:   'Clear',
+    refresh:           'Refresh',
+
+    localGallery:      'Local Gallery',
+    recentImages:      'Recently Used',
+    onlineGallery:     'Online Gallery',
+    addDirectory:      'Add Folder',
+    inputPath:         'Input URL',
+    emptyRecent:       'No recent images yet — pick one to start.',
+    openOnlineInBrowser: 'Open in Browser',
+    refreshOnline:     'Refresh',
+
+    autoRandom:        'Auto Random',
+    enabled:           'Enabled',
+    interval:          'Interval (s)',
+    sourceFolder:      'Source Folder',
+    sizeMode:          'Size Mode',
+    blendMode:         'Blend Mode',
+    openCacheFolder:   'Open Cache Folder',
+
+    petAssistant:      'Top Pet',
+    enablePet:         'Enable Pet',
+    selectPet:         'Select Pet',
+    particles:         'Particles',
+    enableParticles:   'Enable Particles',
+    particleColor:     'Color',
+    particleCount:     'Count',
+    particleOpacity:   'Opacity',
+
+    notSet:            'Not set',
+    apply:             'Apply',
+    supportAuthor:     'Support Author',
+    actionCenter:      'Action Center',
+
+    language:          'Language',
+    langEnglish:       'English',
+    langChinese:       '中文'
+};

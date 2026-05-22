@@ -1,0 +1,51 @@
+export default {
+    appTitle:          '背景封面工作室',
+    tabHome:           '首页',
+    tabLocal:          '本地',
+    tabOnline:         '在线',
+    tabAdvanced:       '高级',
+    tabDecoration:     '装饰',
+
+    currentBackground: '当前背景',
+    none:              '无',
+    opacity:           '透明度',
+    blur:              '模糊度',
+    selectImage:       '选择图片 / 视频',
+    clearBackground:   '清除',
+    refresh:           '刷新',
+
+    localGallery:      '本地图库',
+    recentImages:      '最近使用',
+    onlineGallery:     '在线图库',
+    addDirectory:      '添加目录',
+    inputPath:         '输入 URL',
+    emptyRecent:       '还没有最近使用的图片 — 选一张开始吧。',
+    openOnlineInBrowser: '浏览器打开',
+    refreshOnline:     '刷新',
+
+    autoRandom:        '自动随机',
+    enabled:           '启用',
+    interval:          '间隔 (秒)',
+    sourceFolder:      '来源目录',
+    sizeMode:          '尺寸模式',
+    blendMode:         '混合模式',
+    openCacheFolder:   '打开缓存目录',
+
+    petAssistant:      '顶部小宠物',
+    enablePet:         '启用宠物',
+    selectPet:         '选择宠物',
+    particles:         '粒子效果',
+    enableParticles:   '启用粒子',
+    particleColor:     '颜色',
+    particleCount:     '数量',
+    particleOpacity:   '透明度',
+
+    notSet:            '未设置',
+    apply:             '应用',
+    supportAuthor:     '赞助作者',
+    actionCenter:      '操作中心',
+
+    language:          '语言',
+    langEnglish:       'English',
+    langChinese:       '中文'
+};
