@@ -1,62 +1,50 @@
 /*
- * @Description: 
- * @Author: czw
- * @Date: 2023-08-25 10:00:03
- * @FilePath: \vscode-background-cover\src\uninstall.ts
+ * @Description: vscode:uninstall hook — runs from the VS Code install root
+ *               just before the extension files are removed from disk. Strips
+ *               the background-cover marker block from every bundle we ever
+ *               patch.
  */
 
 import * as path from 'path';
 import * as fs from 'fs';
 
 const base = process.cwd();
-// 文件路径
-const jsName: string = 'workbench.desktop.main.js';
-const filePath = path.join(base, 'resources', 'app', 'out', 'vs', 'workbench', jsName);
 const extName = "backgroundCover";
 
-//执行清理
+// Every JS bundle the extension may have patched. The main workbench bundle
+// is required; auxiliary bundles (AgentView etc.) are best-effort — older
+// VSCode builds may not ship them.
+const TARGET_JS_PATHS: string[] = [
+    path.join(base, 'resources', 'app', 'out', 'vs', 'workbench', 'workbench.desktop.main.js'),
+    path.join(base, 'resources', 'app', 'out', 'vs', 'sessions', 'sessions.desktop.main.js'),
+    // code-server (web mode) install layout
+    path.join(base, 'resources', 'app', 'out', 'vs', 'code', 'browser', 'workbench', 'workbench.js')
+];
+
 main();
 
-//清理内容
-function main() {
-    try {
-        let content = getContent();
-        content = clearCssContent(content);
-        saveContent(content);
-        return true;
+function main(): boolean {
+    let allOk = true;
+    for (const filePath of TARGET_JS_PATHS) {
+        if (!fs.existsSync(filePath)) {
+            continue;
+        }
+        try {
+            const original = fs.readFileSync(filePath, 'utf-8');
+            const cleaned = clearCssContent(original);
+            if (cleaned !== original) {
+                fs.writeFileSync(filePath, cleaned, 'utf-8');
+            }
+        } catch (ex) {
+            allOk = false;
+        }
     }
-    catch (ex) {
-        return false;
-    }
+    return allOk;
 }
 
-
-/**
- * 获取文件内容
- * @var mixed
- */
-function getContent(): string {
-    return fs.readFileSync(filePath, 'utf-8');
-}
-/**
-* 清理已经添加的代码
-* 
-* @private
-* @param {string} content 
-* @returns {string} 
-*/
 function clearCssContent(content: string): string {
-    var re = new RegExp("\\/\\*ext-" + extName + "-start\\*\\/[\\s\\S]*?\\/\\*ext-" + extName + "-end\\*" + "\\/", "g");
+    const re = new RegExp("\\/\\*ext-" + extName + "-start\\*\\/[\\s\\S]*?\\/\\*ext-" + extName + "-end\\*" + "\\/", "g");
     content = content.replace(re, '');
     content = content.replace(/\s*$/, '');
     return content;
-}
-/**
-* 设置文件内容
-* 
-* @private
-* @param {string} content 
-*/
-function saveContent(content: string): void {
-    fs.writeFileSync(filePath, content, 'utf-8');
 }
