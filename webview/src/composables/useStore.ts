@@ -19,6 +19,7 @@ export interface StudioConfig {
 export interface StudioState {
     petEnabled: boolean;
     petType: string;
+    petMessages: string;
     particleEffect: boolean;
     particleColor: string;
     particleCount: number;
@@ -45,6 +46,7 @@ export const config = reactive<StudioConfig>({
 export const state = reactive<StudioState>({
     petEnabled: false,
     petType: '',
+    petMessages: '',
     particleEffect: false,
     particleColor: '#ffffff',
     particleCount: 60,

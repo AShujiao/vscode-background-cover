@@ -12,7 +12,7 @@ import { SudoPromptHelper } from './SudoPromptHelper';
 import * as fse from 'fs-extra';
 import { getContext } from './global';
 import { getParticleEffectJs } from './ParticleEffect';
-import { PET_LIST } from './PickList';
+import { getAllPets } from './PickList';
 import Color from './color';
 
 interface AdditionalBundle {
@@ -997,7 +997,7 @@ export class FileDom {
     }
 
     // 获取宠物配置
-    private getPetConfig(): { enabled: boolean, walkUrl: string, idleUrl: string } {
+    private getPetConfig(): { enabled: boolean, mode: 'gif' | 'atlas', walkUrl: string, idleUrl: string, spritesheetUrl: string } {
         try {
             const context = getContext();
             let enabled = false;
@@ -1008,7 +1008,8 @@ export class FileDom {
                 type = context.globalState.get<string>('backgroundCoverPetType', 'akita');
             }
 
-            const entry = PET_LIST.find(p => p.value === type) || PET_LIST[0];
+            const pets = getAllPets();
+            const entry = pets.find(p => p.value === type) || pets[0];
             const config = { folder: entry.folder, idle: entry.idle, walk: entry.walk };
             
             // Resolve local path
@@ -1016,8 +1017,13 @@ export class FileDom {
             
             let walkUrl = '';
             let idleUrl = '';
+            let spritesheetUrl = '';
 
-            if (extensionRoot) {
+            if (entry.source === 'codex' && entry.spritesheetPath) {
+                spritesheetUrl = Uri.file(entry.spritesheetPath).with({ scheme: 'vscode-file', authority: 'vscode-app' }).toString();
+                idleUrl = spritesheetUrl;
+                walkUrl = spritesheetUrl;
+            } else if (extensionRoot) {
                 const walkPath = path.join(extensionRoot, 'resources', 'pet', config.folder, config.walk);
                 const idlePath = path.join(extensionRoot, 'resources', 'pet', config.folder, config.idle);
                 
@@ -1025,14 +1031,31 @@ export class FileDom {
                 idleUrl = Uri.file(idlePath).with({ scheme: 'vscode-file', authority: 'vscode-app' }).toString();
             }
 
-            return { enabled, walkUrl, idleUrl };
+            return { enabled, mode: entry.source === 'codex' ? 'atlas' : 'gif', walkUrl, idleUrl, spritesheetUrl };
         } catch (e) {
             console.error('[FileDom] Failed to get pet config:', e);
             return { 
                 enabled: false, 
+                mode: 'gif',
                 walkUrl: '', 
-                idleUrl: '' 
+                idleUrl: '',
+                spritesheetUrl: ''
             };
+        }
+    }
+
+    private getPetMessages(): string[] {
+        try {
+            const context = getContext();
+            const raw = context?.globalState.get<string>('backgroundCoverPetMessages', '') || '';
+            return raw
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter(Boolean)
+                .slice(0, 100)
+                .map((line) => line.slice(0, 120));
+        } catch {
+            return [];
         }
     }
 
@@ -1048,8 +1071,11 @@ export class FileDom {
         // Get pet config
         const petConfig = this.getPetConfig();
         const petEnabled = petConfig.enabled;
+        const petMode = petConfig.mode;
         const petWalkUrl = this.escapeTemplateLiteral(petConfig.walkUrl);
         const petIdleUrl = this.escapeTemplateLiteral(petConfig.idleUrl);
+        const petSpritesheetUrl = this.escapeTemplateLiteral(petConfig.spritesheetUrl);
+        const petMessagesJson = this.escapeTemplateLiteral(JSON.stringify(this.getPetMessages()));
 
         const videoSetup = `
             function applyVideo(targetWindow, config) {
@@ -1560,16 +1586,62 @@ export class FileDom {
                         const assistant = document.createElement('div');
                         assistant.id = assistantId;
                         
-                        // Use image instead of emoji
-                        const petImage = document.createElement('img');
+                        const petMode = '${petMode}';
                         const walkUrl = petWalkUrl;
                         const idleUrl = petIdleUrl;
-                        
-                        petImage.src = idleUrl;
-                        petImage.style.width = '30px'; // Adjust size
-                        petImage.style.height = 'auto';
-                        petImage.style.imageRendering = 'pixelated'; // Keep pixel art crisp
-                        
+                        const spritesheetUrl = '${petSpritesheetUrl}';
+                        let petImage;
+                        let petFrameTimer = null;
+                        let petFrame = 0;
+
+                        function stopPetAtlasAnimation() {
+                            if (petFrameTimer) {
+                                clearInterval(petFrameTimer);
+                                petFrameTimer = null;
+                            }
+                        }
+
+                        function setAtlasFrame(row, frame) {
+                            if (!petImage) return;
+                            const cellW = 30;
+                            const cellH = 32.5;
+                            petImage.style.backgroundPosition = '-' + (frame * cellW) + 'px -' + (row * cellH) + 'px';
+                        }
+
+                        function setPetState(state) {
+                            if (petMode === 'atlas') {
+                                stopPetAtlasAnimation();
+                                const row = state === 'walk' ? 1 : 0;
+                                const frameCount = state === 'walk' ? 8 : 6;
+                                const delay = state === 'walk' ? 120 : 150;
+                                petFrame = 0;
+                                setAtlasFrame(row, petFrame);
+                                petFrameTimer = setInterval(() => {
+                                    petFrame = (petFrame + 1) % frameCount;
+                                    setAtlasFrame(row, petFrame);
+                                }, delay);
+                                return;
+                            }
+                            petImage.src = state === 'walk' ? walkUrl : idleUrl;
+                        }
+
+                        if (petMode === 'atlas') {
+                            petImage = document.createElement('div');
+                            petImage.style.width = '30px';
+                            petImage.style.height = '32.5px';
+                            petImage.style.backgroundImage = 'url("' + spritesheetUrl + '")';
+                            petImage.style.backgroundRepeat = 'no-repeat';
+                            petImage.style.backgroundSize = '240px 292.5px';
+                            petImage.style.imageRendering = 'auto';
+                            setPetState('idle');
+                        } else {
+                            petImage = document.createElement('img');
+                            petImage.style.width = '30px';
+                            petImage.style.height = 'auto';
+                            petImage.style.imageRendering = 'pixelated';
+                            setPetState('idle');
+                        }
+
                         assistant.appendChild(petImage);
 
                         assistant.style.position = 'absolute';
@@ -1586,7 +1658,8 @@ export class FileDom {
 
                         let currentPos = 0;
 
-                        const messages = [
+                        const customMessages = ${petMessagesJson};
+                        const messages = Array.isArray(customMessages) && customMessages.length ? customMessages : [
                             "写代码辛苦了，休息一下吧",
                             "写代码辛苦了，活该，谁让你不会用AI呢！",
                             "记得喝水哦",
@@ -1699,7 +1772,7 @@ export class FileDom {
                             const duration = dist / speed; 
                             
                             // Switch to walking animation
-                            petImage.src = walkUrl;
+                            setPetState('walk');
 
                             assistant.style.transition = 'left ' + duration + 's linear';
                             
@@ -1763,7 +1836,7 @@ export class FileDom {
 
                             // After move, switch to idle
                             setTimeout(() => {
-                                petImage.src = idleUrl;
+                                setPetState('idle');
 
                                 // Random message logic (only when idle)
                                 const messageChance = 0.8; // 50% chance to show message

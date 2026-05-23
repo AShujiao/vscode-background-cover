@@ -15,6 +15,8 @@
                 </div>
             </template>
 
+            <div class="pet-sync-note">{{ t('petCodexSyncHint') }}</div>
+
             <div class="pet-grid">
                 <button
                     v-for="pet in state.pets"
@@ -33,6 +35,21 @@
                         <el-icon><Check /></el-icon>
                     </div>
                 </button>
+            </div>
+
+            <div class="message-section">
+                <div class="message-head">
+                    <span class="slider-label">{{ t('petMessages') }}</span>
+                    <span class="message-hint">{{ t('petMessagesHint') }}</span>
+                </div>
+                <el-input
+                    type="textarea"
+                    :model-value="state.petMessages"
+                    :placeholder="t('petMessagesPlaceholder')"
+                    :rows="4"
+                    resize="vertical"
+                    @input="onPetMessagesInput"
+                />
             </div>
         </el-card>
 
@@ -165,6 +182,15 @@ function onParticleCountInput(v: number | number[]) {
     }, 180);
 }
 
+let messagesTimer: number | undefined;
+function onPetMessagesInput(value: string) {
+    state.petMessages = value;
+    if (messagesTimer) { clearTimeout(messagesTimer); }
+    messagesTimer = window.setTimeout(() => {
+        bridge.post({ type: 'setGlobalState', key: 'backgroundCoverPetMessages', value });
+    }, 250);
+}
+
 function onSelectPresetColor(name: string) {
     state.particleColor = name;
     bridge.post({ type: 'setGlobalState', key: 'backgroundCoverParticleColor', value: name });
@@ -186,11 +212,16 @@ function onApply() {
         clearTimeout(countTimer);
         countTimer = undefined;
     }
+    if (messagesTimer) {
+        clearTimeout(messagesTimer);
+        messagesTimer = undefined;
+    }
     bridge.post({
         type: 'applyDecorations',
         state: {
             backgroundCoverPetEnabled: !!state.petEnabled,
             backgroundCoverPetType: state.petType,
+            backgroundCoverPetMessages: state.petMessages,
             backgroundCoverParticleEffect: !!state.particleEffect,
             backgroundCoverParticleColor: state.particleColor,
             backgroundCoverParticleCount: Number(state.particleCount ?? 60),
@@ -224,6 +255,13 @@ function onApply() {
 }
 
 /* ===== Pet grid ===== */
+.pet-sync-note {
+    margin-bottom: 8px;
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--vscode-descriptionForeground);
+}
+
 .pet-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
@@ -302,6 +340,27 @@ function onApply() {
     justify-content: center;
     font-size: 10px;
     box-shadow: 0 2px 6px rgba(108, 140, 255, 0.55);
+}
+
+.message-section {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: var(--studio-divider);
+}
+
+.message-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.message-hint {
+    flex: 1 1 auto;
+    text-align: right;
+    font-size: 10px;
+    color: var(--vscode-descriptionForeground);
 }
 
 /* ===== Sliders ===== */

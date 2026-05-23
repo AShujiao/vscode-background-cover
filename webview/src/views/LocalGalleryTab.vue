@@ -135,24 +135,12 @@
             </div>
         </el-card>
 
-        <!-- Input path -->
-        <el-card class="grid-card" shadow="never">
-            <template #header>
-                <span class="card-title">
-                    <el-icon><Link /></el-icon>
-                    {{ t('inputPath') }}
-                </span>
-            </template>
-            <el-button class="block-btn" @click="onInputPath">
-                {{ t('inputPath') }}
-            </el-button>
-        </el-card>
     </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { Plus, FolderAdd, FolderOpened, PictureFilled, Picture, Check, Link, VideoCamera } from '@element-plus/icons-vue';
+import { Plus, FolderAdd, FolderOpened, PictureFilled, Picture, Check, VideoCamera } from '@element-plus/icons-vue';
 import { useI18n } from '../composables/useI18n';
 import { useBridge } from '../composables/useBridge';
 import { config, state } from '../composables/useStore';
@@ -185,7 +173,6 @@ watch(() => state.folderImages.length, () => {
 
 function onPick()      { bridge.post({ type: 'runAction', action: ActionType.SelectPictures }); }
 function onAddDir()    { bridge.post({ type: 'runAction', action: ActionType.AddDirectory }); }
-function onInputPath() { bridge.post({ type: 'runAction', action: ActionType.InputPath }); }
 function onSelectRecent(path: string) {
     bridge.post({ type: 'runAction', action: ActionType.UpdateBackground, path });
 }

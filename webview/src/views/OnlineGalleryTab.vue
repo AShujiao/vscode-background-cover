@@ -1,6 +1,10 @@
 <template>
     <div class="online-gallery">
         <div class="actions-bar">
+            <el-button type="primary" size="small" @click="onInputPath">
+                <el-icon><Link /></el-icon>
+                {{ t('inputPath') }}
+            </el-button>
             <el-button size="small" @click="onRefresh">
                 <el-icon><Refresh /></el-icon>
                 {{ t('refreshOnline') }}
@@ -36,7 +40,7 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import { Refresh, Link, Promotion } from '@element-plus/icons-vue';
 import { useI18n } from '../composables/useI18n';
 import { useBridge } from '../composables/useBridge';
-import { ONLINE_GALLERY_URL } from '../constants';
+import { ActionType, ONLINE_GALLERY_URL } from '../constants';
 
 const { t } = useI18n();
 const bridge = useBridge();
@@ -46,6 +50,10 @@ const frameKey = ref(0);
 
 function onRefresh() {
     frameKey.value++;
+}
+
+function onInputPath() {
+    bridge.post({ type: 'runAction', action: ActionType.InputPath });
 }
 
 function onOpenExternal() {

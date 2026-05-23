@@ -14,7 +14,7 @@ import {
     window,
     Disposable
 } from 'vscode';
-import { PickList, PET_LIST } from './PickList';
+import { PickList, getAllPets } from './PickList';
 import { onDidChangeGlobalState } from './global';
 import { getColorEntries } from './color';
 
@@ -114,8 +114,10 @@ export class StudioViewProvider implements WebviewViewProvider {
         }
 
         const petRoot = Uri.joinPath(this.ctx.extensionUri, 'resources', 'pet');
-        const pets = PET_LIST.map(p => {
-            const thumbUri = Uri.joinPath(petRoot, p.folder, p.idle);
+        const pets = getAllPets().map(p => {
+            const thumbUri = p.source === 'codex' && p.spritesheetPath
+                ? Uri.file(p.spritesheetPath)
+                : Uri.joinPath(petRoot, p.folder, p.idle);
             let thumb = '';
             try { thumb = this.view!.webview.asWebviewUri(thumbUri).toString(); } catch { thumb = ''; }
             return { value: p.value, label: p.label, desc: p.desc, thumb };
@@ -152,6 +154,7 @@ export class StudioViewProvider implements WebviewViewProvider {
                 state: {
                     petEnabled: gs.get('backgroundCoverPetEnabled') ?? false,
                     petType: gs.get('backgroundCoverPetType') ?? '',
+                    petMessages: gs.get('backgroundCoverPetMessages') ?? '',
                     particleEffect: gs.get('backgroundCoverParticleEffect') ?? false,
                     particleColor: gs.get('backgroundCoverParticleColor') ?? '#ffffff',
                     particleCount: gs.get('backgroundCoverParticleCount') ?? 60,
@@ -240,6 +243,7 @@ export class StudioViewProvider implements WebviewViewProvider {
         const allowedKeys = [
             'backgroundCoverPetEnabled',
             'backgroundCoverPetType',
+            'backgroundCoverPetMessages',
             'backgroundCoverParticleEffect',
             'backgroundCoverParticleColor',
             'backgroundCoverParticleCount',
@@ -279,6 +283,7 @@ export class StudioViewProvider implements WebviewViewProvider {
         };
         add(Uri.joinPath(this.ctx.extensionUri, 'webview-dist').fsPath);
         add(Uri.joinPath(this.ctx.extensionUri, 'resources').fsPath);
+        add(path.join(process.env.CODEX_HOME || path.join(process.env.HOME || '', '.codex'), 'pets'));
         add(this.ctx.globalStorageUri?.fsPath);
         add(this.ctx.storageUri?.fsPath);
         (workspace.workspaceFolders || []).forEach(f => add(f.uri.fsPath));

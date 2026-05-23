@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { URL } from 'url';
 import {
 	QuickPick,
@@ -79,6 +80,8 @@ export interface PetEntry {
     folder: string;
     idle: string;
     walk: string;
+    source?: 'builtin' | 'codex';
+    spritesheetPath?: string;
 }
 
 /** Single source of truth for available pets (used by PickList + FileDom + Studio webview). */
@@ -101,6 +104,67 @@ export const PET_LIST: PetEntry[] = [
     { value: 'deno',        label: 'Deno',        desc: '恐龙',    folder: 'deno',        idle: 'green_idle_8fps.gif',  walk: 'green_walk_8fps.gif' },
     { value: 'morph',       label: 'Morph',       desc: 'Morph',   folder: 'morph',       idle: 'purple_idle_8fps.gif', walk: 'purple_walk_8fps.gif' },
 ];
+
+let codexPetCache: PetEntry[] | undefined;
+
+function getCodexHome(): string {
+    return process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
+}
+
+export function getCodexPetList(): PetEntry[] {
+    if (codexPetCache) { return codexPetCache; }
+
+    const petsRoot = path.join(getCodexHome(), 'pets');
+    const entries: PetEntry[] = [];
+    try {
+        if (!fs.existsSync(petsRoot) || !fs.statSync(petsRoot).isDirectory()) {
+            codexPetCache = [];
+            return codexPetCache;
+        }
+
+        for (const folderName of fs.readdirSync(petsRoot)) {
+            const folder = path.join(petsRoot, folderName);
+            const manifestPath = path.join(folder, 'pet.json');
+            if (!fs.existsSync(manifestPath) || !fs.statSync(manifestPath).isFile()) { continue; }
+
+            try {
+                const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+                const id = typeof manifest.id === 'string' && manifest.id.trim() ? manifest.id.trim() : folderName;
+                const displayName = typeof manifest.displayName === 'string' && manifest.displayName.trim()
+                    ? manifest.displayName.trim()
+                    : id;
+                const description = typeof manifest.description === 'string' ? manifest.description.trim() : 'Codex pet';
+                const spritesheetName = typeof manifest.spritesheetPath === 'string' && manifest.spritesheetPath.trim()
+                    ? manifest.spritesheetPath.trim()
+                    : 'spritesheet.webp';
+                const spritesheetPath = path.resolve(folder, spritesheetName);
+                if (!fs.existsSync(spritesheetPath) || !fs.statSync(spritesheetPath).isFile()) { continue; }
+
+                entries.push({
+                    value: `codex:${id}`,
+                    label: `${displayName} (Codex)`,
+                    desc: description || 'Codex pet',
+                    folder,
+                    idle: spritesheetName,
+                    walk: spritesheetName,
+                    source: 'codex',
+                    spritesheetPath
+                });
+            } catch (error) {
+                console.warn('[BackgroundCover] Failed to load Codex pet manifest:', manifestPath, error);
+            }
+        }
+    } catch (error) {
+        console.warn('[BackgroundCover] Failed to scan Codex pets:', error);
+    }
+
+    codexPetCache = entries;
+    return codexPetCache;
+}
+
+export function getAllPets(): PetEntry[] {
+    return PET_LIST.concat(getCodexPetList());
+}
 
 export class PickList {
     public static itemList: PickList | undefined;
@@ -444,7 +508,7 @@ export class PickList {
 
     public getPetSelectionItems(): ImgItem[] {
         const currentPet = getContext().globalState.get('backgroundCoverPetType', 'akita');
-        return PET_LIST.map(p => ({
+        return getAllPets().map(p => ({
             label: `$(github) ${p.label}`,
             detail: `${p.desc} ${currentPet === p.value ? '$(check)' : ''}`,
             imageType: ActionType.SelectPet,
