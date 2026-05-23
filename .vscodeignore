@@ -13,6 +13,7 @@ webview/package.json
 webview/tsconfig.json
 webview/tsconfig.node.json
 webview/vite.config.ts
+截图/**
 .gitignore
 tsconfig.json
 vsc-extension-quickstart.md

@@ -4,3 +4,4 @@ node_modules
 *.vsix
 webview/node_modules
 webview/dist
+截图/

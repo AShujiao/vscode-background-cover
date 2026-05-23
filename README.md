@@ -11,6 +11,8 @@
     </a>
 </p>
 
+![Background Cover Studio preview](resources/readme-preview.jpg)
+
 
 ## 🚀 3.5.0 主要更新
 
