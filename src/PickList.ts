@@ -107,6 +107,7 @@ export class PickList {
     private static intervalHandle: NodeJS.Timeout | undefined;
     private static isAutoRunning: boolean = false;
     private static _reloadTriggerSeq: number = 0;
+    private static _updateSeq: number = 0;
 
     private readonly quickPick: QuickPick<ImgItem> | any;
     private _disposables: Disposable[] = [];
@@ -117,6 +118,7 @@ export class PickList {
     private sizeModel: string;
     private blur: number;
     private randUpdate: boolean = false;
+    private skipOnlineCache: boolean = false;
 
     // --- Static Entry Points ---
 
@@ -192,6 +194,7 @@ export class PickList {
         }
         PickList.itemList = new PickList(config);
         PickList.itemList.setRandUpdate(true);
+        PickList.itemList.setSkipOnlineCache(true);
         PickList.itemList.autoUpdateBackground();
         PickList.itemList = undefined;
     }
@@ -218,6 +221,7 @@ export class PickList {
                     PickList.isAutoRunning = true;
                     try {
                         const pl = new PickList(cfg);
+                        pl.setSkipOnlineCache(true);
                         await pl.autoUpdateBackground(false);
                     } catch (err) {
                         console.error(err);
@@ -289,10 +293,14 @@ export class PickList {
         if (path == undefined) {
             return window.showWarningMessage('无效菜单');
         }
-        const extPath = extensions.getExtension("manasxx.background-cover")?.extensionPath;
-        const tmpPath = "file:///" + extPath + path;
-        const tmpurl = Uri.parse(tmpPath);
-        commands.executeCommand('vscode.openFolder', tmpurl);
+        const extensionUri = getContext().extensionUri ?? extensions.getExtension("manasxx.background-cover")?.extensionUri;
+        if (!extensionUri) {
+            return window.showWarningMessage('未找到扩展资源路径 / Extension resource path not found');
+        }
+
+        const segments = path.split(/[\\/]+/).filter(Boolean);
+        const fileUri = Uri.joinPath(extensionUri, ...segments);
+        commands.executeCommand('vscode.open', fileUri);
     }
 
     // --- Instance Methods ---
@@ -1315,6 +1323,10 @@ export class PickList {
         this.randUpdate = value;
     }
 
+    public setSkipOnlineCache(value: boolean) {
+        this.skipOnlineCache = value;
+    }
+
     private async updateDom(uninstall: boolean = false, colorThemeKind: string = ""): Promise<boolean> {
         if (colorThemeKind == "") {
             colorThemeKind = BlendHelper.autoBlendModel();
@@ -1323,7 +1335,9 @@ export class PickList {
         const context = getContext();
         context.globalState.update('backgroundCoverBlendModel', colorThemeKind);
 
-        const dom = new FileDom(this.config, this.imgPath, this.opacity, this.sizeModel, this.blur, colorThemeKind);
+        const seq = ++PickList._updateSeq;
+        const isCurrentUpdate = () => seq === PickList._updateSeq;
+        const dom = new FileDom(this.config, this.imgPath, this.opacity, this.sizeModel, this.blur, colorThemeKind, this.skipOnlineCache, isCurrentUpdate);
         let result = false;
 
         try {
@@ -1334,10 +1348,19 @@ export class PickList {
                 result = await dom.install();
             }
 
+            if (seq !== PickList._updateSeq) {
+                console.log('[BackgroundCover] Ignoring stale background update result');
+                return false;
+            }
+
             if (result) {
                 if (!dom.requiresReload) {
                     if (this.quickPick) {
                         this.quickPick.hide();
+                    }
+                    if (!dom.didUpdateCss) {
+                        window.setStatusBarMessage('Background already up to date. / 背景已是最新。', 3000);
+                        return false;
                     }
                     // Unique trigger per call so the MutationObserver in the
                     // injected loader always detects a DOM change (VSCode may

@@ -165,12 +165,15 @@ export class FileDom {
     private readonly blendModel: string;
     private readonly systemType: string;
     private readonly forceHttpsUpgrade: boolean;
+    private readonly skipOnlineCache: boolean;
+    private readonly shouldApply: () => boolean;
     private upCssContent: string = '';
     private bakStatus: boolean = false;
     private bakJsContent: string = '';
     private workConfig: WorkspaceConfiguration;
     private initializePromise?: Promise<void>;
     private isVideo: boolean = false;
+    public didUpdateCss: boolean = false;
 
     constructor(
         workConfig: WorkspaceConfiguration,
@@ -178,7 +181,9 @@ export class FileDom {
         opacity: number,
         sizeModel: string = 'cover',
         blur: number = 0,
-        blendModel: string = ''
+        blendModel: string = '',
+        skipOnlineCache: boolean = false,
+        shouldApply: () => boolean = () => true
     ) {
         this.workConfig = workConfig;
         this.filePath = JS_FILE_PATH;
@@ -189,6 +194,8 @@ export class FileDom {
         this.blendModel = blendModel || this.workConfig.get('blendModel', '');
         this.systemType = os.type();
         this.forceHttpsUpgrade = this.workConfig.get('forceHttpsUpgrade', true);
+        this.skipOnlineCache = skipOnlineCache;
+        this.shouldApply = shouldApply;
         
         this.initializePromise = this.initializeImage().catch((error: unknown) => {
             console.error('[FileDom] Failed to preprocess image:', error);
@@ -272,7 +279,7 @@ export class FileDom {
             
             const cachePath = path.join(cacheDir, `${urlHash}${ext}`);
 
-            if (isStaticImage && !uniqueDownload && await fse.pathExists(cachePath)) {
+            if (!this.skipOnlineCache && isStaticImage && !uniqueDownload && await fse.pathExists(cachePath)) {
                 this.imagePath = cachePath;
                 return;
             }
@@ -429,6 +436,10 @@ export class FileDom {
             this.initializePromise = undefined;
         }
 
+        if (!this.shouldApply()) {
+            return false;
+        }
+
         const lockPath = path.join(os.tmpdir(), 'vscode-background.lock');
         let release: (() => Promise<void>) | undefined;
 
@@ -447,9 +458,13 @@ export class FileDom {
                 stale: 20000
             });
 
+            if (!this.shouldApply()) {
+                return false;
+            }
+
             // Save CSS first
             try {
-                await this.saveCssContent();
+                this.didUpdateCss = await this.saveCssContent();
             } catch (e) {
                 window.showErrorMessage('Failed to write CSS file: ' + e);
                 return false;
@@ -774,9 +789,20 @@ export class FileDom {
     public requiresReload: boolean = true;
 
     // 写入css内容
-    private async saveCssContent(): Promise<void> {
+    private async saveCssContent(): Promise<boolean> {
         const css = this.getCss();
+        try {
+            if (await fse.pathExists(CUSTOM_CSS_FILE_PATH)) {
+                const current = await fse.readFile(CUSTOM_CSS_FILE_PATH, 'utf-8');
+                if (current === css) {
+                    return false;
+                }
+            }
+        } catch {
+            // Fall through to write; permission handling below will surface real failures.
+        }
         await this.writeWithPermission(CUSTOM_CSS_FILE_PATH, css);
+        return true;
     }
 
     // code-server 静态资源会被浏览器长缓存，给 workbench.js URL 增加版本参数以确保首次注入后能加载新文件。
@@ -1305,8 +1331,19 @@ export class FileDom {
                 console.error('[BackgroundCover] window.open patch error:', e);
             }
 
+            let cssLoadInFlight = false;
+            let lastCssLoadAt = 0;
+
+            function withCacheBust(url) {
+                const sep = url.indexOf('?') === -1 ? '?' : '&';
+                return url + sep + 't=' + Date.now();
+            }
+
             function loadCss() {
-                const url = cssUrl + '?t=' + Date.now();
+                if (cssLoadInFlight) return;
+                cssLoadInFlight = true;
+                lastCssLoadAt = Date.now();
+                const url = withCacheBust(cssUrl);
                 fetch(url).then(r => r.text()).then(css => {
                     const resolvedCss = replaceRelativeTokens(css, cssBaseHref);
                     lastCss = resolvedCss;
@@ -1326,11 +1363,24 @@ export class FileDom {
                     }
 
                     applyToAll();
-                }).catch(e => console.error('[BackgroundCover] Load error:', e));
+                }).catch(e => console.error('[BackgroundCover] Load error:', e))
+                .finally(() => {
+                    cssLoadInFlight = false;
+                });
+            }
+
+            function scheduleLoadCss(reason, delay) {
+                setTimeout(() => {
+                    try {
+                        loadCss();
+                    } catch (e) {
+                        console.error('[BackgroundCover] Scheduled load error (' + reason + '):', e);
+                    }
+                }, delay || 0);
             }
 
             // Initial load
-            loadCss();
+            scheduleLoadCss('initial', 0);
 
             // 1. Event Hook: Listen for status bar message
             try {
@@ -1339,7 +1389,8 @@ export class FileDom {
                         const target = mutation.target;
                         // Check text content of the mutated node
                         if (target.textContent && target.textContent.includes('background-cover-reload-trigger')) {
-                            loadCss();
+                            scheduleLoadCss('statusbar', 0);
+                            scheduleLoadCss('statusbar-followup', 600);
                             return; 
                         }
                     }
@@ -1373,8 +1424,29 @@ export class FileDom {
             // 2. Backup Hook: Check on window focus
             // This ensures that if the status bar trigger is missed, the background updates when the user interacts with the window
             window.addEventListener('focus', () => {
-                loadCss();
+                if (Date.now() - lastCssLoadAt > 800) {
+                    scheduleLoadCss('focus', 0);
+                }
             });
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) {
+                    scheduleLoadCss('visibility', 0);
+                }
+            });
+            document.addEventListener('pointerdown', () => {
+                if (Date.now() - lastCssLoadAt > 1500) {
+                    scheduleLoadCss('pointer', 0);
+                }
+            }, { passive: true });
+
+            let startupPolls = 0;
+            const startupPoll = setInterval(() => {
+                startupPolls++;
+                scheduleLoadCss('startup-poll', 0);
+                if (startupPolls >= 6) {
+                    clearInterval(startupPoll);
+                }
+            }, 2000);
 
             // Little Assistant Logic
             try {
