@@ -199,6 +199,17 @@ export class PickList {
         PickList.itemList = undefined;
     }
 
+    public static async applyCurrentBackground(): Promise<boolean> {
+        const config = workspace.getConfiguration('backgroundCover');
+        if (!config.get<string>('imagePath')) {
+            return false;
+        }
+        PickList.itemList = new PickList(config);
+        const result = await PickList.itemList.updateDom(false, BlendHelper.autoBlendModel() as string);
+        PickList.itemList = undefined;
+        return result;
+    }
+
     public static startAutoRandomTask() {
         const config = workspace.getConfiguration('backgroundCover');
         const autoStatus = config.get<boolean>('autoStatus');
@@ -392,15 +403,15 @@ export class PickList {
         this.quickPick.items = this.getMainMenuItems();
     }
 
-    public handleAction(type: ActionType, path?: string) {
+    public async handleAction(type: ActionType, path?: string) {
         switch (type) {
-            case ActionType.SelectPictures: this.showImageSelectionList(); break;
-            case ActionType.AddDirectory: this.openFieldDialog(2); break;
-            case ActionType.ManualSelection: this.openFieldDialog(1); break;
-            case ActionType.UpdateBackground: this.updateBackgound(path); break;
+            case ActionType.SelectPictures: this.quickPick ? this.showImageSelectionList() : await this.openFieldDialog(1); break;
+            case ActionType.AddDirectory: await this.openFieldDialog(2); break;
+            case ActionType.ManualSelection: await this.openFieldDialog(1); break;
+            case ActionType.UpdateBackground: await this.updateBackgound(path); break;
             case ActionType.BackgroundOpacity: this.showOpacitySlider(); break;
             case ActionType.InputPath: this.showInputBox(InputType.Path); break;
-            case ActionType.CloseBackground: this.updateDom(true); break;
+            case ActionType.CloseBackground: await this.updateDom(true); break;
             case ActionType.ReloadWindow: commands.executeCommand('workbench.action.reloadWindow'); break;
             case ActionType.CloseMenu: this.quickPick.hide(); break;
             case ActionType.MoreMenu: this.showMoreMenu(); break;
@@ -410,7 +421,7 @@ export class PickList {
             case ActionType.SetSizeMode: this.setSizeModel(path); break;
             case ActionType.OnlineImages: commands.executeCommand('workbench.view.extension.backgroundCover-explorer'); break;
             case ActionType.BackgroundBlur: this.showBlurSlider(); break;
-            case ActionType.RefreshOnlineFolder: this.refreshOnlineFolder(); break;
+            case ActionType.RefreshOnlineFolder: await this.refreshOnlineFolder(); break;
             case ActionType.AutoRandomSettings: this.showInputBox(InputType.AutoRandomSettings); break;
             case ActionType.OpenCacheFolder: this.openCacheFolder(); break;
             
@@ -1254,8 +1265,11 @@ export class PickList {
         const fileUri = folderUris[0];
         if (type === 2) {
             this.clearOnlineFolder(true);
-            this.setConfigValue('randomImageFolder', fileUri.fsPath, false);
-            return this.showImageSelectionList(fileUri.fsPath);
+            await this.setConfigValue('randomImageFolder', fileUri.fsPath, false);
+            if (this.quickPick) {
+                return this.showImageSelectionList(fileUri.fsPath);
+            }
+            return true;
         }
         if (type === 1) {
             this.clearOnlineFolder(true);

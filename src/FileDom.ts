@@ -13,6 +13,7 @@ import * as fse from 'fs-extra';
 import { getContext } from './global';
 import { getParticleEffectJs } from './ParticleEffect';
 import { PET_LIST } from './PickList';
+import Color from './color';
 
 interface AdditionalBundle {
     // Path relative to env.appRoot/out, e.g. 'vs/sessions/sessions.desktop.main.js'.
@@ -903,10 +904,38 @@ export class FileDom {
         }
 
         const opacity = context.globalState.get('backgroundCoverParticleOpacity', 0.6);
-        const color = context.globalState.get('backgroundCoverParticleColor', '#ffffff');
+        const color = this.normalizeParticleColor(context.globalState.get('backgroundCoverParticleColor', '#ffffff'));
         const count = context.globalState.get('backgroundCoverParticleCount', 50);
 
         return getParticleEffectJs(opacity, color, count);
+    }
+
+    private normalizeParticleColor(value: unknown): string {
+        const raw = typeof value === 'string' ? value.trim() : '';
+        if (!raw) { return '255,255,255'; }
+
+        const preset = Color(raw);
+        if (preset) { return preset; }
+
+        const rgbParts = raw.split(',').map((part) => Number(part.trim()));
+        if (rgbParts.length >= 3 && rgbParts.slice(0, 3).every((part) => Number.isFinite(part))) {
+            return rgbParts.slice(0, 3)
+                .map((part) => Math.max(0, Math.min(255, Math.round(part))))
+                .join(',');
+        }
+
+        const hex = raw.startsWith('#') ? raw.slice(1) : raw;
+        const normalizedHex = hex.length === 3
+            ? hex.split('').map((part) => part + part).join('')
+            : hex;
+        if (/^[0-9a-fA-F]{6}$/.test(normalizedHex)) {
+            const r = parseInt(normalizedHex.slice(0, 2), 16);
+            const g = parseInt(normalizedHex.slice(2, 4), 16);
+            const b = parseInt(normalizedHex.slice(4, 6), 16);
+            return `${r},${g},${b}`;
+        }
+
+        return '255,255,255';
     }
 
     // 获取css内容

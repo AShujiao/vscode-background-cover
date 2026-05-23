@@ -107,9 +107,8 @@ export function activate(context: ExtensionContext) {
 	));
 
 	commands.registerCommand('backgroundCover.refreshEntry',() => {
-		commands.executeCommand('setContext', 'backgroundCover.mode', 'gallery');
-		readerViewProvider.refresh();
-		studioViewProvider.navigate('gallery');
+		commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
+		studioViewProvider.refresh();
 		}
 	);
 	commands.registerCommand('backgroundCover.home',() => {
@@ -133,13 +132,13 @@ export function activate(context: ExtensionContext) {
 	context.subscriptions.push(backgroundCoverTreeView);
 
 	// Register Command for Tree Item Click
-	context.subscriptions.push(commands.registerCommand('backgroundCover.runAction', (type: number, path?: string) => {
+	context.subscriptions.push(commands.registerCommand('backgroundCover.runAction', async (type: number, path?: string) => {
 		const config = workspace.getConfiguration('backgroundCover');
 		// No QuickPick: webview-originated actions must not flash a native popup
 		// or open the legacy "Reloading takes effect?" prompt. The Studio panel
 		// is the user-facing UI now.
 		const pickList = new PickList(config);
-		pickList.handleAction(type, path);
+		await pickList.handleAction(type, path);
 	}));
 
 

@@ -48,6 +48,10 @@ export default {
     language:          '语言',
     langEnglish:       'English',
     langChinese:       '中文',
+    theme:             '界面主题',
+    themeDefault:      '默认主题',
+    themeDefaultShort: '默认',
+    themeOverwatch:    '守望主题',
 
     folderLibrary:        '目录内文件',
     folderLibraryEmpty:   '所选目录中没有图片或视频',

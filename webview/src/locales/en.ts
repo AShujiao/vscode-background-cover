@@ -48,6 +48,10 @@ export default {
     language:          'Language',
     langEnglish:       'English',
     langChinese:       '中文',
+    theme:             'UI Theme',
+    themeDefault:      'Default Theme',
+    themeDefaultShort: 'Default',
+    themeOverwatch:    'Overwatch Theme',
 
     folderLibrary:        'Folder Library',
     folderLibraryEmpty:   'No images in the source folder.',

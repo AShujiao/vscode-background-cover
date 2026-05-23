@@ -182,53 +182,13 @@
             "view/title": [
                 {
                     "command": "backgroundCover.refreshEntry",
-                    "when": "view == backgroundCover.readerView",
-                    "group": "navigation@2"
-                },
-                {
-                    "command": "backgroundCover.home",
-                    "when": "view == backgroundCover.readerView",
-                    "group": "navigation@1"
-                },
-                {
-                    "command": "backgroundCover.switchMode",
-                    "when": "view == backgroundCover.readerView",
+                    "when": "view == backgroundCover.studio",
                     "group": "navigation@0"
                 },
                 {
                     "command": "backgroundCover.support",
-                    "when": "view == backgroundCover.readerView",
-                    "group": "navigation@3"
-                },
-                {
-                    "command": "backgroundCover.switchMode",
-                    "when": "view == backgroundCover.menu",
-                    "group": "navigation@0"
-                },
-                {
-                    "command": "backgroundCover.home",
-                    "when": "view == backgroundCover.menu",
+                    "when": "view == backgroundCover.studio",
                     "group": "navigation@1"
-                },
-                {
-                    "command": "backgroundCover.refreshEntry",
-                    "when": "view == backgroundCover.menu",
-                    "group": "navigation@2"
-                },
-                {
-                    "command": "backgroundCover.support",
-                    "when": "view == backgroundCover.menu",
-                    "group": "navigation@3"
-                },
-                {
-                    "command": "backgroundCover.refreshEntry",
-                    "when": "view == backgroundCover.studio",
-                    "group": "navigation@2"
-                },
-                {
-                    "command": "backgroundCover.support",
-                    "when": "view == backgroundCover.studio",
-                    "group": "navigation@3"
                 }
             ]
         }

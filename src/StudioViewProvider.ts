@@ -29,6 +29,7 @@ import { getColorEntries } from './color';
  *   { type: 'runAction', action: number, path?: string }
  *   { type: 'setConfig', key: string, value: any }
  *   { type: 'setGlobalState', key: string, value: any }
+ *   { type: 'applyDecorations', state: { ... } }
  *   { type: 'openExternal', url: string }
  *   { type: 'galleryMessage', command: 'set_img'|'set_home', data: any }
  *
@@ -170,6 +171,11 @@ export class StudioViewProvider implements WebviewViewProvider {
         this.view?.webview.postMessage({ type: 'navigate', tab });
     }
 
+    /** Refresh the current Studio data without switching to the legacy gallery view. */
+    public refresh(): void {
+        this.pushState();
+    }
+
     private async handleMessage(msg: any): Promise<void> {
         if (!msg || typeof msg.type !== 'string') { return; }
         switch (msg.type) {
@@ -180,6 +186,7 @@ export class StudioViewProvider implements WebviewViewProvider {
             case 'runAction':
                 if (typeof msg.action === 'number') {
                     await commands.executeCommand('backgroundCover.runAction', msg.action, msg.path);
+                    this.pushState();
                 }
                 return;
 
@@ -194,6 +201,10 @@ export class StudioViewProvider implements WebviewViewProvider {
                     await this.ctx.globalState.update(msg.key, msg.value);
                     onDidChangeGlobalState.fire();
                 }
+                return;
+
+            case 'applyDecorations':
+                await this.applyDecorations(msg.state || {});
                 return;
 
             case 'openExternal':
@@ -223,6 +234,25 @@ export class StudioViewProvider implements WebviewViewProvider {
                 }
                 return;
         }
+    }
+
+    private async applyDecorations(state: any): Promise<void> {
+        const allowedKeys = [
+            'backgroundCoverPetEnabled',
+            'backgroundCoverPetType',
+            'backgroundCoverParticleEffect',
+            'backgroundCoverParticleColor',
+            'backgroundCoverParticleCount',
+            'backgroundCoverParticleOpacity'
+        ];
+        for (const key of allowedKeys) {
+            if (Object.prototype.hasOwnProperty.call(state, key)) {
+                await this.ctx.globalState.update(key, state[key]);
+            }
+        }
+        onDidChangeGlobalState.fire();
+        await PickList.applyCurrentBackground();
+        await commands.executeCommand('workbench.action.reloadWindow');
     }
 
     /** Convert a local file path to a webview-safe URI. Returns empty for URLs. */

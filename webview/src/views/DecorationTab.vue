@@ -178,7 +178,25 @@ function onCustomColorChange(hex: string | null) {
 }
 
 function onApply() {
-    bridge.post({ type: 'runAction', action: ActionType.ReloadWindow });
+    if (opacityTimer) {
+        clearTimeout(opacityTimer);
+        opacityTimer = undefined;
+    }
+    if (countTimer) {
+        clearTimeout(countTimer);
+        countTimer = undefined;
+    }
+    bridge.post({
+        type: 'applyDecorations',
+        state: {
+            backgroundCoverPetEnabled: !!state.petEnabled,
+            backgroundCoverPetType: state.petType,
+            backgroundCoverParticleEffect: !!state.particleEffect,
+            backgroundCoverParticleColor: state.particleColor,
+            backgroundCoverParticleCount: Number(state.particleCount ?? 60),
+            backgroundCoverParticleOpacity: Number(state.particleOpacity ?? 0.5)
+        }
+    });
 }
 </script>
 
