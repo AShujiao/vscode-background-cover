@@ -247,6 +247,7 @@
         "vscode:uninstall": "node ./out/uninstall",
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
+        "package": "vsce package",
         "build:webview": "cd webview && npm install --silent && npm run build",
         "watch:webview": "cd webview && npm run dev",
         "test": "npm run compile && node ./node_modules/vscode/bin/test",

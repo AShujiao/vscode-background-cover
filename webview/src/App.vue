@@ -51,15 +51,19 @@
         </el-tabs>
 
         <main class="studio-body">
-            <KeepAlive>
-                <component :is="currentView" />
-            </KeepAlive>
+            <component
+                v-for="tab in tabs"
+                :key="tab.key"
+                :is="views[tab.key]"
+                v-show="active === tab.key"
+                class="studio-panel"
+            />
         </main>
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { Picture, Refresh, House, Folder, Promotion, Setting, MagicStick, Place } from '@element-plus/icons-vue';
 import HomeTab from './views/HomeTab.vue';
 import LocalGalleryTab from './views/LocalGalleryTab.vue';
@@ -103,8 +107,19 @@ const views: Record<string, any> = {
     decoration: DecorationTab
 };
 
-const active = ref('home');
-const currentView = computed(() => views[active.value]);
+const initialTab = (() => {
+    try {
+        const saved = localStorage.getItem('bgc.activeTab');
+        return saved && views[saved] ? saved : 'home';
+    } catch {
+        return 'home';
+    }
+})();
+const active = ref(initialTab);
+
+watch(active, (value) => {
+    try { localStorage.setItem('bgc.activeTab', value); } catch { /* noop */ }
+});
 
 bridge.on('state', (data: any) => {
     const payload = data?.data ?? {};
@@ -253,5 +268,9 @@ onMounted(() => {
     overflow-y: auto;
     overflow-x: hidden;
     padding: 8px 10px 10px;
+}
+
+.studio-panel {
+    min-height: 100%;
 }
 </style>
