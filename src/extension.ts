@@ -167,14 +167,17 @@ export function activate(context: ExtensionContext) {
 	let version:string           = ex ? ex.packageJSON['version'] : '';
 	
 	if(openVersion != version){
-		context.globalState.update('ext_version',version);
-		vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
+	context.globalState.update('ext_version',version);
+	vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
 🚀 更新内容：
-    1.  修复远程随机图片自动切换时 "Lock file is already being held" 错误 (#193 by @Aierlanta)
-    2.  优化自动轮播任务防止并发执行 (#193 by @Aierlanta)
-    3.  修复 code-server 模式下静态资源缓存导致背景不更新的问题 (#194 by @WaaSakura)
+    1.  支持 VS Code AgentView / Agent Sessions 独立窗口背景显示（#197 by @MaxQian888）。
+    2.  全新 Studio 可视化配置面板，整合本地图库、在线图库、高级设置与装饰效果。
+    3.  新增本地图库预览、最近使用、分页浏览与拖拽设置背景。
+    4.  优化背景热更新、在线随机图缓存与快速切换并发控制。
+    5.  修复 macOS 下赞助作者按钮无法打开的问题。
+    6.  优化 VSIX 打包配置，显著减小包体。
 
-感谢 @Aierlanta 和 @WaaSakura 的贡献！
+感谢 @MaxQian888 的贡献！
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}
 }
@@ -221,4 +224,3 @@ async function checkVSCodeVersionChanged(context: ExtensionContext): Promise<boo
 export function deactivate() {
 	PickList.stopAutoRandomTask();
 }
-
