@@ -5,13 +5,15 @@ import * as crypto from 'crypto';
 import * as https from 'https';
 import * as http from 'http';
 import { URL } from 'url';
-import { env, Uri, window, WorkspaceConfiguration, UIKind } from 'vscode';
+import { commands, env, Uri, window, WorkspaceConfiguration, UIKind } from 'vscode';
 import * as lockfile from 'proper-lockfile';
 import version from './version';
 import { SudoPromptHelper } from './SudoPromptHelper';
 import * as fse from 'fs-extra';
 import { getContext } from './global';
 import { getParticleEffectJs } from './ParticleEffect';
+import { getAllPets } from './PickList';
+import Color from './color';
 
 interface AdditionalBundle {
     // Path relative to env.appRoot/out, e.g. 'vs/sessions/sessions.desktop.main.js'.
@@ -164,12 +166,15 @@ export class FileDom {
     private readonly blendModel: string;
     private readonly systemType: string;
     private readonly forceHttpsUpgrade: boolean;
+    private readonly skipOnlineCache: boolean;
+    private readonly shouldApply: () => boolean;
     private upCssContent: string = '';
     private bakStatus: boolean = false;
     private bakJsContent: string = '';
     private workConfig: WorkspaceConfiguration;
     private initializePromise?: Promise<void>;
     private isVideo: boolean = false;
+    public didUpdateCss: boolean = false;
 
     constructor(
         workConfig: WorkspaceConfiguration,
@@ -177,7 +182,9 @@ export class FileDom {
         opacity: number,
         sizeModel: string = 'cover',
         blur: number = 0,
-        blendModel: string = ''
+        blendModel: string = '',
+        skipOnlineCache: boolean = false,
+        shouldApply: () => boolean = () => true
     ) {
         this.workConfig = workConfig;
         this.filePath = JS_FILE_PATH;
@@ -188,6 +195,8 @@ export class FileDom {
         this.blendModel = blendModel || this.workConfig.get('blendModel', '');
         this.systemType = os.type();
         this.forceHttpsUpgrade = this.workConfig.get('forceHttpsUpgrade', true);
+        this.skipOnlineCache = skipOnlineCache;
+        this.shouldApply = shouldApply;
         
         this.initializePromise = this.initializeImage().catch((error: unknown) => {
             console.error('[FileDom] Failed to preprocess image:', error);
@@ -271,7 +280,7 @@ export class FileDom {
             
             const cachePath = path.join(cacheDir, `${urlHash}${ext}`);
 
-            if (isStaticImage && !uniqueDownload && await fse.pathExists(cachePath)) {
+            if (!this.skipOnlineCache && isStaticImage && !uniqueDownload && await fse.pathExists(cachePath)) {
                 this.imagePath = cachePath;
                 return;
             }
@@ -428,6 +437,10 @@ export class FileDom {
             this.initializePromise = undefined;
         }
 
+        if (!this.shouldApply()) {
+            return false;
+        }
+
         const lockPath = path.join(os.tmpdir(), 'vscode-background.lock');
         let release: (() => Promise<void>) | undefined;
 
@@ -446,9 +459,13 @@ export class FileDom {
                 stale: 20000
             });
 
+            if (!this.shouldApply()) {
+                return false;
+            }
+
             // Save CSS first
             try {
-                await this.saveCssContent();
+                this.didUpdateCss = await this.saveCssContent();
             } catch (e) {
                 window.showErrorMessage('Failed to write CSS file: ' + e);
                 return false;
@@ -486,7 +503,7 @@ export class FileDom {
             return true;
 
         } catch (error: any) {
-            await window.showErrorMessage(`Installation failed: ${error.message}`);
+            await this.handlePatchError(error);
             return false;
         } finally {
             if (release) {
@@ -496,6 +513,67 @@ export class FileDom {
                     console.error(`Failed to unlock ${lockPath}:`, err);
                 }
             }
+        }
+    }
+
+    /**
+     * Categorize an installation error (permission, lock, missing file, unknown)
+     * and offer the user contextual recovery actions instead of a flat message.
+     */
+    private async handlePatchError(error: any): Promise<void> {
+        const rawMsg: string = (error && (error.message || error.toString())) || 'Unknown error';
+        const code: string = (error && error.code) ? String(error.code) : '';
+        const lower = (rawMsg + ' ' + code).toLowerCase();
+
+        type Kind = 'permission' | 'locked' | 'missing' | 'unknown';
+        let kind: Kind = 'unknown';
+        if (/eacces|eperm|access\s*denied|operation\s*not\s*permitted|权限/.test(lower)) {
+            kind = 'permission';
+        } else if (/ebusy|lock\s*file|already\s*being\s*held|locked/.test(lower)) {
+            kind = 'locked';
+        } else if (/enoent|no\s*such\s*file|not\s*found/.test(lower)) {
+            kind = 'missing';
+        }
+
+        const intro: Record<Kind, string> = {
+            permission: '权限不足：写入 VSCode 核心文件失败。请尝试以管理员身份重新打开 VSCode，或关闭其他正在写入该文件的进程。 / Permission denied while patching VSCode core file.',
+            locked:     '文件被占用：另一个 VSCode 实例可能正在写入相同文件。请关闭其他窗口后重试。 / The workbench file is locked by another process.',
+            missing:    '未找到 VSCode 核心文件：可能在你升级 / 修复 VSCode 后路径已变化。 / Required VSCode core file is missing.',
+            unknown:    '安装补丁失败 / Failed to install background patch.'
+        };
+
+        const buttons: string[] = ['Retry / 重试'];
+        if (kind === 'permission' && this.systemType === SystemType.WINDOWS) {
+            buttons.push('Reopen as Admin / 以管理员身份重开');
+        }
+        buttons.push('Open Log / 查看日志');
+
+        const detail = `${intro[kind]}\n\n[${kind.toUpperCase()}] ${rawMsg}`;
+        console.error('[FileDom] applyPatch error:', error);
+
+        const choice = await window.showErrorMessage(detail, ...buttons);
+        if (!choice) { return; }
+        if (choice === 'Retry / 重试') {
+            // Re-attempt without recursion blowing the stack; small delay so any
+            // transient lock has a chance to clear.
+            setTimeout(() => { void this.applyPatch(); }, 300);
+            return;
+        }
+        if (choice === 'Reopen as Admin / 以管理员身份重开') {
+            await window.showInformationMessage(
+                '请手动关闭当前 VSCode 窗口，然后右键 VSCode 图标 → "以管理员身份运行"。 / Close VSCode, then right-click its icon and choose "Run as administrator".',
+                { modal: true },
+                'OK'
+            );
+            return;
+        }
+        if (choice === 'Open Log / 查看日志') {
+            try {
+                await commands.executeCommand('workbench.action.toggleDevTools');
+            } catch (e) {
+                console.warn('[FileDom] toggleDevTools failed:', e);
+            }
+            return;
         }
     }
 
@@ -712,9 +790,20 @@ export class FileDom {
     public requiresReload: boolean = true;
 
     // 写入css内容
-    private async saveCssContent(): Promise<void> {
+    private async saveCssContent(): Promise<boolean> {
         const css = this.getCss();
+        try {
+            if (await fse.pathExists(CUSTOM_CSS_FILE_PATH)) {
+                const current = await fse.readFile(CUSTOM_CSS_FILE_PATH, 'utf-8');
+                if (current === css) {
+                    return false;
+                }
+            }
+        } catch {
+            // Fall through to write; permission handling below will surface real failures.
+        }
         await this.writeWithPermission(CUSTOM_CSS_FILE_PATH, css);
+        return true;
     }
 
     // code-server 静态资源会被浏览器长缓存，给 workbench.js URL 增加版本参数以确保首次注入后能加载新文件。
@@ -815,10 +904,38 @@ export class FileDom {
         }
 
         const opacity = context.globalState.get('backgroundCoverParticleOpacity', 0.6);
-        const color = context.globalState.get('backgroundCoverParticleColor', '#ffffff');
+        const color = this.normalizeParticleColor(context.globalState.get('backgroundCoverParticleColor', '#ffffff'));
         const count = context.globalState.get('backgroundCoverParticleCount', 50);
 
         return getParticleEffectJs(opacity, color, count);
+    }
+
+    private normalizeParticleColor(value: unknown): string {
+        const raw = typeof value === 'string' ? value.trim() : '';
+        if (!raw) { return '255,255,255'; }
+
+        const preset = Color(raw);
+        if (preset) { return preset; }
+
+        const rgbParts = raw.split(',').map((part) => Number(part.trim()));
+        if (rgbParts.length >= 3 && rgbParts.slice(0, 3).every((part) => Number.isFinite(part))) {
+            return rgbParts.slice(0, 3)
+                .map((part) => Math.max(0, Math.min(255, Math.round(part))))
+                .join(',');
+        }
+
+        const hex = raw.startsWith('#') ? raw.slice(1) : raw;
+        const normalizedHex = hex.length === 3
+            ? hex.split('').map((part) => part + part).join('')
+            : hex;
+        if (/^[0-9a-fA-F]{6}$/.test(normalizedHex)) {
+            const r = parseInt(normalizedHex.slice(0, 2), 16);
+            const g = parseInt(normalizedHex.slice(2, 4), 16);
+            const b = parseInt(normalizedHex.slice(4, 6), 16);
+            return `${r},${g},${b}`;
+        }
+
+        return '255,255,255';
     }
 
     // 获取css内容
@@ -880,7 +997,7 @@ export class FileDom {
     }
 
     // 获取宠物配置
-    private getPetConfig(): { enabled: boolean, walkUrl: string, idleUrl: string } {
+    private getPetConfig(): { enabled: boolean, mode: 'gif' | 'atlas', walkUrl: string, idleUrl: string, spritesheetUrl: string } {
         try {
             const context = getContext();
             let enabled = false;
@@ -891,35 +1008,22 @@ export class FileDom {
                 type = context.globalState.get<string>('backgroundCoverPetType', 'akita');
             }
 
-            const mapping: any = {
-                'akita': { folder: 'dog', idle: 'akita_idle_8fps.gif', walk: 'akita_walk_8fps.gif' },
-                'totoro': { folder: 'totoro', idle: 'gray_idle_8fps.gif', walk: 'gray_walk_8fps.gif' },
-                'fox': { folder: 'fox', idle: 'red_idle_8fps.gif', walk: 'red_walk_8fps.gif' },
-                'clippy': { folder: 'clippy', idle: 'black_idle_8fps.gif', walk: 'brown_walk_8fps.gif' },
-                'rubber-duck': { folder: 'rubber-duck', idle: 'yellow_idle_8fps.gif', walk: 'yellow_walk_8fps.gif' },
-                'crab': { folder: 'crab', idle: 'red_idle_8fps.gif', walk: 'red_walk_8fps.gif' },
-                'zappy': { folder: 'zappy', idle: 'yellow_idle_8fps.gif', walk: 'yellow_walk_8fps.gif' },
-                'cockatiel': { folder: 'cockatiel', idle: 'brown_idle_8fps.gif', walk: 'brown_walk_8fps.gif' },
-                'snake': { folder: 'snake', idle: 'green_idle_8fps.gif', walk: 'green_walk_8fps.gif' },
-                'chicken': { folder: 'chicken', idle: 'white_idle_8fps.gif', walk: 'white_walk_8fps.gif' },
-                'turtle': { folder: 'turtle', idle: 'green_idle_8fps.gif', walk: 'green_walk_8fps.gif' },
-                'panda': { folder: 'panda', idle: 'black_idle_8fps.gif', walk: 'black_walk_8fps.gif' },
-                'snail': { folder: 'snail', idle: 'brown_idle_8fps.gif', walk: 'brown_walk_8fps.gif' },
-                'deno': { folder: 'deno', idle: 'green_idle_8fps.gif', walk: 'green_walk_8fps.gif' },
-                'deno2': { folder: 'deno2', idle: 'deno2_idle_8fps.gif', walk: 'deno2_walk_8fps.gif' },
-                'morph': { folder: 'morph', idle: 'purple_idle_8fps.gif', walk: 'purple_walk_8fps.gif' },
-                'pika': { folder: 'pika', idle: 'pika_still.gif', walk: 'pika_run.gif' },
-            };
-
-            const config = mapping[type] || mapping['akita'];
+            const pets = getAllPets();
+            const entry = pets.find(p => p.value === type) || pets[0];
+            const config = { folder: entry.folder, idle: entry.idle, walk: entry.walk };
             
             // Resolve local path
             const extensionRoot = context ? context.extensionPath : '';
             
             let walkUrl = '';
             let idleUrl = '';
+            let spritesheetUrl = '';
 
-            if (extensionRoot) {
+            if (entry.source === 'codex' && entry.spritesheetPath) {
+                spritesheetUrl = Uri.file(entry.spritesheetPath).with({ scheme: 'vscode-file', authority: 'vscode-app' }).toString();
+                idleUrl = spritesheetUrl;
+                walkUrl = spritesheetUrl;
+            } else if (extensionRoot) {
                 const walkPath = path.join(extensionRoot, 'resources', 'pet', config.folder, config.walk);
                 const idlePath = path.join(extensionRoot, 'resources', 'pet', config.folder, config.idle);
                 
@@ -927,14 +1031,31 @@ export class FileDom {
                 idleUrl = Uri.file(idlePath).with({ scheme: 'vscode-file', authority: 'vscode-app' }).toString();
             }
 
-            return { enabled, walkUrl, idleUrl };
+            return { enabled, mode: entry.source === 'codex' ? 'atlas' : 'gif', walkUrl, idleUrl, spritesheetUrl };
         } catch (e) {
             console.error('[FileDom] Failed to get pet config:', e);
             return { 
                 enabled: false, 
+                mode: 'gif',
                 walkUrl: '', 
-                idleUrl: '' 
+                idleUrl: '',
+                spritesheetUrl: ''
             };
+        }
+    }
+
+    private getPetMessages(): string[] {
+        try {
+            const context = getContext();
+            const raw = context?.globalState.get<string>('backgroundCoverPetMessages', '') || '';
+            return raw
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter(Boolean)
+                .slice(0, 100)
+                .map((line) => line.slice(0, 120));
+        } catch {
+            return [];
         }
     }
 
@@ -950,8 +1071,11 @@ export class FileDom {
         // Get pet config
         const petConfig = this.getPetConfig();
         const petEnabled = petConfig.enabled;
+        const petMode = petConfig.mode;
         const petWalkUrl = this.escapeTemplateLiteral(petConfig.walkUrl);
         const petIdleUrl = this.escapeTemplateLiteral(petConfig.idleUrl);
+        const petSpritesheetUrl = this.escapeTemplateLiteral(petConfig.spritesheetUrl);
+        const petMessagesJson = this.escapeTemplateLiteral(JSON.stringify(this.getPetMessages()));
 
         const videoSetup = `
             function applyVideo(targetWindow, config) {
@@ -1262,8 +1386,19 @@ export class FileDom {
                 console.error('[BackgroundCover] window.open patch error:', e);
             }
 
+            let cssLoadInFlight = false;
+            let lastCssLoadAt = 0;
+
+            function withCacheBust(url) {
+                const sep = url.indexOf('?') === -1 ? '?' : '&';
+                return url + sep + 't=' + Date.now();
+            }
+
             function loadCss() {
-                const url = cssUrl + '?t=' + Date.now();
+                if (cssLoadInFlight) return;
+                cssLoadInFlight = true;
+                lastCssLoadAt = Date.now();
+                const url = withCacheBust(cssUrl);
                 fetch(url).then(r => r.text()).then(css => {
                     const resolvedCss = replaceRelativeTokens(css, cssBaseHref);
                     lastCss = resolvedCss;
@@ -1283,11 +1418,24 @@ export class FileDom {
                     }
 
                     applyToAll();
-                }).catch(e => console.error('[BackgroundCover] Load error:', e));
+                }).catch(e => console.error('[BackgroundCover] Load error:', e))
+                .finally(() => {
+                    cssLoadInFlight = false;
+                });
+            }
+
+            function scheduleLoadCss(reason, delay) {
+                setTimeout(() => {
+                    try {
+                        loadCss();
+                    } catch (e) {
+                        console.error('[BackgroundCover] Scheduled load error (' + reason + '):', e);
+                    }
+                }, delay || 0);
             }
 
             // Initial load
-            loadCss();
+            scheduleLoadCss('initial', 0);
 
             // 1. Event Hook: Listen for status bar message
             try {
@@ -1296,7 +1444,8 @@ export class FileDom {
                         const target = mutation.target;
                         // Check text content of the mutated node
                         if (target.textContent && target.textContent.includes('background-cover-reload-trigger')) {
-                            loadCss();
+                            scheduleLoadCss('statusbar', 0);
+                            scheduleLoadCss('statusbar-followup', 600);
                             return; 
                         }
                     }
@@ -1330,8 +1479,29 @@ export class FileDom {
             // 2. Backup Hook: Check on window focus
             // This ensures that if the status bar trigger is missed, the background updates when the user interacts with the window
             window.addEventListener('focus', () => {
-                loadCss();
+                if (Date.now() - lastCssLoadAt > 800) {
+                    scheduleLoadCss('focus', 0);
+                }
             });
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) {
+                    scheduleLoadCss('visibility', 0);
+                }
+            });
+            document.addEventListener('pointerdown', () => {
+                if (Date.now() - lastCssLoadAt > 1500) {
+                    scheduleLoadCss('pointer', 0);
+                }
+            }, { passive: true });
+
+            let startupPolls = 0;
+            const startupPoll = setInterval(() => {
+                startupPolls++;
+                scheduleLoadCss('startup-poll', 0);
+                if (startupPolls >= 6) {
+                    clearInterval(startupPoll);
+                }
+            }, 2000);
 
             // Little Assistant Logic
             try {
@@ -1416,16 +1586,62 @@ export class FileDom {
                         const assistant = document.createElement('div');
                         assistant.id = assistantId;
                         
-                        // Use image instead of emoji
-                        const petImage = document.createElement('img');
+                        const petMode = '${petMode}';
                         const walkUrl = petWalkUrl;
                         const idleUrl = petIdleUrl;
-                        
-                        petImage.src = idleUrl;
-                        petImage.style.width = '30px'; // Adjust size
-                        petImage.style.height = 'auto';
-                        petImage.style.imageRendering = 'pixelated'; // Keep pixel art crisp
-                        
+                        const spritesheetUrl = '${petSpritesheetUrl}';
+                        let petImage;
+                        let petFrameTimer = null;
+                        let petFrame = 0;
+
+                        function stopPetAtlasAnimation() {
+                            if (petFrameTimer) {
+                                clearInterval(petFrameTimer);
+                                petFrameTimer = null;
+                            }
+                        }
+
+                        function setAtlasFrame(row, frame) {
+                            if (!petImage) return;
+                            const cellW = 30;
+                            const cellH = 32.5;
+                            petImage.style.backgroundPosition = '-' + (frame * cellW) + 'px -' + (row * cellH) + 'px';
+                        }
+
+                        function setPetState(state) {
+                            if (petMode === 'atlas') {
+                                stopPetAtlasAnimation();
+                                const row = state === 'walk' ? 1 : 0;
+                                const frameCount = state === 'walk' ? 8 : 6;
+                                const delay = state === 'walk' ? 120 : 150;
+                                petFrame = 0;
+                                setAtlasFrame(row, petFrame);
+                                petFrameTimer = setInterval(() => {
+                                    petFrame = (petFrame + 1) % frameCount;
+                                    setAtlasFrame(row, petFrame);
+                                }, delay);
+                                return;
+                            }
+                            petImage.src = state === 'walk' ? walkUrl : idleUrl;
+                        }
+
+                        if (petMode === 'atlas') {
+                            petImage = document.createElement('div');
+                            petImage.style.width = '30px';
+                            petImage.style.height = '32.5px';
+                            petImage.style.backgroundImage = 'url("' + spritesheetUrl + '")';
+                            petImage.style.backgroundRepeat = 'no-repeat';
+                            petImage.style.backgroundSize = '240px 292.5px';
+                            petImage.style.imageRendering = 'auto';
+                            setPetState('idle');
+                        } else {
+                            petImage = document.createElement('img');
+                            petImage.style.width = '30px';
+                            petImage.style.height = 'auto';
+                            petImage.style.imageRendering = 'pixelated';
+                            setPetState('idle');
+                        }
+
                         assistant.appendChild(petImage);
 
                         assistant.style.position = 'absolute';
@@ -1442,7 +1658,8 @@ export class FileDom {
 
                         let currentPos = 0;
 
-                        const messages = [
+                        const customMessages = ${petMessagesJson};
+                        const messages = Array.isArray(customMessages) && customMessages.length ? customMessages : [
                             "写代码辛苦了，休息一下吧",
                             "写代码辛苦了，活该，谁让你不会用AI呢！",
                             "记得喝水哦",
@@ -1555,7 +1772,7 @@ export class FileDom {
                             const duration = dist / speed; 
                             
                             // Switch to walking animation
-                            petImage.src = walkUrl;
+                            setPetState('walk');
 
                             assistant.style.transition = 'left ' + duration + 's linear';
                             
@@ -1619,7 +1836,7 @@ export class FileDom {
 
                             // After move, switch to idle
                             setTimeout(() => {
-                                petImage.src = idleUrl;
+                                setPetState('idle');
 
                                 // Random message logic (only when idle)
                                 const messageChance = 0.8; // 50% chance to show message

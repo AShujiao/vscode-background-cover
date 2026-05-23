@@ -19,12 +19,12 @@ import {
 } from 'vscode';
 import * as fs from 'fs';
 import { PickList } from './PickList';
-import { ImgItem } from './ImgItem';
 import vsHelp from './vsHelp';
 import ReaderViewProvider from './readerView';
 import { setContext } from './global';
 import { CUSTOM_CSS_FILE_PATH } from './FileDom';
 import { BackgroundCoverViewProvider } from './backgroundCoverView';
+import { StudioViewProvider } from './StudioViewProvider';
 
 
 export function activate(context: ExtensionContext) {
@@ -97,30 +97,48 @@ export function activate(context: ExtensionContext) {
 		retainContextWhenHidden: true,
 	  },
 	});
+
+	// New Vue-powered Studio webview (primary configuration UI)
+	const studioViewProvider = new StudioViewProvider(context);
+	context.subscriptions.push(window.registerWebviewViewProvider(
+		StudioViewProvider.viewType,
+		studioViewProvider,
+		{ webviewOptions: { retainContextWhenHidden: true } }
+	));
+
 	commands.registerCommand('backgroundCover.refreshEntry',() => {
-		commands.executeCommand('setContext', 'backgroundCover.mode', 'gallery');
-		readerViewProvider.refresh()
+		commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
+		studioViewProvider.refresh();
 		}
 	);
 	commands.registerCommand('backgroundCover.home',() => {
 		commands.executeCommand('setContext', 'backgroundCover.mode', 'gallery');
 		readerViewProvider.home();
+		studioViewProvider.navigate('gallery');
 	});
 	commands.registerCommand('backgroundCover.switchMode',() => {
 		commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
+		studioViewProvider.navigate('home');
 	});
 	commands.registerCommand('backgroundCover.support',() => readerViewProvider.support());
 
-	// Register Tree Data Provider
+	// Register Tree Data Provider (with drag-and-drop support)
 	const backgroundCoverViewProvider = new BackgroundCoverViewProvider();
-	window.registerTreeDataProvider('backgroundCover.menu', backgroundCoverViewProvider);
+	const backgroundCoverTreeView = window.createTreeView('backgroundCover.menu', {
+		treeDataProvider: backgroundCoverViewProvider,
+		dragAndDropController: backgroundCoverViewProvider,
+		canSelectMany: false
+	});
+	context.subscriptions.push(backgroundCoverTreeView);
 
 	// Register Command for Tree Item Click
-	context.subscriptions.push(commands.registerCommand('backgroundCover.runAction', (type: number, path?: string) => {
+	context.subscriptions.push(commands.registerCommand('backgroundCover.runAction', async (type: number, path?: string) => {
 		const config = workspace.getConfiguration('backgroundCover');
-		const quickPick = window.createQuickPick<ImgItem>();
-		const pickList = new PickList(config, quickPick);
-		pickList.handleAction(type, path);
+		// No QuickPick: webview-originated actions must not flash a native popup
+		// or open the legacy "Reloading takes effect?" prompt. The Studio panel
+		// is the user-facing UI now.
+		const pickList = new PickList(config);
+		await pickList.handleAction(type, path);
 	}));
 
 
@@ -148,14 +166,18 @@ export function activate(context: ExtensionContext) {
 	let version:string           = ex ? ex.packageJSON['version'] : '';
 	
 	if(openVersion != version){
-		context.globalState.update('ext_version',version);
-		vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
+	context.globalState.update('ext_version',version);
+	vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
 🚀 更新内容：
-    1.  修复远程随机图片自动切换时 "Lock file is already being held" 错误 (#193 by @Aierlanta)
-    2.  优化自动轮播任务防止并发执行 (#193 by @Aierlanta)
-    3.  修复 code-server 模式下静态资源缓存导致背景不更新的问题 (#194 by @WaaSakura)
+    1.  支持 VS Code AgentView / Agent Sessions 独立窗口背景显示（#197 by @MaxQian888）。
+    2.  全新 Studio 可视化配置面板，整合本地图库、在线图库、高级设置与装饰效果。
+    3.  新增默认/守望界面主题切换。
+    4.  新增本地图库预览、最近使用、分页浏览；在线页顶部新增输入 URL 入口。
+    5.  顶部小宠物支持同步本机 Codex 宠物，并可自定义冒泡文案。
+    6.  优化背景热更新、在线随机图缓存与 VSIX 打包体积。
+    7.  修复 macOS 下赞助作者按钮无法打开的问题。
 
-感谢 @Aierlanta 和 @WaaSakura 的贡献！
+感谢 @MaxQian888 的贡献！
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}
 }
@@ -202,4 +224,3 @@ async function checkVSCodeVersionChanged(context: ExtensionContext): Promise<boo
 export function deactivate() {
 	PickList.stopAutoRandomTask();
 }
-

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ActionType } from './PickList';
+import { ActionType, PickList } from './PickList';
 import { getContext, onDidChangeGlobalState } from './global';
 
 // Localization
@@ -109,9 +109,18 @@ export class ConfigItem extends vscode.TreeItem {
     }
 }
 
-export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<ConfigItem> {
+export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<ConfigItem>, vscode.TreeDragAndDropController<ConfigItem> {
     private _onDidChangeTreeData: vscode.EventEmitter<ConfigItem | undefined | void> = new vscode.EventEmitter<ConfigItem | undefined | void>();
     readonly onDidChangeTreeData: vscode.Event<ConfigItem | undefined | void> = this._onDidChangeTreeData.event;
+
+    // Drag-and-drop: accept file drops from OS explorer / VS Code explorer, plus
+    // plain text drops (so dragging a URL from the browser works too).
+    readonly dropMimeTypes = [
+        'text/uri-list',
+        'application/vnd.code.uri-list',
+        'text/plain'
+    ];
+    readonly dragMimeTypes: string[] = [];
 
     constructor() {
         vscode.workspace.onDidChangeConfiguration(e => {
@@ -123,6 +132,72 @@ export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<Conf
         onDidChangeGlobalState.event(() => {
             this.refresh();
         });
+    }
+
+    /** No outgoing drag — the tree is read-only as a drag source. */
+    public async handleDrag(): Promise<void> {
+        /* intentionally empty */
+    }
+
+    /** Accept dropped files or URLs and apply them as the background. */
+    public async handleDrop(
+        _target: ConfigItem | undefined,
+        sources: vscode.DataTransfer,
+        _token: vscode.CancellationToken
+    ): Promise<void> {
+        try {
+            const uriListItem = sources.get('application/vnd.code.uri-list') || sources.get('text/uri-list');
+            let uris: vscode.Uri[] = [];
+
+            if (uriListItem) {
+                const raw = await uriListItem.asString();
+                uris = raw
+                    .split(/\r?\n/)
+                    .map((line) => line.trim())
+                    .filter((line) => line && !line.startsWith('#'))
+                    .map((line) => {
+                        try { return vscode.Uri.parse(line); } catch { return undefined; }
+                    })
+                    .filter((u): u is vscode.Uri => !!u);
+            }
+
+            if (uris.length === 0) {
+                const textItem = sources.get('text/plain');
+                if (textItem) {
+                    const raw = (await textItem.asString()).trim();
+                    if (/^https?:\/\//i.test(raw)) {
+                        await PickList.updateImgPath(raw);
+                        return;
+                    }
+                    if (raw) {
+                        try {
+                            const u = vscode.Uri.parse(raw);
+                            if (u) { uris = [u]; }
+                        } catch { /* ignored */ }
+                    }
+                }
+            }
+
+            if (uris.length === 0) {
+                vscode.window.showWarningMessage('未识别到可用的图片文件或 URL / No image file or URL detected in drop.');
+                return;
+            }
+
+            // Only the first dropped item is applied (background is single-valued).
+            const first = uris[0];
+            if (first.scheme === 'http' || first.scheme === 'https') {
+                await PickList.updateImgPath(first.toString());
+                return;
+            }
+            if (first.scheme === 'file') {
+                await vscode.commands.executeCommand('backgroundCover.runAction', ActionType.UpdateBackground, first.fsPath);
+                return;
+            }
+            vscode.window.showWarningMessage(`不支持的拖拽类型: ${first.scheme} / Unsupported drop scheme.`);
+        } catch (e: any) {
+            console.error('[BackgroundCover] handleDrop failed:', e);
+            vscode.window.showErrorMessage(`拖拽设置背景失败: ${e?.message ?? e}`);
+        }
     }
 
     refresh(): void {

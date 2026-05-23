@@ -2,7 +2,7 @@
     "name": "background-cover",
     "displayName": "background-cover",
     "description": "Add a picture you like to cover the entire vscode background (Hot Reload Supported). / 添加你喜欢的图片覆盖整个vscode背景（支持热更新）",
-    "version": "3.2.5",
+    "version": "3.5.0",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.38.0"
@@ -160,15 +160,21 @@
         "views": {
             "backgroundCover-explorer": [
                 {
+                    "id": "backgroundCover.studio",
+                    "type": "webview",
+                    "name": "Studio",
+                    "when": "backgroundCover.mode == 'menu'"
+                },
+                {
                     "id": "backgroundCover.menu",
                     "name": "Menu",
-                    "when": "backgroundCover.mode == 'menu'"
+                    "when": "backgroundCover.mode == 'legacyMenu'"
                 },
                 {
                     "id": "backgroundCover.readerView",
                     "type": "webview",
                     "name": "Online Gallery",
-                    "when": "backgroundCover.mode != 'menu'"
+                    "when": "backgroundCover.mode != 'menu' && backgroundCover.mode != 'legacyMenu'"
                 }
             ]
         },
@@ -176,43 +182,13 @@
             "view/title": [
                 {
                     "command": "backgroundCover.refreshEntry",
-                    "when": "view == backgroundCover.readerView",
-                    "group": "navigation@2"
-                },
-                {
-                    "command": "backgroundCover.home",
-                    "when": "view == backgroundCover.readerView",
-                    "group": "navigation@1"
-                },
-                {
-                    "command": "backgroundCover.switchMode",
-                    "when": "view == backgroundCover.readerView",
+                    "when": "view == backgroundCover.studio",
                     "group": "navigation@0"
                 },
                 {
                     "command": "backgroundCover.support",
-                    "when": "view == backgroundCover.readerView",
-                    "group": "navigation@3"
-                },
-                                {
-                    "command": "backgroundCover.switchMode",
-                    "when": "view == backgroundCover.menu",
-                    "group": "navigation@0"
-                },
-                {
-                    "command": "backgroundCover.home",
-                    "when": "view == backgroundCover.menu",
+                    "when": "view == backgroundCover.studio",
                     "group": "navigation@1"
-                },
-                {
-                    "command": "backgroundCover.refreshEntry",
-                    "when": "view == backgroundCover.menu",
-                    "group": "navigation@2"
-                },
-                {
-                    "command": "backgroundCover.support",
-                    "when": "view == backgroundCover.menu",
-                    "group": "navigation@3"
                 }
             ]
         }
@@ -227,10 +203,13 @@
     },
     "homepage": "https://github.com/AShujiao/vscode-background-cover/blob/master/README.md#manasxx-readme",
     "scripts": {
-        "vscode:prepublish": "npm run compile",
+        "vscode:prepublish": "npm run build:webview && npm run compile",
         "vscode:uninstall": "node ./out/uninstall",
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
+        "package": "vsce package",
+        "build:webview": "cd webview && npm install --silent && npm run build",
+        "watch:webview": "cd webview && npm run dev",
         "test": "npm run compile && node ./node_modules/vscode/bin/test",
         "check": "tslint -p ./"
     },
@@ -241,6 +220,7 @@
         "@types/node": "^22.9.0",
         "@types/proper-lockfile": "^4.1.4",
         "@types/vscode": "^1.30.0",
+        "@vscode/vsce": "^3.9.1",
         "@vscode/test-electron": "^2.3.2",
         "typescript": "^4.5.4"
     },

@@ -1,0 +1,232 @@
+/* ===== Element Plus theme overrides — Studio dark/light design ===== */
+
+@use './variables.scss';
+
+html, body {
+    --el-color-primary:               var(--studio-accent, #6c8cff);
+    --el-color-primary-light-3:       color-mix(in srgb, var(--studio-accent) 70%, white);
+    --el-color-primary-light-5:       color-mix(in srgb, var(--studio-accent) 50%, white);
+    --el-color-primary-light-7:       color-mix(in srgb, var(--studio-accent) 30%, white);
+    --el-color-primary-light-9:       color-mix(in srgb, var(--studio-accent) 12%, transparent);
+    --el-color-primary-dark-2:        color-mix(in srgb, var(--studio-accent) 80%, black);
+
+    --el-bg-color:                    var(--vscode-editorWidget-background, #1e1e1e);
+    --el-bg-color-overlay:            var(--vscode-menu-background, #1c2138);
+    --el-bg-color-page:               var(--vscode-sideBar-background, #14182a);
+
+    --el-text-color-primary:          var(--vscode-foreground, #e4e6f0);
+    --el-text-color-regular:          var(--vscode-foreground, #c8ccd9);
+    --el-text-color-secondary:        var(--vscode-descriptionForeground, #8990ab);
+    --el-text-color-placeholder:      var(--vscode-input-placeholderForeground, #707592);
+    --el-text-color-disabled:         var(--vscode-disabledForeground, #5a5e74);
+
+    --el-border-color:                rgba(120, 140, 200, 0.22);
+    --el-border-color-light:          rgba(120, 140, 200, 0.16);
+    --el-border-color-lighter:        rgba(120, 140, 200, 0.12);
+    --el-border-color-extra-light:    rgba(120, 140, 200, 0.08);
+    --el-border-color-hover:          var(--studio-accent);
+
+    --el-fill-color:                  var(--studio-input-bg);
+    --el-fill-color-light:            rgba(108, 140, 255, 0.08);
+    --el-fill-color-lighter:          rgba(108, 140, 255, 0.05);
+    --el-fill-color-blank:            var(--vscode-editor-background, #14182a);
+
+    --el-mask-color:                  rgba(0,0,0,0.55);
+
+    --el-font-size-base:              12px;
+    --el-font-size-small:             11px;
+
+    --el-border-radius-base:          6px;
+    --el-border-radius-small:         4px;
+    --el-component-size:              30px;
+    --el-component-size-small:        26px;
+
+    --el-box-shadow-light:            0 4px 16px rgba(0,0,0,0.25);
+    --el-box-shadow-lighter:          0 2px 10px rgba(0,0,0,0.18);
+}
+
+/* ===== Cards — glass / glow look ===== */
+.el-card {
+    background: var(--studio-card-bg) !important;
+    border: var(--studio-card-border) !important;
+    border-radius: 8px !important;
+    box-shadow: var(--studio-card-shadow) !important;
+    overflow: hidden;
+    transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+    backdrop-filter: blur(6px);
+    &:hover {
+        box-shadow: var(--studio-card-glow), var(--studio-card-shadow) !important;
+        border-color: rgba(108, 140, 255, 0.28) !important;
+    }
+}
+.el-card__header {
+    padding: 8px 12px !important;
+    border-bottom: var(--studio-divider) !important;
+    background: linear-gradient(180deg, rgba(108,140,255,0.06), transparent);
+}
+.el-card__body { padding: 10px 12px !important; }
+
+/* ===== Buttons ===== */
+.el-button {
+    padding: 6px 12px;
+    border-radius: 6px;
+    transition: transform 0.12s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+.el-button--small { padding: 4px 10px; border-radius: 5px; }
+
+/* Default (no type) — give a solid surface so it doesn't look hollow */
+.el-button:not(.is-text):not(.is-link):not(.is-circle):not([type]),
+.el-button:not(.is-text):not(.is-link):not(.is-circle).el-button--default {
+    background: var(--studio-btn-soft) !important;
+    border: 1px solid var(--studio-btn-soft-border) !important;
+    color: var(--el-text-color-regular) !important;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 1px 2px rgba(0,0,0,0.25);
+    &:hover {
+        background: var(--studio-btn-soft-hover) !important;
+        border-color: rgba(108, 140, 255, 0.55) !important;
+        color: var(--studio-accent) !important;
+    }
+    &:active { transform: translateY(1px); }
+}
+
+.el-button--primary {
+    background: var(--studio-btn-grad) !important;
+    border: 0 !important;
+    color: #fff !important;
+    box-shadow: var(--studio-btn-glow);
+    border-radius: 6px;
+    &:hover {
+        filter: brightness(1.08);
+        transform: translateY(-1px);
+        box-shadow: 0 8px 22px rgba(108, 140, 255, 0.45);
+    }
+    &:active { transform: translateY(0); filter: brightness(0.95); }
+}
+
+.el-button--primary.is-plain {
+    background: rgba(108, 140, 255, 0.18) !important;
+    border: 1px solid rgba(108, 140, 255, 0.55) !important;
+    color: var(--studio-accent) !important;
+    box-shadow: none;
+    &:hover {
+        background: rgba(108, 140, 255, 0.28) !important;
+        color: #fff !important;
+    }
+}
+
+.el-button--danger.is-plain {
+    background: rgba(255, 99, 132, 0.16) !important;
+    border: 1px solid rgba(255, 99, 132, 0.45) !important;
+    color: #ff7895 !important;
+    &:hover {
+        background: rgba(255, 99, 132, 0.28) !important;
+        color: #fff !important;
+    }
+}
+
+.el-button--primary.is-text,
+.el-button--primary.is-link {
+    background: transparent !important;
+    box-shadow: none;
+    color: var(--studio-accent) !important;
+    &:hover { color: var(--studio-accent-2) !important; }
+}
+
+.el-button.is-text {
+    background: transparent;
+    color: var(--el-text-color-regular);
+    &:hover { background: rgba(108, 140, 255, 0.12); color: var(--studio-accent); }
+}
+
+.el-button.is-circle { padding: 6px; border-radius: 50%; }
+
+/* ===== Form fields ===== */
+.el-input__wrapper,
+.el-textarea__inner,
+.el-select .el-input__wrapper {
+    background: var(--studio-input-bg) !important;
+    box-shadow: 0 0 0 1px rgba(120, 140, 200, 0.22) inset !important;
+    border-radius: 6px !important;
+    transition: box-shadow 0.18s ease;
+}
+.el-input__wrapper.is-focus,
+.el-select .el-input.is-focus .el-input__wrapper {
+    box-shadow: 0 0 0 1px var(--studio-accent) inset,
+                0 0 0 4px var(--studio-accent-soft) !important;
+}
+.el-input__inner { color: var(--vscode-input-foreground, var(--el-text-color-regular)); }
+
+/* ===== Slider — thicker bar, glowing thumb ===== */
+.el-slider__runway {
+    background: rgba(120, 140, 200, 0.18) !important;
+    height: 6px !important;
+    border-radius: 999px;
+}
+.el-slider__bar {
+    background: linear-gradient(90deg, var(--studio-accent) 0%, var(--studio-accent-2) 100%) !important;
+    height: 6px !important;
+    border-radius: 999px;
+}
+.el-slider__button {
+    border: 2px solid #fff !important;
+    background: var(--studio-accent) !important;
+    box-shadow: 0 0 0 4px var(--studio-accent-soft),
+                0 2px 6px rgba(0,0,0,0.4) !important;
+    width: 14px !important;
+    height: 14px !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.el-slider__button-wrapper:hover .el-slider__button,
+.el-slider__button-wrapper.hover .el-slider__button {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 6px var(--studio-accent-soft),
+                0 2px 8px rgba(0,0,0,0.5) !important;
+}
+
+/* ===== Switch — softer track, glow when on ===== */
+.el-switch__core {
+    border-color: rgba(120, 140, 200, 0.35) !important;
+    background-color: rgba(120, 140, 200, 0.25) !important;
+}
+.el-switch.is-checked .el-switch__core {
+    background: var(--studio-btn-grad) !important;
+    border-color: transparent !important;
+    box-shadow: 0 0 0 3px var(--studio-accent-soft);
+}
+
+/* ===== Tag ===== */
+.el-tag {
+    background: rgba(108, 140, 255, 0.14) !important;
+    border-color: rgba(108, 140, 255, 0.25) !important;
+    color: var(--studio-accent) !important;
+    border-radius: 999px !important;
+}
+
+/* ===== Tabs ===== */
+.el-tabs__nav-wrap::after {
+    background: var(--studio-divider-color, rgba(120,140,200,0.16)) !important;
+    height: 1px !important;
+}
+.el-tabs__active-bar {
+    background: var(--studio-btn-grad) !important;
+    border-radius: 2px;
+    box-shadow: 0 0 8px rgba(108, 140, 255, 0.55);
+}
+.el-tabs__item.is-active {
+    color: var(--studio-accent) !important;
+}
+
+/* ===== Dropdown menu (language switcher etc.) ===== */
+.el-dropdown-menu {
+    background: var(--el-bg-color-overlay) !important;
+    border: 1px solid rgba(120, 140, 200, 0.22) !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45) !important;
+    border-radius: 8px !important;
+}
+.el-dropdown-menu__item:not(.is-disabled):hover {
+    background: rgba(108, 140, 255, 0.14) !important;
+    color: var(--studio-accent) !important;
+}
+
+/* ===== Empty ===== */
+.el-empty__description { color: var(--el-text-color-secondary) !important; }

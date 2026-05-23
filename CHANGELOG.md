@@ -6,6 +6,22 @@
 -->
 ## 更新日志
 
+#### ver 3.5.0 (2026/05/23)
+
+    1. 支持 VS Code AgentView / Agent Sessions 独立窗口背景注入，安装与卸载流程会同步处理 `vs/sessions/sessions.desktop.main.js` ([#197](https://github.com/AShujiao/vscode-background-cover/pull/197) by @MaxQian888)
+    2. 新增 Vue 驱动的 Studio 可视化配置面板，整合首页、在线图库、本地图库、高级设置与装饰效果配置。
+    3. 新增界面主题选择，默认主题之外增加守望主题，提供偏游戏 HUD 的橙蓝高对比配置体验。
+    4. 新增本地图库预览、最近使用图片、文件夹分页与拖拽设置背景，配置入口更直观。
+    5. 在线页顶部新增输入 URL 入口，本地页聚焦本地文件、目录与最近使用管理。
+    6. 顶部小宠物配置统一到 Studio，并扩展小宠物列表与资源预览。
+    7. 新增本机 Codex 宠物同步，自动读取 `~/.codex/pets` 或 `CODEX_HOME/pets` 下的 `pet.json` 与 `spritesheet.webp`。
+    8. 新增宠物冒泡文案自定义功能，支持多行配置；未配置时继续使用预置文案。
+    9. 优化背景热更新底层与在线随机图缓存策略，提升快速切换和自动轮播稳定性。
+    10. 修复 macOS 下赞助作者按钮无法打开的问题。
+    11. 优化打包配置，排除 webview 开发依赖和源码，VSIX 包体显著减小。
+
+    感谢 @MaxQian888 的贡献！
+
 #### ver 0.1.0 (2018/10/17)
 	第一版发布
 
