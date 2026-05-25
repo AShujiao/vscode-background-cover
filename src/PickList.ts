@@ -84,6 +84,10 @@ export interface PetEntry {
     spritesheetPath?: string;
 }
 
+interface UpdateBackgroundOptions {
+    skipLargeImagePrompt?: boolean;
+}
+
 /** Single source of truth for available pets (used by PickList + FileDom + Studio webview). */
 export const PET_LIST: PetEntry[] = [
     { value: 'akita',       label: 'Akita (Dog)', desc: '秋田犬',  folder: 'dog',         idle: 'akita_idle_8fps.gif',  walk: 'akita_walk_8fps.gif' },
@@ -651,11 +655,7 @@ export class PickList {
                 }
                 if (images && images.length > 0) {
                     const randomImage = images[Math.floor(Math.random() * images.length)];
-                    if (persist) {
-                        this.handleAction(ActionType.UpdateBackground, randomImage);
-                    } else {
-                        await this.updateBackgound(randomImage, false, false);
-                    }
+                    await this.updateBackgound(randomImage, false, persist, { skipLargeImagePrompt: true });
                     return true;
                 }
             } catch (error: any) {
@@ -669,11 +669,7 @@ export class PickList {
 
         const singleSource = context.globalState.get<string>('backgroundCoverSingleImageSource');
         if (singleSource && this.isOnlineUrl(singleSource)) {
-            if (persist) {
-                this.handleAction(ActionType.UpdateBackground, singleSource);
-            } else {
-                await this.updateBackgound(singleSource, false, false);
-            }
+            await this.updateBackgound(singleSource, false, persist, { skipLargeImagePrompt: true });
             return true;
         }
 
@@ -683,11 +679,7 @@ export class PickList {
             if (files.length > 0) {
                 const randomFile = files[Math.floor(Math.random() * files.length)];
                 const file = path.join(randomImageFolder, randomFile);
-                if (persist) {
-                    this.handleAction(ActionType.UpdateBackground, file);
-                } else {
-                    await this.updateBackgound(file, false, false);
-                }
+                await this.updateBackgound(file, false, persist, { skipLargeImagePrompt: true });
             }
         }
         return true;
@@ -1268,13 +1260,20 @@ export class PickList {
         this.imageFileType = value;
     }
 
-    public async updateBackgound(path?: string, clearOnlineCache: boolean = false, persist: boolean = true) {
+    public async updateBackgound(
+        path?: string,
+        clearOnlineCache: boolean = false,
+        persist: boolean = true,
+        options: UpdateBackgroundOptions = {}
+    ) {
         if (!path) { path = this.config.get<string>('imagePath'); }
         if (!path) { return vsHelp.showInfo('Unfetched Picture Path / 未获取到图片路径'); }
 
         // Large local-file pre-check: warn user before applying anything > 5MB so
-        // they don't get blindsided by a multi-second freeze on switch.
-        if (persist && !this.isOnlineUrl(path)) {
+        // they don't get blindsided by a multi-second freeze on manual switch.
+        // Automated random updates must not wait on a modal prompt, otherwise the
+        // scheduler can get stuck behind an unattended large-image confirmation.
+        if (persist && !options.skipLargeImagePrompt && !this.isOnlineUrl(path)) {
             const proceed = await this.confirmLargeLocalImage(path);
             if (!proceed) { return false; }
         }

@@ -50,12 +50,18 @@ export function activate(context: ExtensionContext) {
 		if (!isChanged) {
 			const config = workspace.getConfiguration('backgroundCover');
 			if (config.imagePath && !fs.existsSync(CUSTOM_CSS_FILE_PATH)) {
+				const ex: Extension<any> | undefined = extensions.getExtension('manasxx.background-cover');
+				const extensionVersion: string = ex ? ex.packageJSON['version'] : '';
 				window.showInformationMessage(
-					'BackgroundCover 3.0：新版本支持免重启切换背景，需要重新初始化核心文件。是否立即执行？ / BackgroundCover 3.0: Supports background switching without restart. Core file re-initialization required. Proceed?',
-					'Yes', 'No'
-				).then(result => {
-					if (result === 'Yes') {
-						PickList.needAutoUpdate(config);
+					`BackgroundCover ${extensionVersion || ''}：检测到核心文件尚未初始化，需要重新应用背景补丁。是否立即执行？ / BackgroundCover ${extensionVersion || ''}: Core files are not initialized. Apply the background patch now?`,
+					'Apply / 应用',
+					'Later / 稍后'
+				).then(async result => {
+					if (result === 'Apply / 应用') {
+						const requiresReload = await PickList.applyCurrentBackground();
+						if (requiresReload) {
+							await promptReloadWindow();
+						}
 					}
 				});
 			} else {
@@ -197,27 +203,43 @@ async function checkVSCodeVersionChanged(context: ExtensionContext): Promise<boo
 	if (lastVSCodeVersion && lastVSCodeVersion !== vscodeVersion) {
 		// 弹出提示框确认是否更新背景
 		const value = await window.showInformationMessage(
-			`检测到 VSCode 已更新，背景图可能已被重置，是否重新应用背景图？ / Reapply the background image?`,
-			'YES',
-			'NO'
+			`检测到 VS Code 已从 ${lastVSCodeVersion} 更新到 ${vscodeVersion}，背景补丁可能已被重置。是否重新应用并重载窗口？ / VS Code was updated from ${lastVSCodeVersion} to ${vscodeVersion}. Reapply the background patch and reload the window?`,
+			'Apply and Reload / 应用并重载',
+			'Later / 稍后'
 		);
 		
-		if (value === 'YES') {
+		if (value === 'Apply and Reload / 应用并重载') {
 			// 更新DOM
-			PickList.needAutoUpdate(config);
+			const requiresReload = await PickList.applyCurrentBackground();
+			if (requiresReload) {
+				await commands.executeCommand('workbench.action.reloadWindow');
+			} else {
+				window.setStatusBarMessage('Background already applied. / 背景已应用。', 5000);
+			}
 		}
 		
 		// 更新全局状态中的 VSCode 版本
-		context.globalState.update('vscode_version', vscodeVersion);
+		await context.globalState.update('vscode_version', vscodeVersion);
 		return true;
 	}
 
 	// 修复：首次运行或版本未记录时，也需要更新版本号，防止下次误判
 	if (!lastVSCodeVersion) {
-		context.globalState.update('vscode_version', vscodeVersion);
+		await context.globalState.update('vscode_version', vscodeVersion);
 	}
 
 	return false;
+}
+
+async function promptReloadWindow(): Promise<void> {
+	const value = await window.showInformationMessage(
+		'背景补丁已应用，需要重载 VS Code 窗口后生效。 / Background patch applied. Reload the VS Code window to take effect.',
+		'Reload / 重载',
+		'Later / 稍后'
+	);
+	if (value === 'Reload / 重载') {
+		await commands.executeCommand('workbench.action.reloadWindow');
+	}
 }
 
 // this method is called when your extension is deactivated
