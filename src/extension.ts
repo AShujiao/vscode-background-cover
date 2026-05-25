@@ -175,15 +175,11 @@ export function activate(context: ExtensionContext) {
 	context.globalState.update('ext_version',version);
 	vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
 🚀 更新内容：
-    1.  支持 VS Code AgentView / Agent Sessions 独立窗口背景显示（#197 by @MaxQian888）。
-    2.  全新 Studio 可视化配置面板，整合本地图库、在线图库、高级设置与装饰效果。
-    3.  新增默认/守望界面主题切换。
-    4.  新增本地图库预览、最近使用、分页浏览；在线页顶部新增输入 URL 入口。
-    5.  顶部小宠物支持同步本机 Codex 宠物，并可自定义冒泡文案。
-    6.  优化背景热更新、在线随机图缓存与 VSIX 打包体积。
-    7.  修复 macOS 下赞助作者按钮无法打开的问题。
+    1.  修复自动随机更换背景时遇到大体积本地图片会弹出确认提示并阻断轮播的问题。
+    2.  手动选择大体积图片时仍保留确认提示，避免误操作导致短暂卡顿。
+    3.  修复 VS Code 更新后重新应用背景的提示仍显示 3.0 旧版本信息的问题。
+    4.  修复 VS Code 更新后点击确认重新应用背景时未正确触发窗口重载的问题。
 
-感谢 @MaxQian888 的贡献！
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}
 }

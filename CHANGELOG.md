@@ -6,6 +6,12 @@
 -->
 ## 更新日志
 
+#### ver 3.5.1 (2026/05/25)
+
+    1. 修复自动随机更换背景时遇到大体积本地图片会弹出确认提示并阻断轮播的问题；后台自动换图现在会直接应用，手动选择大图仍保留确认提示。
+    2. 修复 VS Code 更新后重新应用背景的提示文案仍显示 3.0 版本信息的问题。
+    3. 修复 VS Code 更新后点击确认重新应用背景时未正确触发窗口重载的问题。
+
 #### ver 3.5.0 (2026/05/23)
 
     1. 支持 VS Code AgentView / Agent Sessions 独立窗口背景注入，安装与卸载流程会同步处理 `vs/sessions/sessions.desktop.main.js` ([#197](https://github.com/AShujiao/vscode-background-cover/pull/197) by @MaxQian888)
