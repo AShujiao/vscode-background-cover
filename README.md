@@ -63,12 +63,9 @@
 
 [在线图库/更多壁纸](https://vs.20988.xyz/d/24-vscodebei-jing-tu-tu-ku)
 
-![](https://github.com/user-attachments/assets/957d0525-f2f3-46bb-b46f-7e2c26c3dbcb)
-![](https://github.com/user-attachments/assets/f21efb46-8bbd-48f3-ab30-ca9fbd5c7810)
-![](https://github.com/user-attachments/assets/892d7763-0bc9-477b-896a-180a4ecc90e7)
-![](https://github.com/user-attachments/assets/7a1558d5-6bc6-4563-a4e7-4e543695384c)
-
-
+![](https://github.com/user-attachments/assets/7bd68f60-55af-42e8-980a-99bf1b3e078d)
+![](https://github.com/user-attachments/assets/047617e6-7e09-441e-b9df-ae6a2bb940d9)
+![](https://github.com/user-attachments/assets/3c0a214f-7563-43b9-9579-314647808ccf)
 
 
 ## ⚙️ 配置方式
