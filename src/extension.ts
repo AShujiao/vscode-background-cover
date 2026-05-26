@@ -50,12 +50,18 @@ export function activate(context: ExtensionContext) {
 		if (!isChanged) {
 			const config = workspace.getConfiguration('backgroundCover');
 			if (config.imagePath && !fs.existsSync(CUSTOM_CSS_FILE_PATH)) {
+				const ex: Extension<any> | undefined = extensions.getExtension('manasxx.background-cover');
+				const extensionVersion: string = ex ? ex.packageJSON['version'] : '';
 				window.showInformationMessage(
-					'BackgroundCover 3.0：新版本支持免重启切换背景，需要重新初始化核心文件。是否立即执行？ / BackgroundCover 3.0: Supports background switching without restart. Core file re-initialization required. Proceed?',
-					'Yes', 'No'
-				).then(result => {
-					if (result === 'Yes') {
-						PickList.needAutoUpdate(config);
+					`BackgroundCover ${extensionVersion || ''}：检测到核心文件尚未初始化，需要重新应用背景补丁。是否立即执行？ / BackgroundCover ${extensionVersion || ''}: Core files are not initialized. Apply the background patch now?`,
+					'Apply / 应用',
+					'Later / 稍后'
+				).then(async result => {
+					if (result === 'Apply / 应用') {
+						const requiresReload = await PickList.applyCurrentBackground();
+						if (requiresReload) {
+							await promptReloadWindow();
+						}
 					}
 				});
 			} else {
@@ -169,15 +175,11 @@ export function activate(context: ExtensionContext) {
 	context.globalState.update('ext_version',version);
 	vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
 🚀 更新内容：
-    1.  支持 VS Code AgentView / Agent Sessions 独立窗口背景显示（#197 by @MaxQian888）。
-    2.  全新 Studio 可视化配置面板，整合本地图库、在线图库、高级设置与装饰效果。
-    3.  新增默认/守望界面主题切换。
-    4.  新增本地图库预览、最近使用、分页浏览；在线页顶部新增输入 URL 入口。
-    5.  顶部小宠物支持同步本机 Codex 宠物，并可自定义冒泡文案。
-    6.  优化背景热更新、在线随机图缓存与 VSIX 打包体积。
-    7.  修复 macOS 下赞助作者按钮无法打开的问题。
+    1.  修复自动随机更换背景时遇到大体积本地图片会弹出确认提示并阻断轮播的问题。
+    2.  手动选择大体积图片时仍保留确认提示，避免误操作导致短暂卡顿。
+    3.  修复 VS Code 更新后重新应用背景的提示仍显示 3.0 旧版本信息的问题。
+    4.  修复 VS Code 更新后点击确认重新应用背景时未正确触发窗口重载的问题。
 
-感谢 @MaxQian888 的贡献！
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}
 }
@@ -197,27 +199,43 @@ async function checkVSCodeVersionChanged(context: ExtensionContext): Promise<boo
 	if (lastVSCodeVersion && lastVSCodeVersion !== vscodeVersion) {
 		// 弹出提示框确认是否更新背景
 		const value = await window.showInformationMessage(
-			`检测到 VSCode 已更新，背景图可能已被重置，是否重新应用背景图？ / Reapply the background image?`,
-			'YES',
-			'NO'
+			`检测到 VS Code 已从 ${lastVSCodeVersion} 更新到 ${vscodeVersion}，背景补丁可能已被重置。是否重新应用并重载窗口？ / VS Code was updated from ${lastVSCodeVersion} to ${vscodeVersion}. Reapply the background patch and reload the window?`,
+			'Apply and Reload / 应用并重载',
+			'Later / 稍后'
 		);
 		
-		if (value === 'YES') {
+		if (value === 'Apply and Reload / 应用并重载') {
 			// 更新DOM
-			PickList.needAutoUpdate(config);
+			const requiresReload = await PickList.applyCurrentBackground();
+			if (requiresReload) {
+				await commands.executeCommand('workbench.action.reloadWindow');
+			} else {
+				window.setStatusBarMessage('Background already applied. / 背景已应用。', 5000);
+			}
 		}
 		
 		// 更新全局状态中的 VSCode 版本
-		context.globalState.update('vscode_version', vscodeVersion);
+		await context.globalState.update('vscode_version', vscodeVersion);
 		return true;
 	}
 
 	// 修复：首次运行或版本未记录时，也需要更新版本号，防止下次误判
 	if (!lastVSCodeVersion) {
-		context.globalState.update('vscode_version', vscodeVersion);
+		await context.globalState.update('vscode_version', vscodeVersion);
 	}
 
 	return false;
+}
+
+async function promptReloadWindow(): Promise<void> {
+	const value = await window.showInformationMessage(
+		'背景补丁已应用，需要重载 VS Code 窗口后生效。 / Background patch applied. Reload the VS Code window to take effect.',
+		'Reload / 重载',
+		'Later / 稍后'
+	);
+	if (value === 'Reload / 重载') {
+		await commands.executeCommand('workbench.action.reloadWindow');
+	}
 }
 
 // this method is called when your extension is deactivated

@@ -14,17 +14,12 @@
 ![Background Cover Studio preview](resources/readme-preview.jpg)
 
 
-## 🚀 3.5.0 主要更新
+## 🚀 3.5.1 主要更新
 
-1. **🎉 全新 Studio 面板**：整合首页、在线图库、本地图库、高级设置与装饰效果，配置背景更直观。
-2. **🖼️ 本地/在线图库增强**：支持本地文件夹预览、最近使用、分页浏览；输入 URL 统一移动到在线页顶部。
-3. **🎮 主题选择**：默认主题之外新增守望主题，提供偏游戏 HUD 的橙蓝高对比配置体验。
-4. **🐾 宠物系统增强**：支持自动同步本机 Codex 宠物，并可自定义顶部小宠物冒泡文案。
-5. **🧩 AgentView 支持**：支持 VS Code AgentView / Agent Sessions 独立窗口背景显示。
-6. **🛠️ 热更新更稳定**：优化 CSS 写入、刷新触发与并发控制，快速切换背景时不再被旧任务覆盖。
-7. **✨ 在线随机图优化**：手动刷新和自动轮播会重新获取远程图片，随机图 API 不再长期复用旧缓存。
-8. **📦 包体积优化**：排除 webview 开发依赖和源码，VSIX 包体大幅减小。
-9. **🍎 macOS 修复**：修复赞助作者按钮无法打开的问题。
+1. **🔄 自动轮播修复**：自动随机更换背景遇到大体积本地图片时不再弹出确认提示阻断轮播。
+2. **🖼️ 手动选择保留保护**：手动选择大图时仍会提示可能短暂卡顿，避免误操作。
+3. **🧩 VS Code 更新修复**：VS Code 更新后重新应用背景的提示不再显示 3.0 旧版本信息。
+4. **⚡ 重载行为修复**：点击确认重新应用背景后会等待补丁完成并正确触发窗口重载。
 
 ---
 
@@ -68,12 +63,9 @@
 
 [在线图库/更多壁纸](https://vs.20988.xyz/d/24-vscodebei-jing-tu-tu-ku)
 
-![](https://github.com/user-attachments/assets/957d0525-f2f3-46bb-b46f-7e2c26c3dbcb)
-![](https://github.com/user-attachments/assets/f21efb46-8bbd-48f3-ab30-ca9fbd5c7810)
-![](https://github.com/user-attachments/assets/892d7763-0bc9-477b-896a-180a4ecc90e7)
-![](https://github.com/user-attachments/assets/7a1558d5-6bc6-4563-a4e7-4e543695384c)
-
-
+![](https://github.com/user-attachments/assets/7bd68f60-55af-42e8-980a-99bf1b3e078d)
+![](https://github.com/user-attachments/assets/047617e6-7e09-441e-b9df-ae6a2bb940d9)
+![](https://github.com/user-attachments/assets/3c0a214f-7563-43b9-9579-314647808ccf)
 
 
 ## ⚙️ 配置方式
@@ -121,18 +113,11 @@ A: 插件会自动请求密码，或手动 `sudo chown` 相关文件。
 
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 3.5.0 (2026/05/23)
+#### ver 3.5.1 (2026/05/25)
 
-1. 支持 VS Code AgentView / Agent Sessions 独立窗口背景显示 ([#197](https://github.com/AShujiao/vscode-background-cover/pull/197) by @MaxQian888)。
-2. 新增 Vue 驱动的 Studio 可视化配置面板。
-3. 新增默认/守望界面主题切换。
-4. 新增本地图库预览、最近使用、分页浏览和拖拽设置背景。
-5. 新增本机 Codex 宠物同步，支持 `~/.codex/pets` 与 `CODEX_HOME/pets`。
-6. 新增宠物冒泡文案自定义功能，支持多行配置，留空使用预置文案。
-7. 在线页顶部新增输入 URL 入口，本地页聚焦本地文件与目录管理。
-8. 优化背景热更新、在线随机图缓存与快速切换并发控制。
-9. 修复 macOS 下赞助作者按钮无法打开的问题。
-10. 优化 VSIX 打包配置，显著减小包体。
+1. 修复自动随机更换背景时遇到大体积本地图片会弹出确认提示并阻断轮播的问题。
+2. 修复 VS Code 更新后重新应用背景的提示文案仍显示 3.0 版本信息的问题。
+3. 修复 VS Code 更新后点击确认重新应用背景时未正确触发窗口重载的问题。
 
 ---
 
