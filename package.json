@@ -2,7 +2,7 @@
     "name": "background-cover",
     "displayName": "background-cover",
     "description": "Add a picture you like to cover the entire vscode background (Hot Reload Supported). / 添加你喜欢的图片覆盖整个vscode背景（支持热更新）",
-    "version": "3.5.1",
+    "version": "3.5.2",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.38.0"
@@ -228,6 +228,6 @@
         "async-mutex": "^0.5.0",
         "fs-extra": "^11.2.0",
         "proper-lockfile": "^4.1.2",
-        "sudo-prompt": "^9.2.1"
+        "@vscode/sudo-prompt": "^9.3.2"
     }
 }

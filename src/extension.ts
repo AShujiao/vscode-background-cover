@@ -175,10 +175,7 @@ export function activate(context: ExtensionContext) {
 	context.globalState.update('ext_version',version);
 	vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
 🚀 更新内容：
-    1.  修复自动随机更换背景时遇到大体积本地图片会弹出确认提示并阻断轮播的问题。
-    2.  手动选择大体积图片时仍保留确认提示，避免误操作导致短暂卡顿。
-    3.  修复 VS Code 更新后重新应用背景的提示仍显示 3.0 旧版本信息的问题。
-    4.  修复 VS Code 更新后点击确认重新应用背景时未正确触发窗口重载的问题。
+    1.  修复新版本 VS Code（Node 升级移除了 util.isObject）下首次初始化报错 "Failed to write CSS file: TypeError: Node.util.isObject is not a function" 的问题。
 
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}

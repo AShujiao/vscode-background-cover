@@ -1,5 +1,5 @@
 
-import * as sudo from 'sudo-prompt';
+import * as sudo from '@vscode/sudo-prompt';
 
 export class SudoPromptHelper {
     static async exec(command: string, options: any = { name: 'backgroundCover' }): Promise<string> {

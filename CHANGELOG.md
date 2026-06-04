@@ -6,6 +6,10 @@
 -->
 ## 更新日志
 
+#### ver 3.5.2 (2026/06/04)
+
+    1. 修复新版本 VS Code（如 1.123.0）因 Node 升级移除 `util.isObject` 函数，导致首次初始化报错 `Failed to write CSS file: TypeError: Node.util.isObject is not a function` 的问题（将已停止维护的 `sudo-prompt` 依赖替换为官方维护的 `@vscode/sudo-prompt`）([#205](https://github.com/AShujiao/vscode-background-cover/issues/205))。
+
 #### ver 3.5.1 (2026/05/25)
 
     1. 修复自动随机更换背景时遇到大体积本地图片会弹出确认提示并阻断轮播的问题；后台自动换图现在会直接应用，手动选择大图仍保留确认提示。
