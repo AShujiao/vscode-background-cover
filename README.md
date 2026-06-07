@@ -14,12 +14,10 @@
 ![Background Cover Studio preview](resources/readme-preview.jpg)
 
 
-## 🚀 3.5.1 主要更新
+## 🚀 3.5.2 主要更新
 
-1. **🔄 自动轮播修复**：自动随机更换背景遇到大体积本地图片时不再弹出确认提示阻断轮播。
-2. **🖼️ 手动选择保留保护**：手动选择大图时仍会提示可能短暂卡顿，避免误操作。
-3. **🧩 VS Code 更新修复**：VS Code 更新后重新应用背景的提示不再显示 3.0 旧版本信息。
-4. **⚡ 重载行为修复**：点击确认重新应用背景后会等待补丁完成并正确触发窗口重载。
+1. **🐛 新版本 VS Code 兼容修复**：修复 VS Code 升级（如 1.123.0）后因 Node 移除 `util.isObject`，首次初始化时报错
+2. **📦 依赖更换**：将 `sudo-prompt` 替换为官方维护的 `@vscode/sudo-prompt`（[#205](https://github.com/AShujiao/vscode-background-cover/issues/205)）。
 
 ---
 
@@ -112,6 +110,10 @@ A: 插件会自动请求密码，或手动 `sudo chown` 相关文件。
 ## 📝 更新日志
 
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
+
+#### ver 3.5.2 (2026/06/04)
+
+1. 修复新版本 VS Code（如 1.123.0）因 Node 移除 `util.isObject`，首次初始化报错 `Failed to write CSS file: TypeError: Node.util.isObject is not a function` 的问题（将 `sudo-prompt` 替换为官方维护的 `@vscode/sudo-prompt`）。
 
 #### ver 3.5.1 (2026/05/25)
 

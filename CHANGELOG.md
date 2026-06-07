@@ -6,6 +6,10 @@
 -->
 ## 更新日志
 
+#### ver 3.5.2 (2026/06/04)
+
+    1. 修复新版本 VS Code（如 1.123.0）因 Node 升级移除 `util.isObject` 函数，导致首次初始化报错 `Failed to write CSS file: TypeError: Node.util.isObject is not a function` 的问题（将已停止维护的 `sudo-prompt` 依赖替换为官方维护的 `@vscode/sudo-prompt`）([#205](https://github.com/AShujiao/vscode-background-cover/issues/205))。
+
 #### ver 3.5.1 (2026/05/25)
 
     1. 修复自动随机更换背景时遇到大体积本地图片会弹出确认提示并阻断轮播的问题；后台自动换图现在会直接应用，手动选择大图仍保留确认提示。
@@ -242,3 +246,27 @@
     3. 修复 code-server 模式下静态资源浏览器缓存导致背景不更新的问题 ([#194](https://github.com/AShujiao/vscode-background-cover/pull/194) by @WaaSakura)
 
     感谢 @Aierlanta 和 @WaaSakura 的贡献！
+
+#### ver 3.5.0 (2026/05/23)
+
+1. 支持 VS Code AgentView / Agent Sessions 独立窗口背景显示 ([#197](https://github.com/AShujiao/vscode-background-cover/pull/197) by @MaxQian888)。
+2. 新增 Vue 驱动的 Studio 可视化配置面板。
+3. 新增默认/守望界面主题切换。
+4. 新增本地图库预览、最近使用、分页浏览和拖拽设置背景。
+5. 新增本机 Codex 宠物同步，支持 `~/.codex/pets` 与 `CODEX_HOME/pets`。
+6. 新增宠物冒泡文案自定义功能，支持多行配置，留空使用预置文案。
+7. 在线页顶部新增输入 URL 入口，本地页聚焦本地文件与目录管理。
+8. 优化背景热更新、在线随机图缓存与快速切换并发控制。
+9. 修复 macOS 下赞助作者按钮无法打开的问题。
+10. 优化 VSIX 打包配置，显著减小包体。
+
+
+#### ver 3.5.1 (2026/05/25)
+
+1. 修复自动随机更换背景时遇到大体积本地图片会弹出确认提示并阻断轮播的问题。
+2. 修复 VS Code 更新后重新应用背景的提示文案仍显示 3.0 版本信息的问题。
+3. 修复 VS Code 更新后点击确认重新应用背景时未正确触发窗口重载的问题。
+
+#### ver 3.5.2 (2026/06/04)
+
+1. 修复新版本 VS Code（如 1.123.0）因 Node 移除 `util.isObject`，首次初始化报错 `Failed to write CSS file: TypeError: Node.util.isObject is not a function` 的问题（将 `sudo-prompt` 替换为官方维护的 `@vscode/sudo-prompt`）。
