@@ -177,9 +177,7 @@ export function activate(context: ExtensionContext) {
 🚀 更新内容：
     1.  修复 VS Code 更新后背景不生效、必须手动关闭重开的问题（现在会引导完全退出并重启，软重载无法清除 VS Code 编译缓存）。
     2.  修复较新版本 VS Code 安全策略（Trusted Types）下打补丁后背景 / 宠物 / 粒子完全不显示的问题。
-    3.  修复开启粒子特效后每次切换背景粒子叠加，导致 CPU 占用升高 / 卡顿的问题。
-    4.  修复热更新后浮动编辑器 / AgentView 等辅助窗口背景丢失的问题。
-    5.  优化：仅切换背景图片时不再重建装饰运行时，宠物位置与粒子状态得以保留。
+    3.  新增适配 Cursor Agent Window（Glass 窗口）背景显示（by @Aierlanta）。
 
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}

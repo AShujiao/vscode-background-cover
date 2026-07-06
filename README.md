@@ -18,6 +18,7 @@
 
 1. **🐛 修复更新后需手动重启才生效**：VS Code 更新后应用背景补丁，现在会引导完全退出并重启（软重载无法清除核心界面的编译缓存）。
 2. **🐛 修复新版 VS Code 下背景不显示**：适配较新 VS Code 的 Trusted Types 安全策略，重构脚本注入方式，修复打补丁后背景 / 宠物 / 粒子不显示的问题。
+3. **🖥️ 适配 Cursor Agent Window**：支持 Cursor 的 Agent Window（Glass 窗口）背景显示（[#214](https://github.com/AShujiao/vscode-background-cover/pull/214) by @Aierlanta）。
 4. **✨ 切换体验优化**：仅切换图片时保留宠物与粒子状态；装饰面板「重启生效」按钮移到顶部。
 
 ---
@@ -116,7 +117,7 @@ A: 插件会自动请求密码，或手动 `sudo chown` 相关文件。
 
 1. 修复 VS Code 更新后背景不生效、必须手动关闭再重新打开才生效的问题（现代 VS Code 的核心界面编译缓存由主进程持有，软重载无法清除，现在会引导完全退出并重启）。
 2. 修复较新版本 VS Code 安全策略（Trusted Types）下打补丁后背景 / 宠物 / 粒子完全不显示的问题（注入方式重构为「稳定引导 + 外置动态脚本」）。
-3. 修复热更新后浮动编辑器、AgentView 等辅助窗口背景丢失的问题。
+3. 新增适配 Cursor Agent Window（Glass 窗口）背景显示，复用附加 bundle 机制自动打补丁与卸载还原（[#214](https://github.com/AShujiao/vscode-background-cover/pull/214) by @Aierlanta）。
 4. 优化仅切换背景图片时不再重建装饰运行时，宠物位置与粒子状态得以保留。
 5. 装饰配置面板「重启生效」按钮移到顶部并优化提示文案。
 

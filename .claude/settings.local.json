@@ -3,7 +3,8 @@
     "allow": [
       "Bash(gh api:*)",
       "WebFetch(domain:api.github.com)",
-      "Bash(gh issue *)"
+      "Bash(gh issue *)",
+      "mcp__fetch__fetch"
     ]
   }
 }
