@@ -60,7 +60,7 @@ export function activate(context: ExtensionContext) {
 					if (result === 'Apply / 应用') {
 						const requiresReload = await PickList.applyCurrentBackground();
 						if (requiresReload) {
-							await promptReloadWindow();
+							await promptRestartWindow();
 						}
 					}
 				});
@@ -175,7 +175,9 @@ export function activate(context: ExtensionContext) {
 	context.globalState.update('ext_version',version);
 	vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
 🚀 更新内容：
-    1.  修复新版本 VS Code（Node 升级移除了 util.isObject）下首次初始化报错 "Failed to write CSS file: TypeError: Node.util.isObject is not a function" 的问题。
+    1.  修复 VS Code 更新后背景不生效、必须手动关闭重开的问题（现在会引导完全退出并重启，软重载无法清除 VS Code 编译缓存）。
+    2.  修复较新版本 VS Code 安全策略（Trusted Types）下打补丁后背景 / 宠物 / 粒子完全不显示的问题。
+    3.  新增适配 Cursor Agent Window（Glass 窗口）背景显示（by @Aierlanta）。
 
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}
@@ -200,19 +202,35 @@ async function checkVSCodeVersionChanged(context: ExtensionContext): Promise<boo
 			'Apply and Reload / 应用并重载',
 			'Later / 稍后'
 		);
-		
+
 		if (value === 'Apply and Reload / 应用并重载') {
-			// 更新DOM
+			// Update the stored version BEFORE any operation that might reload/close the window
+			await context.globalState.update('vscode_version', vscodeVersion);
+
+			// Apply the background patch
 			const requiresReload = await PickList.applyCurrentBackground();
 			if (requiresReload) {
-				await commands.executeCommand('workbench.action.reloadWindow');
+				// VSCode updates replace workbench files; the Electron main process has
+				// already cached the compiled bytecode of the old (unpatched) workbench.
+				// A soft reload (workbench.action.reloadWindow) only rebuilds the renderer
+				// process and still pulls from the stale cache. A full restart is required
+				// to clear the main process cache and recompile the patched file.
+				const restartChoice = await window.showInformationMessage(
+					'背景补丁已应用，但需要完全关闭并重新打开 VS Code 才能生效（软重载不会清除编译缓存）。是否现在退出？ / Background patch applied. You must fully quit and restart VS Code for it to take effect (soft reload won\'t clear the compilation cache). Quit now?',
+					'Quit / 退出',
+					'Later / 稍后'
+				);
+				if (restartChoice === 'Quit / 退出') {
+					await commands.executeCommand('workbench.action.quit');
+				}
 			} else {
 				window.setStatusBarMessage('Background already applied. / 背景已应用。', 5000);
 			}
+		} else {
+			// User chose "Later / 稍后" — still update the version so we don't prompt again
+			await context.globalState.update('vscode_version', vscodeVersion);
 		}
-		
-		// 更新全局状态中的 VSCode 版本
-		await context.globalState.update('vscode_version', vscodeVersion);
+
 		return true;
 	}
 
@@ -224,14 +242,14 @@ async function checkVSCodeVersionChanged(context: ExtensionContext): Promise<boo
 	return false;
 }
 
-async function promptReloadWindow(): Promise<void> {
+async function promptRestartWindow(): Promise<void> {
 	const value = await window.showInformationMessage(
-		'背景补丁已应用，需要重载 VS Code 窗口后生效。 / Background patch applied. Reload the VS Code window to take effect.',
-		'Reload / 重载',
+		'背景补丁已应用，但需要完全关闭并重新打开 VS Code 才能生效（软重载不会清除编译缓存）。是否现在退出？ / Background patch applied. You must fully quit and restart VS Code for it to take effect (soft reload won\'t clear the compilation cache). Quit now?',
+		'Quit / 退出',
 		'Later / 稍后'
 	);
-	if (value === 'Reload / 重载') {
-		await commands.executeCommand('workbench.action.reloadWindow');
+	if (value === 'Quit / 退出') {
+		await commands.executeCommand('workbench.action.quit');
 	}
 }
 

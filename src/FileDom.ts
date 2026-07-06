@@ -120,7 +120,9 @@ const CSS_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.css);
 const BAK_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.bak);
 const HTML_FILE_PATH = selectedWorkbench.html ? path.join(selectedWorkbench.root, selectedWorkbench.html) : undefined;
 const CUSTOM_CSS_FILE_NAME = 'css-background-cover.css';
+const CUSTOM_JS_FILE_NAME = 'js-background-cover.js';
 export const CUSTOM_CSS_FILE_PATH = path.join(selectedWorkbench.root, CUSTOM_CSS_FILE_NAME);
+const CUSTOM_JS_FILE_PATH = path.join(selectedWorkbench.root, CUSTOM_JS_FILE_NAME);
 const APP_OUT_PATH = path.join(env.appRoot, 'out');
 // Each entry is an additional bundle that needs the same loader IIFE injected
 // (e.g. sessions.desktop.main.js for the AgentView window). Bak path mirrors
@@ -134,9 +136,11 @@ const ADDITIONAL_BUNDLE_PATHS: { jsPath: string; bakPath: string }[] = (selected
 export const ADDITIONAL_BUNDLE_RELATIVE_PATHS: string[] = (selectedWorkbench.additionalBundles ?? []).map((b) => b.relativePath);
 const IS_CODE_SERVER_TARGET = selectedWorkbench.name === 'code-server';
 const WEB_RELATIVE_CSS_PATH = IS_CODE_SERVER_TARGET ? getWebRelativePath(CUSTOM_CSS_FILE_PATH) : undefined;
+const WEB_RELATIVE_JS_PATH = IS_CODE_SERVER_TARGET ? getWebRelativePath(CUSTOM_JS_FILE_PATH) : undefined;
 const CUSTOM_ASSET_DIR = path.join(selectedWorkbench.root, 'background-cover-assets');
 const RELATIVE_URL_PLACEHOLDER = '__BACKGROUND_COVER_BASE__';
 const HTML_CACHE_BUST_PARAM = 'background-cover';
+const BOOTSTRAP_VERSION = '1';
 const DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
 const DEFAULT_ACCEPT_HEADER = 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8';
 
@@ -178,6 +182,7 @@ export class FileDom {
     private initializePromise?: Promise<void>;
     private isVideo: boolean = false;
     public didUpdateCss: boolean = false;
+    public didUpdateDynamicJs: boolean = false;
 
     constructor(
         workConfig: WorkspaceConfiguration,
@@ -466,11 +471,13 @@ export class FileDom {
                 return false;
             }
 
-            // Save CSS first
+            // Save dynamic assets first. The patched workbench bundle only keeps a
+            // stable bootstrap; feature code lives in cache-busted external files.
             try {
                 this.didUpdateCss = await this.saveCssContent();
+                this.didUpdateDynamicJs = await this.saveDynamicJsContent();
             } catch (e) {
-                window.showErrorMessage('Failed to write CSS file: ' + e);
+                window.showErrorMessage('Failed to write background assets: ' + e);
                 return false;
             }
 
@@ -716,6 +723,18 @@ export class FileDom {
                 }
             }
 
+            if (await fse.pathExists(CUSTOM_JS_FILE_PATH)) {
+                try {
+                    await fse.remove(CUSTOM_JS_FILE_PATH);
+                } catch {
+                    if (this.systemType === SystemType.WINDOWS) {
+                        await SudoPromptHelper.exec(`del "${CUSTOM_JS_FILE_PATH}"`);
+                    } else {
+                        await SudoPromptHelper.exec(`rm "${CUSTOM_JS_FILE_PATH}"`);
+                    }
+                }
+            }
+
             await this.clearCodeServerHtmlContent();
 
             return true;
@@ -809,6 +828,22 @@ export class FileDom {
         return true;
     }
 
+    private async saveDynamicJsContent(): Promise<boolean> {
+        const js = this.getDynamicJs();
+        try {
+            if (await fse.pathExists(CUSTOM_JS_FILE_PATH)) {
+                const current = await fse.readFile(CUSTOM_JS_FILE_PATH, 'utf-8');
+                if (current === js) {
+                    return false;
+                }
+            }
+        } catch {
+            // Fall through to write; permission handling below will surface real failures.
+        }
+        await this.writeWithPermission(CUSTOM_JS_FILE_PATH, js);
+        return true;
+    }
+
     // code-server 静态资源会被浏览器长缓存，给 workbench.js URL 增加版本参数以确保首次注入后能加载新文件。
     private async saveCodeServerHtmlContent(cacheKey: string): Promise<boolean> {
         if (!IS_CODE_SERVER_TARGET || !HTML_FILE_PATH || !(await fse.pathExists(HTML_FILE_PATH))) {
@@ -888,14 +923,174 @@ export class FileDom {
 
     // 获取要应用的js内容
     private getJs(): string {
+        return `
+        /*ext-${this.extName}-start*/
+        /*ext.${this.extName}.bootstrap.${BOOTSTRAP_VERSION}*/
+        ${this.getBootstrapJs()}
+        /*ext-${this.extName}-end*/
+        `;
+    }
+
+    private getDynamicJs(): string {
         const particleJs = this.getParticleJs();
 
         return `
-        /*ext-${this.extName}-start*/
         /*ext.${this.extName}.ver.${version}*/
         ${this.getLoaderJs()}
         ${particleJs}
-        /*ext-${this.extName}-end*/
+        `;
+    }
+
+    private getBootstrapJs(): string {
+        const jsDesktopUrl = Uri.file(CUSTOM_JS_FILE_PATH).with({ scheme: 'vscode-file', authority: 'vscode-app' }).toString();
+        const escapedDesktopUrl = this.escapeTemplateLiteral(jsDesktopUrl);
+        const webJsPath = WEB_RELATIVE_JS_PATH ? this.escapeTemplateLiteral(WEB_RELATIVE_JS_PATH) : '';
+        const jsFileName = this.escapeTemplateLiteral(CUSTOM_JS_FILE_NAME);
+        const workbenchJsName = this.escapeTemplateLiteral(selectedWorkbench.js);
+
+        return `
+        (function() {
+            const dynamicDesktopUrl = '${escapedDesktopUrl}';
+            const relativeDynamicPath = '${webJsPath}';
+            const dynamicFileName = '${jsFileName}';
+            const workbenchJsName = '${workbenchJsName}';
+            const GLOBAL_KEY = '__backgroundCoverDynamicLoader';
+
+            function withCacheBust(url) {
+                const sep = url.indexOf('?') === -1 ? '?' : '&';
+                return url + sep + 't=' + Date.now();
+            }
+
+            function deriveFromScript() {
+                if (typeof document === 'undefined') {
+                    return undefined;
+                }
+
+                const buildFromSrc = (src) => {
+                    try {
+                        return new URL(dynamicFileName, src).toString();
+                    } catch (error) {
+                        console.error('[BackgroundCover] Dynamic script URL resolve error:', error);
+                        return undefined;
+                    }
+                };
+
+                const current = document.currentScript;
+                if (current && current.src) {
+                    const candidate = buildFromSrc(current.src);
+                    if (candidate) {
+                        return candidate;
+                    }
+                }
+
+                const scripts = document.getElementsByTagName ? document.getElementsByTagName('script') : [];
+                for (let i = scripts.length - 1; i >= 0; i--) {
+                    const tag = scripts[i];
+                    if (tag && tag.src && tag.src.indexOf(workbenchJsName) !== -1) {
+                        const candidate = buildFromSrc(tag.src);
+                        if (candidate) {
+                            return candidate;
+                        }
+                    }
+                }
+
+                return undefined;
+            }
+
+            function resolveDynamicUrl() {
+                const scriptResolved = deriveFromScript();
+                if (scriptResolved) {
+                    return scriptResolved;
+                }
+
+                if (relativeDynamicPath) {
+                    const bases = [];
+                    const monacoEnv = typeof globalThis !== 'undefined' ? globalThis.MonacoEnvironment || {} : {};
+                    if (monacoEnv.baseUrl) {
+                        bases.push(monacoEnv.baseUrl);
+                    }
+                    if (monacoEnv.appOrigin) {
+                        bases.push(monacoEnv.appOrigin);
+                    }
+                    if (typeof document !== 'undefined' && document.baseURI) {
+                        bases.push(document.baseURI);
+                    }
+                    if (typeof window !== 'undefined' && window.location) {
+                        const { origin, href } = window.location;
+                        if (origin) {
+                            bases.push(origin + '/');
+                        }
+                        if (href) {
+                            const slashIndex = href.lastIndexOf('/');
+                            if (slashIndex !== -1) {
+                                bases.push(href.substring(0, slashIndex + 1));
+                            }
+                        }
+                    }
+
+                    for (const base of bases) {
+                        try {
+                            return new URL(relativeDynamicPath, base).toString();
+                        } catch (error) {
+                            console.error('[BackgroundCover] Dynamic base URL failed:', error);
+                        }
+                    }
+
+                    if (!relativeDynamicPath.startsWith('http')) {
+                        try {
+                            return new URL(relativeDynamicPath, '/').toString();
+                        } catch (error) {
+                            console.error('[BackgroundCover] Dynamic relative URL failed:', error);
+                        }
+                    }
+                }
+
+                return dynamicDesktopUrl;
+            }
+
+            function disposePreviousDynamicJs() {
+                try {
+                    const previous = window[GLOBAL_KEY];
+                    if (previous && typeof previous.dispose === 'function') {
+                        previous.dispose();
+                    }
+                } catch (error) {
+                    console.error('[BackgroundCover] Dynamic dispose failed:', error);
+                }
+            }
+
+            const dynamicUrl = resolveDynamicUrl();
+            // Workbench CSP enforces require-trusted-types-for 'script' with no
+            // 'default' policy, so assigning a string to script.src throws.
+            // Dynamic import() is not a Trusted Types sink and script-src 'self'
+            // permits loading the sibling file, so load the module instead.
+            let loadGeneration = 0;
+            const maxLoadAttempts = 3;
+            function loadDynamicJs() {
+                const generation = ++loadGeneration;
+                disposePreviousDynamicJs();
+
+                const attemptLoad = (attempt) => {
+                    if (generation !== loadGeneration) {
+                        return;
+                    }
+                    try {
+                        import(withCacheBust(dynamicUrl)).catch((error) => {
+                            console.error('[BackgroundCover] Dynamic load error:', error);
+                            if (generation === loadGeneration && attempt < maxLoadAttempts) {
+                                setTimeout(() => attemptLoad(attempt + 1), (attempt + 1) * 1000);
+                            }
+                        });
+                    } catch (error) {
+                        console.error('[BackgroundCover] Dynamic import failed:', error);
+                    }
+                };
+                attemptLoad(0);
+            }
+
+            window.__backgroundCoverBootstrap = { reload: loadDynamicJs };
+            loadDynamicJs();
+        })();
         `;
     }
 
@@ -1147,6 +1342,75 @@ export class FileDom {
 
         return `
         (function() {
+            const runtime = {
+                timers: [],
+                listeners: [],
+                observers: [],
+                originalOpen: null,
+                dispose: function() {
+                    this.timers.forEach(id => clearTimeout(id));
+                    this.timers = [];
+                    this.listeners.forEach(item => {
+                        try {
+                            item.target.removeEventListener(item.type, item.handler, item.options);
+                        } catch (e) {
+                            // ignore teardown failures
+                        }
+                    });
+                    this.listeners = [];
+                    this.observers.forEach(observer => {
+                        try {
+                            observer.disconnect();
+                        } catch (e) {
+                            // ignore teardown failures
+                        }
+                    });
+                    this.observers = [];
+                    if (this.originalOpen && window.open !== this.originalOpen) {
+                        window.open = this.originalOpen;
+                    }
+                    this.originalOpen = null;
+                    try {
+                        const particle = window.__backgroundCoverParticle;
+                        if (particle && typeof particle.destroy === 'function') {
+                            particle.destroy();
+                        }
+                    } catch (e) {
+                        // ignore teardown failures
+                    }
+                    window.__backgroundCoverParticle = undefined;
+                    const assistant = document.getElementById('vscode-background-cover-assistant');
+                    if (assistant) {
+                        assistant.remove();
+                    }
+                    const assistantStyle = document.getElementById('vscode-background-cover-assistant-style');
+                    if (assistantStyle) {
+                        assistantStyle.remove();
+                    }
+                }
+            };
+            window.__backgroundCoverDynamicLoader = runtime;
+
+            function registerTimer(id) {
+                runtime.timers.push(id);
+                return id;
+            }
+
+            function registerInterval(id) {
+                runtime.timers.push(id);
+                return id;
+            }
+
+            function registerListener(target, type, handler, options) {
+                target.addEventListener(type, handler, options);
+                runtime.listeners.push({ target, type, handler, options });
+            }
+
+            function registerObserver(observer) {
+                runtime.observers.push(observer);
+                return observer;
+            }
+
             const cssDesktopUrl = '${escapedDesktopUrl}';
             const relativeCssPath = '${webCssPath}';
             const cssFileName = '${cssFileName}';
@@ -1305,7 +1569,12 @@ export class FileDom {
             // Track auxiliary windows opened by VSCode (e.g. the new AgentView "Open Agents Window",
             // floating editor windows, etc.). Each auxiliary window is a separate Electron BrowserWindow
             // with its own document/body, so we must mirror the <style> and <video> into each.
-            const auxWindows = new Set();
+            // The set lives on window so it survives dynamic-script reloads; otherwise windows
+            // captured by a previous generation would stop receiving background updates.
+            if (!window.__backgroundCoverAuxWindows) {
+                window.__backgroundCoverAuxWindows = new Set();
+            }
+            const auxWindows = window.__backgroundCoverAuxWindows;
             let lastCss = '';
             let lastVideoConfig = null;
 
@@ -1355,13 +1624,13 @@ export class FileDom {
                         // ignore transient errors during window init
                     }
                     if (attempts < maxAttempts) {
-                        setTimeout(tick, 500);
+                        registerTimer(setTimeout(tick, 500));
                     }
                 };
                 tick();
 
                 try {
-                    newWindow.addEventListener('unload', () => {
+                    registerListener(newWindow, 'unload', () => {
                         auxWindows.delete(newWindow);
                     }, { once: true });
                 } catch (e) {
@@ -1371,10 +1640,11 @@ export class FileDom {
 
             // Hook window.open so we capture every auxiliary window VSCode opens.
             try {
-                const originalOpen = window.open ? window.open.bind(window) : null;
+                const originalOpen = window.open || null;
                 if (originalOpen) {
+                    runtime.originalOpen = originalOpen;
                     window.open = function() {
-                        const result = originalOpen.apply(null, arguments);
+                        const result = originalOpen.apply(window, arguments);
                         try {
                             if (result && result !== window) {
                                 registerAuxWindow(result);
@@ -1428,13 +1698,13 @@ export class FileDom {
             }
 
             function scheduleLoadCss(reason, delay) {
-                setTimeout(() => {
+                registerTimer(setTimeout(() => {
                     try {
                         loadCss();
                     } catch (e) {
                         console.error('[BackgroundCover] Scheduled load error (' + reason + '):', e);
                     }
-                }, delay || 0);
+                }, delay || 0));
             }
 
             // Initial load
@@ -1442,17 +1712,26 @@ export class FileDom {
 
             // 1. Event Hook: Listen for status bar message
             try {
-                const observer = new MutationObserver((mutations) => {
+                const observer = registerObserver(new MutationObserver((mutations) => {
                     for (const mutation of mutations) {
                         const target = mutation.target;
                         // Check text content of the mutated node
                         if (target.textContent && target.textContent.includes('background-cover-reload-trigger')) {
-                            scheduleLoadCss('statusbar', 0);
-                            scheduleLoadCss('statusbar-followup', 600);
-                            return; 
+                            // ':js:' means the dynamic bundle itself changed and must be
+                            // re-imported; a CSS-only change just refreshes the stylesheet
+                            // so the pet/particle runtime keeps its state.
+                            const wantsJsReload = target.textContent.includes('background-cover-reload-trigger:js:');
+                            const bootstrap = window.__backgroundCoverBootstrap;
+                            if (wantsJsReload && bootstrap && typeof bootstrap.reload === 'function') {
+                                bootstrap.reload();
+                            } else {
+                                scheduleLoadCss('statusbar', 0);
+                                scheduleLoadCss('statusbar-followup', 600);
+                            }
+                            return;
                         }
                     }
-                });
+                }));
                 
                 const findStatusBar = () => {
                     // Try to find the status bar container
@@ -1466,12 +1745,12 @@ export class FileDom {
                         console.log('[BackgroundCover] Observer attached to:', statusBar);
                     } else {
                         // Retry if not found yet
-                        setTimeout(findStatusBar, 2000);
+                        registerTimer(setTimeout(findStatusBar, 2000));
                     }
                 };
 
                 if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', findStatusBar);
+                    registerListener(document, 'DOMContentLoaded', findStatusBar);
                 } else {
                     findStatusBar();
                 }
@@ -1481,30 +1760,30 @@ export class FileDom {
 
             // 2. Backup Hook: Check on window focus
             // This ensures that if the status bar trigger is missed, the background updates when the user interacts with the window
-            window.addEventListener('focus', () => {
+            registerListener(window, 'focus', () => {
                 if (Date.now() - lastCssLoadAt > 800) {
                     scheduleLoadCss('focus', 0);
                 }
             });
-            document.addEventListener('visibilitychange', () => {
+            registerListener(document, 'visibilitychange', () => {
                 if (!document.hidden) {
                     scheduleLoadCss('visibility', 0);
                 }
             });
-            document.addEventListener('pointerdown', () => {
+            registerListener(document, 'pointerdown', () => {
                 if (Date.now() - lastCssLoadAt > 1500) {
                     scheduleLoadCss('pointer', 0);
                 }
             }, { passive: true });
 
             let startupPolls = 0;
-            const startupPoll = setInterval(() => {
+            const startupPoll = registerInterval(setInterval(() => {
                 startupPolls++;
                 scheduleLoadCss('startup-poll', 0);
                 if (startupPolls >= 6) {
                     clearInterval(startupPoll);
                 }
-            }, 2000);
+            }, 2000));
 
             // Little Assistant Logic
             try {
@@ -1619,10 +1898,10 @@ export class FileDom {
                                 const delay = state === 'walk' ? 120 : 150;
                                 petFrame = 0;
                                 setAtlasFrame(row, petFrame);
-                                petFrameTimer = setInterval(() => {
+                                petFrameTimer = registerInterval(setInterval(() => {
                                     petFrame = (petFrame + 1) % frameCount;
                                     setAtlasFrame(row, petFrame);
-                                }, delay);
+                                }, delay));
                                 return;
                             }
                             petImage.src = state === 'walk' ? walkUrl : idleUrl;
@@ -1742,10 +2021,10 @@ export class FileDom {
                             void bubble.offsetWidth;
                             bubble.classList.add('show');
                             
-                            setTimeout(() => {
+                            registerTimer(setTimeout(() => {
                                 bubble.classList.remove('show');
-                                setTimeout(() => bubble.remove(), 300);
-                            }, 3000);
+                                registerTimer(setTimeout(() => bubble.remove(), 300));
+                            }, 3000));
                         }
 
                         function triggerJump() {
@@ -1789,9 +2068,9 @@ export class FileDom {
                             const jumpChance = 0.3; // 30% chance to jump randomly
                             if (Math.random() < jumpChance) {
                                 const jumpDelay = Math.random() * duration * 1000;
-                                setTimeout(() => {
+                                registerTimer(setTimeout(() => {
                                     triggerJump();
-                                }, jumpDelay);
+                                }, jumpDelay));
                             }
 
                             // Collision detection logic for multiple elements
@@ -1825,20 +2104,20 @@ export class FileDom {
                                     const timeToCollision = (distToCollision / speed) * 1000;
                                     
                                     // Schedule jump and shake
-                                    setTimeout(() => {
+                                    registerTimer(setTimeout(() => {
                                         triggerJump();
                                         // Delay shake slightly to match the "hit" (jump down)
-                                        setTimeout(() => {
+                                        registerTimer(setTimeout(() => {
                                             triggerShake(target);
-                                        }, 250);
-                                    }, timeToCollision);
+                                        }, 250));
+                                    }, timeToCollision));
                                 }
                             });
 
                             currentPos = nextPos;
 
                             // After move, switch to idle
-                            setTimeout(() => {
+                            registerTimer(setTimeout(() => {
                                 setPetState('idle');
 
                                 // Random message logic (only when idle)
@@ -1852,25 +2131,25 @@ export class FileDom {
                                 }
 
                                 // Schedule next move
-                                setTimeout(move, delay);
-                            }, duration * 1000);
+                                registerTimer(setTimeout(move, delay));
+                            }, duration * 1000));
                         }
 
                         move();
                     };
 
                     if (document.readyState === 'loading') {
-                        document.addEventListener('DOMContentLoaded', initAssistant);
+                        registerListener(document, 'DOMContentLoaded', initAssistant);
                     } else {
                         initAssistant();
                     }
                     
                     // Re-init if titlebar is re-created
-                    const observer = new MutationObserver(() => {
+                    const observer = registerObserver(new MutationObserver(() => {
                         if (!document.getElementById(assistantId)) {
                             initAssistant();
                         }
-                    });
+                    }));
                     observer.observe(document.body, { childList: true, subtree: true });
                 }
 

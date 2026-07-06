@@ -1,5 +1,15 @@
 <template>
     <div class="decoration-tab">
+        <!-- Reload to apply — kept on top so users see the restart requirement
+             before they start changing settings below. -->
+        <el-card class="card apply-card" shadow="never">
+            <div class="apply-hint">{{ t('applyChangesHint') }}</div>
+            <el-button type="primary" class="apply-btn" @click="onApply">
+                <el-icon><RefreshRight /></el-icon>
+                {{ t('applyChanges') }}
+            </el-button>
+        </el-card>
+
         <!-- Pet -->
         <el-card class="card" shadow="never">
             <template #header>
@@ -118,15 +128,6 @@
                     </button>
                 </div>
             </div>
-        </el-card>
-
-        <!-- Reload to apply -->
-        <el-card class="card apply-card" shadow="never">
-            <div class="apply-hint">{{ t('applyChangesHint') }}</div>
-            <el-button type="primary" class="apply-btn" @click="onApply">
-                <el-icon><RefreshRight /></el-icon>
-                {{ t('applyChanges') }}
-            </el-button>
         </el-card>
     </div>
 </template>

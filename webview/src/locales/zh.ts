@@ -64,5 +64,5 @@ export default {
     customColor:          '自定义颜色',
     intervalSeconds:      '间隔（秒）',
     applyChanges:         '重启窗口生效',
-    applyChangesHint:     '部分装饰修改需要重启窗口后才能生效'
+    applyChangesHint:     '本部分功能修改后需重启窗口才能生效，修改完成后请点击下方按钮'
 };
