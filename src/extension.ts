@@ -200,19 +200,35 @@ async function checkVSCodeVersionChanged(context: ExtensionContext): Promise<boo
 			'Apply and Reload / 应用并重载',
 			'Later / 稍后'
 		);
-		
+
 		if (value === 'Apply and Reload / 应用并重载') {
-			// 更新DOM
+			// Update the stored version BEFORE any operation that might reload/close the window
+			await context.globalState.update('vscode_version', vscodeVersion);
+
+			// Apply the background patch
 			const requiresReload = await PickList.applyCurrentBackground();
 			if (requiresReload) {
-				await commands.executeCommand('workbench.action.reloadWindow');
+				// VSCode updates replace workbench files; the Electron main process has
+				// already cached the compiled bytecode of the old (unpatched) workbench.
+				// A soft reload (workbench.action.reloadWindow) only rebuilds the renderer
+				// process and still pulls from the stale cache. A full restart is required
+				// to clear the main process cache and recompile the patched file.
+				const restartChoice = await window.showInformationMessage(
+					'背景补丁已应用，但需要完全关闭并重新打开 VS Code 才能生效（软重载不会清除编译缓存）。是否现在退出？ / Background patch applied. You must fully quit and restart VS Code for it to take effect (soft reload won\'t clear the compilation cache). Quit now?',
+					'Quit / 退出',
+					'Later / 稍后'
+				);
+				if (restartChoice === 'Quit / 退出') {
+					await commands.executeCommand('workbench.action.quit');
+				}
 			} else {
 				window.setStatusBarMessage('Background already applied. / 背景已应用。', 5000);
 			}
+		} else {
+			// User chose "Later / 稍后" — still update the version so we don't prompt again
+			await context.globalState.update('vscode_version', vscodeVersion);
 		}
-		
-		// 更新全局状态中的 VSCode 版本
-		await context.globalState.update('vscode_version', vscodeVersion);
+
 		return true;
 	}
 

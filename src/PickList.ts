@@ -1435,15 +1435,18 @@ export class PickList {
                     if (this.quickPick) {
                         this.quickPick.hide();
                     }
-                    if (!dom.didUpdateCss) {
+                    if (!dom.didUpdateCss && !dom.didUpdateDynamicJs) {
                         window.setStatusBarMessage('Background already up to date. / 背景已是最新。', 3000);
                         return false;
                     }
                     // Unique trigger per call so the MutationObserver in the
                     // injected loader always detects a DOM change (VSCode may
-                    // skip mutation events if the text is identical).
+                    // skip mutation events if the text is identical). The kind
+                    // segment tells the loader whether it must re-import the
+                    // dynamic JS or can simply refresh the CSS in place.
                     PickList._reloadTriggerSeq += 1;
-                    const triggerText = `background-cover-reload-trigger:${PickList._reloadTriggerSeq}`;
+                    const triggerKind = dom.didUpdateDynamicJs ? 'js' : 'css';
+                    const triggerText = `background-cover-reload-trigger:${triggerKind}:${PickList._reloadTriggerSeq}`;
                     const triggerMsg = window.setStatusBarMessage(triggerText);
 
                     setTimeout(() => {

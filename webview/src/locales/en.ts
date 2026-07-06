@@ -64,5 +64,5 @@ export default {
     customColor:          'Custom Color',
     intervalSeconds:      'Interval (seconds)',
     applyChanges:         'Reload to apply changes',
-    applyChangesHint:     'Some decoration changes only take effect after a reload.'
+    applyChangesHint:     'Changes in this section require a window reload. Click the button below after editing.'
 };
