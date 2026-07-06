@@ -17,6 +17,8 @@ const extName = "backgroundCover";
 const TARGET_JS_PATHS: string[] = [
     path.join(base, 'resources', 'app', 'out', 'vs', 'workbench', 'workbench.desktop.main.js'),
     path.join(base, 'resources', 'app', 'out', 'vs', 'sessions', 'sessions.desktop.main.js'),
+    // Cursor Agent Window (Glass) renderer bundle
+    path.join(base, 'resources', 'app', 'out', 'vs', 'workbench', 'workbench.glass.main.js'),
     // code-server (web mode) install layout
     path.join(base, 'resources', 'app', 'out', 'vs', 'code', 'browser', 'workbench', 'workbench.js')
 ];

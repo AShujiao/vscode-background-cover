@@ -48,7 +48,10 @@ const WORKBENCH_TARGETS: WorkbenchTarget[] = [
         // background show up there too. Optional: the file is only present in VSCode
         // builds that ship the AgentView; older builds will be skipped at runtime.
         additionalBundles: [
-            { relativePath: path.join('vs', 'sessions', 'sessions.desktop.main.js') }
+            { relativePath: path.join('vs', 'sessions', 'sessions.desktop.main.js') },
+            // Cursor Agent Window (codename "Glass") — same workbench dir but a
+            // separate renderer bundle picked when the window config has glass=true.
+            { relativePath: path.join('vs', 'workbench', 'workbench.glass.main.js') }
         ]
     },
     {
