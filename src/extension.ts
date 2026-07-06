@@ -60,7 +60,7 @@ export function activate(context: ExtensionContext) {
 					if (result === 'Apply / 应用') {
 						const requiresReload = await PickList.applyCurrentBackground();
 						if (requiresReload) {
-							await promptReloadWindow();
+							await promptRestartWindow();
 						}
 					}
 				});
@@ -175,7 +175,11 @@ export function activate(context: ExtensionContext) {
 	context.globalState.update('ext_version',version);
 	vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
 🚀 更新内容：
-    1.  修复新版本 VS Code（Node 升级移除了 util.isObject）下首次初始化报错 "Failed to write CSS file: TypeError: Node.util.isObject is not a function" 的问题。
+    1.  修复 VS Code 更新后背景不生效、必须手动关闭重开的问题（现在会引导完全退出并重启，软重载无法清除 VS Code 编译缓存）。
+    2.  修复较新版本 VS Code 安全策略（Trusted Types）下打补丁后背景 / 宠物 / 粒子完全不显示的问题。
+    3.  修复开启粒子特效后每次切换背景粒子叠加，导致 CPU 占用升高 / 卡顿的问题。
+    4.  修复热更新后浮动编辑器 / AgentView 等辅助窗口背景丢失的问题。
+    5.  优化：仅切换背景图片时不再重建装饰运行时，宠物位置与粒子状态得以保留。
 
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}
@@ -240,14 +244,14 @@ async function checkVSCodeVersionChanged(context: ExtensionContext): Promise<boo
 	return false;
 }
 
-async function promptReloadWindow(): Promise<void> {
+async function promptRestartWindow(): Promise<void> {
 	const value = await window.showInformationMessage(
-		'背景补丁已应用，需要重载 VS Code 窗口后生效。 / Background patch applied. Reload the VS Code window to take effect.',
-		'Reload / 重载',
+		'背景补丁已应用，但需要完全关闭并重新打开 VS Code 才能生效（软重载不会清除编译缓存）。是否现在退出？ / Background patch applied. You must fully quit and restart VS Code for it to take effect (soft reload won\'t clear the compilation cache). Quit now?',
+		'Quit / 退出',
 		'Later / 稍后'
 	);
-	if (value === 'Reload / 重载') {
-		await commands.executeCommand('workbench.action.reloadWindow');
+	if (value === 'Quit / 退出') {
+		await commands.executeCommand('workbench.action.quit');
 	}
 }
 

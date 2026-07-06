@@ -6,6 +6,14 @@
 -->
 ## 更新日志
 
+#### ver 3.5.3 (2026/07/06)
+
+    1. 修复 VS Code 更新后背景不生效、必须手动关闭再重新打开才生效的问题（现代 VS Code 的核心界面编译缓存由主进程持有，软重载无法清除，现在会引导完全退出并重启）。
+    2. 修复较新版本 VS Code 安全策略（Trusted Types）下打补丁后背景 / 宠物 / 粒子完全不显示的问题（注入方式重构为「稳定引导 + 外置动态脚本」）。
+    3. 修复热更新后浮动编辑器、AgentView 等辅助窗口背景丢失的问题。
+    4. 优化仅切换背景图片时不再重建装饰运行时，宠物位置与粒子状态得以保留。
+    5. 装饰配置面板「重启生效」按钮移到顶部并优化提示文案。
+
 #### ver 3.5.2 (2026/06/04)
 
     1. 修复新版本 VS Code（如 1.123.0）因 Node 升级移除 `util.isObject` 函数，导致首次初始化报错 `Failed to write CSS file: TypeError: Node.util.isObject is not a function` 的问题（将已停止维护的 `sudo-prompt` 依赖替换为官方维护的 `@vscode/sudo-prompt`）([#205](https://github.com/AShujiao/vscode-background-cover/issues/205))。
