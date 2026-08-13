@@ -22,9 +22,10 @@ import { PickList } from './PickList';
 import vsHelp from './vsHelp';
 import ReaderViewProvider from './readerView';
 import { setContext } from './global';
-import { CUSTOM_CSS_FILE_PATH } from './FileDom';
+import { CUSTOM_JS_FILE_PATH } from './FileDom';
 import { BackgroundCoverViewProvider } from './backgroundCoverView';
 import { StudioViewProvider } from './StudioViewProvider';
+import { hasCurrentImageRecord, resolveCurrentImagePath, setCurrentImagePath } from './windowBackground';
 
 
 export function activate(context: ExtensionContext) {
@@ -46,10 +47,12 @@ export function activate(context: ExtensionContext) {
 	context.subscriptions.push(particleBtn);
 
 	// 异步检查 VSCode 版本变化，不阻塞启动
-	checkVSCodeVersionChanged(context).then(isChanged => {
+	checkVSCodeVersionChanged(context).then(async isChanged => {
 		if (!isChanged) {
 			const config = workspace.getConfiguration('backgroundCover');
-			if (config.imagePath && !fs.existsSync(CUSTOM_CSS_FILE_PATH)) {
+			const resolved = resolveCurrentImagePath(config.imagePath || '');
+			const hasImage = !!resolved || hasCurrentImageRecord();
+			if (hasImage && !fs.existsSync(CUSTOM_JS_FILE_PATH)) {
 				const ex: Extension<any> | undefined = extensions.getExtension('manasxx.background-cover');
 				const extensionVersion: string = ex ? ex.packageJSON['version'] : '';
 				window.showInformationMessage(
@@ -65,7 +68,9 @@ export function activate(context: ExtensionContext) {
 					}
 				});
 			} else {
-				// 防止同时运行
+				if (hasImage) {
+					await PickList.applyCurrentBackground();
+				}
 				PickList.autoUpdateBackground();
 			}
 		}
@@ -149,9 +154,18 @@ export function activate(context: ExtensionContext) {
 
 
 	context.subscriptions.push(commands.registerCommand('backgroundCover.setConfig', async (key: string, value: any) => {
+		if (key === 'backgroundCover.imagePath') {
+			await setCurrentImagePath(typeof value === 'string' ? value : '');
+			const bgConfig = workspace.getConfiguration('backgroundCover');
+			const globalPath = bgConfig.get<string>('imagePath') || '';
+			if (!globalPath && typeof value === 'string' && value) {
+				await workspace.getConfiguration().update(key, value, true);
+			}
+			await PickList.applyCurrentBackground();
+			return;
+		}
 		const config = workspace.getConfiguration();
 		await config.update(key, value, true);
-		// Trigger update
 		const newConfig = workspace.getConfiguration('backgroundCover');
 		PickList.needAutoUpdate(newConfig);
 	}));
@@ -187,8 +201,8 @@ export function activate(context: ExtensionContext) {
 async function checkVSCodeVersionChanged(context: ExtensionContext): Promise<boolean> {
 	// 获取配置
 	let config = workspace.getConfiguration('backgroundCover');
-	// 如果没有设置背景图，则不处理
-	if (!config.imagePath) {
+	const resolved = resolveCurrentImagePath(config.imagePath || '');
+	if (!resolved && !hasCurrentImageRecord()) {
 		return false;
 	}
 

@@ -7,11 +7,14 @@ export class SudoPromptHelper {
             sudo.exec(command, options, (error, stdout, stderr) => {
                 if (error) {
                     reject(error);
-                } else if (stderr) {
-                    reject(new Error(stderr ? stderr.toString() : ''));
-                } else {
-                    resolve(stdout ? stdout.toString() : '');
+                    return;
                 }
+                // icacls/takeown often write status text to stderr even when they
+                // succeed. Treat a zero exit as success and keep stderr for logs.
+                if (stderr) {
+                    console.warn('[SudoPromptHelper] stderr:', stderr.toString());
+                }
+                resolve(stdout ? stdout.toString() : '');
             });
         });
     }

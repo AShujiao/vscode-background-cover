@@ -17,6 +17,7 @@ import {
 import { PickList, getAllPets } from './PickList';
 import { onDidChangeGlobalState } from './global';
 import { getColorEntries } from './color';
+import { resolveCurrentImagePath } from './windowBackground';
 
 /**
  * Vue-powered single-pane configuration webview.
@@ -86,7 +87,7 @@ export class StudioViewProvider implements WebviewViewProvider {
         const cfg = workspace.getConfiguration('backgroundCover');
         const gs = this.ctx.globalState;
 
-        const imagePath = cfg.get<string>('imagePath') || '';
+        const imagePath = resolveCurrentImagePath(cfg.get<string>('imagePath') || '');
         const imagePathDisplay = this.toWebviewUri(imagePath);
 
         const recentRaw = gs.get<string[]>('backgroundCoverRecentImages', []) || [];
