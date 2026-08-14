@@ -51,6 +51,10 @@ export default {
     apply:             'Apply',
     supportAuthor:     'Support Author',
     actionCenter:      'Action Center',
+    about:             'About',
+    repository:        'Repository',
+    issues:            'Issues',
+    starOnGithub:      'Star',
 
     language:          'Language',
     langEnglish:       'English',

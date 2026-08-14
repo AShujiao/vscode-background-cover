@@ -51,6 +51,10 @@ export default {
     apply:             '应用',
     supportAuthor:     '赞助作者',
     actionCenter:      '操作中心',
+    about:             '关于',
+    repository:        '仓库地址',
+    issues:            '问题反馈',
+    starOnGithub:      '点个 Star',
 
     language:          '语言',
     langEnglish:       'English',

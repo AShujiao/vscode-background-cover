@@ -32,3 +32,7 @@ export const SIZE_MODES = [
 export const BLEND_MODES = ['auto', 'multiply', 'lighten'];
 
 export const ONLINE_GALLERY_URL = 'https://vs.20988.xyz';
+
+/** 关于区入口，与 src/PickList.ts getMoreMenuItems() 保持一致。 */
+export const GITHUB_REPO_URL = 'https://github.com/AShujiao/vscode-background-cover';
+export const GITHUB_ISSUES_URL = 'https://github.com/AShujiao/vscode-background-cover/issues';
