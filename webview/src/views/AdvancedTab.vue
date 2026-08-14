@@ -40,6 +40,25 @@
             </div>
         </el-card>
 
+        <!-- Window scope -->
+        <el-card class="card" shadow="never">
+            <template #header>
+                <span class="card-title">
+                    <el-icon><Monitor /></el-icon>
+                    {{ t('windowScope') }}
+                </span>
+            </template>
+
+            <div class="row">
+                <span class="row-label">{{ t('perWindowBackground') }}</span>
+                <el-switch
+                    :model-value="config.perWindowBackground !== false"
+                    @change="(v: any) => bridge.post({ type: 'setConfig', key: 'perWindowBackground', value: v })"
+                />
+            </div>
+            <div class="row-hint">{{ t('perWindowBackgroundHint') }}</div>
+        </el-card>
+
         <!-- Size mode -->
         <el-card class="card" shadow="never">
             <template #header>
@@ -94,7 +113,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Refresh, ArrowRight, FullScreen, Brush, FolderOpened, Star } from '@element-plus/icons-vue';
+import { Refresh, ArrowRight, FullScreen, Brush, FolderOpened, Star, Monitor } from '@element-plus/icons-vue';
 import { useI18n } from '../composables/useI18n';
 import { useBridge } from '../composables/useBridge';
 import { config } from '../composables/useStore';
@@ -150,6 +169,15 @@ function onSupport()      { bridge.post({ type: 'runAction', action: ActionType.
 .row-label {
     font-size: 12px;
     color: var(--vscode-foreground);
+}
+
+.row-hint {
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--vscode-descriptionForeground);
+    opacity: .85;
+    padding-top: 6px;
+    border-top: var(--studio-divider);
 }
 
 .folder-btn {

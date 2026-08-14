@@ -90,26 +90,47 @@
                 </button>
             </div>
         </el-card>
+
+        <!-- About / GitHub -->
+        <el-card shadow="never" class="section-card about-card">
+            <template #header>
+                <span class="card-title">
+                    <el-icon><Link /></el-icon>
+                    {{ t('about') }}
+                </span>
+            </template>
+            <div class="about-grid">
+                <button class="about-tile" :title="GITHUB_REPO_URL" @click="onRepo">
+                    <span class="tile-icon tile-icon--slate"><el-icon><Link /></el-icon></span>
+                    <span class="about-label">{{ t('repository') }}</span>
+                </button>
+                <button class="about-tile" :title="GITHUB_ISSUES_URL" @click="onIssues">
+                    <span class="tile-icon tile-icon--amber"><el-icon><ChatDotRound /></el-icon></span>
+                    <span class="about-label">{{ t('issues') }}</span>
+                </button>
+                <button class="about-tile" :title="GITHUB_REPO_URL" @click="onStar">
+                    <span class="tile-icon tile-icon--gold"><el-icon><StarFilled /></el-icon></span>
+                    <span class="about-label">{{ t('starOnGithub') }}</span>
+                </button>
+            </div>
+        </el-card>
     </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Picture, Upload, Operation, RefreshRight, Delete, Grid, FolderOpened, Star } from '@element-plus/icons-vue';
+import { Picture, Upload, Operation, RefreshRight, Delete, Grid, FolderOpened, Star, Link, ChatDotRound, StarFilled } from '@element-plus/icons-vue';
 import { useI18n } from '../composables/useI18n';
 import { useBridge } from '../composables/useBridge';
 import { config } from '../composables/useStore';
-import { ActionType } from '../constants';
+import { ActionType, GITHUB_REPO_URL, GITHUB_ISSUES_URL } from '../constants';
 import { isVideoPath } from '../utils/media';
 
 const { t } = useI18n();
 const bridge = useBridge();
 
-const displayUrl = computed(() => {
-    const p = config.imagePath || '';
-    if (/^https?:\/\//i.test(p)) { return p; }
-    return config.imagePathDisplay || '';
-});
+// 只用扩展侧给出的本地路径。在线地址一律不直连，避免每次刷新都回源云存储。
+const displayUrl = computed(() => config.imagePathDisplay || '');
 
 const isVideo = computed(() => isVideoPath(config.imagePath));
 
@@ -144,6 +165,10 @@ function onClear()   { bridge.post({ type: 'runAction', action: ActionType.Close
 function onRefresh() { bridge.post({ type: 'runAction', action: ActionType.UpdateBackground }); }
 function onOpenCache() { bridge.post({ type: 'runAction', action: ActionType.OpenCacheFolder }); }
 function onSupport()   { bridge.post({ type: 'runAction', action: ActionType.OpenFilePath, path: '//resources//support.jpg' }); }
+
+function onRepo()   { bridge.post({ type: 'openExternal', url: GITHUB_REPO_URL }); }
+function onIssues() { bridge.post({ type: 'openExternal', url: GITHUB_ISSUES_URL }); }
+function onStar()   { bridge.post({ type: 'openExternal', url: GITHUB_REPO_URL }); }
 </script>
 
 <style lang="scss" scoped>
@@ -324,6 +349,71 @@ function onSupport()   { bridge.post({ type: 'runAction', action: ActionType.Ope
             0 1px 0 rgba(255, 255, 255, 0.2) inset,
             0 4px 12px rgba(236, 106, 167, 0.45);
     }
+    &--slate {
+        background: linear-gradient(135deg, #8a93a8 0%, #5b6478 100%);
+        box-shadow:
+            0 1px 0 rgba(255, 255, 255, 0.2) inset,
+            0 4px 12px rgba(91, 100, 120, 0.45);
+    }
+    &--amber {
+        background: linear-gradient(135deg, #ffc46b 0%, #f0993a 100%);
+        box-shadow:
+            0 1px 0 rgba(255, 255, 255, 0.2) inset,
+            0 4px 12px rgba(240, 153, 58, 0.45);
+    }
+    &--gold {
+        background: linear-gradient(135deg, #ffd76b 0%, #e8b021 100%);
+        box-shadow:
+            0 1px 0 rgba(255, 255, 255, 0.2) inset,
+            0 4px 12px rgba(232, 176, 33, 0.45);
+    }
+}
+
+.about-card :deep(.el-card__body) { padding: 10px 12px 12px; }
+
+.about-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+/* 侧边栏很窄，三个入口改成竖排图标+文字，避免横排时文字被截断 */
+.about-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 4px;
+    border-radius: 8px;
+    background: var(--studio-btn-soft, rgba(46, 54, 88, 0.85));
+    border: 1px solid var(--studio-btn-soft-border, rgba(120, 140, 200, 0.35));
+    color: var(--vscode-foreground);
+    cursor: pointer;
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.04) inset,
+        0 2px 6px rgba(0, 0, 0, 0.25);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+
+    &:hover {
+        transform: translateY(-1px);
+        background: var(--studio-btn-soft-hover, rgba(60, 74, 120, 0.95));
+        border-color: rgba(140, 165, 230, 0.55);
+        box-shadow:
+            0 1px 0 rgba(255, 255, 255, 0.06) inset,
+            0 6px 16px rgba(108, 140, 255, 0.25);
+    }
+
+    &:active { transform: translateY(0); }
+}
+
+.about-label {
+    font-size: 11px;
+    line-height: 1.2;
+    color: var(--vscode-foreground);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
 }
 
 .tile-label {

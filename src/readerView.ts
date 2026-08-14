@@ -98,7 +98,7 @@ export default class ReaderViewProvider implements WebviewViewProvider {
   }
 
   private getHtmlForWebview(page ? : string) {
-    var url:string = 'https://vs.20988.xyz/d/24-bei-jing-tu-tu-ku';
+    var url:string = 'https://vs.20988.xyz';
     if(page == 'home'){
       url = 'https://vs.20988.xyz';
     }else{

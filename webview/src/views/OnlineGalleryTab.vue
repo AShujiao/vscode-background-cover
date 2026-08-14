@@ -24,12 +24,20 @@
             </template>
             <div class="frame-wrap">
                 <iframe
+                    v-if="loaded"
                     ref="frameRef"
                     :key="frameKey"
                     :src="ONLINE_GALLERY_URL"
                     sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
                     referrerpolicy="no-referrer"
                 />
+                <div v-else class="frame-placeholder">
+                    <el-button type="primary" size="small" @click="onLoad">
+                        <el-icon><Promotion /></el-icon>
+                        {{ t('loadOnlineGallery') }}
+                    </el-button>
+                    <span class="frame-hint">{{ t('loadOnlineGalleryHint') }}</span>
+                </div>
             </div>
         </el-card>
     </div>
@@ -47,8 +55,19 @@ const bridge = useBridge();
 
 const frameRef = ref<HTMLIFrameElement | null>(null);
 const frameKey = ref(0);
+// iframe 只在用户显式进入在线图库后才创建：面板挂载时就加载会让每次打开侧边栏
+// 都请求一遍整个图库页面及其缩略图。
+const loaded = ref(false);
+
+function onLoad() {
+    loaded.value = true;
+}
 
 function onRefresh() {
+    if (!loaded.value) {
+        loaded.value = true;
+        return;
+    }
     frameKey.value++;
 }
 
@@ -127,5 +146,22 @@ onUnmounted(() => { window.removeEventListener('message', onWindowMessage); });
         border: 0;
         background: var(--vscode-editor-background);
     }
+}
+
+.frame-placeholder {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 16px;
+    text-align: center;
+}
+
+.frame-hint {
+    font-size: 11px;
+    opacity: 0.7;
+    color: var(--vscode-descriptionForeground);
 }
 </style>

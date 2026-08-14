@@ -22,6 +22,8 @@ export default {
     emptyRecent:       '还没有最近使用的图片 — 选一张开始吧。',
     openOnlineInBrowser: '浏览器打开',
     refreshOnline:     '刷新',
+    loadOnlineGallery: '加载在线图库',
+    loadOnlineGalleryHint: '按需加载，避免每次打开面板都请求在线图片',
 
     autoRandom:        '自动随机',
     enabled:           '启用',
@@ -29,6 +31,9 @@ export default {
     sourceFolder:      '来源目录',
     sizeMode:          '尺寸模式',
     blendMode:         '混合模式',
+    windowScope:       '窗口背景',
+    perWindowBackground:     '每个窗口独立',
+    perWindowBackgroundHint: '开启后各窗口可显示不同背景；关闭则所有窗口共用同一张',
     openCacheFolder:   '打开缓存目录',
 
     petAssistant:      '顶部小宠物',
@@ -48,6 +53,10 @@ export default {
     apply:             '应用',
     supportAuthor:     '赞助作者',
     actionCenter:      '操作中心',
+    about:             '关于',
+    repository:        '仓库地址',
+    issues:            '问题反馈',
+    starOnGithub:      '点个 Star',
 
     language:          '语言',
     langEnglish:       'English',

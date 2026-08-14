@@ -22,6 +22,8 @@ export default {
     emptyRecent:       'No recent images yet — pick one to start.',
     openOnlineInBrowser: 'Open in Browser',
     refreshOnline:     'Refresh',
+    loadOnlineGallery: 'Load Online Gallery',
+    loadOnlineGalleryHint: 'Loaded on demand so opening the panel does not fetch online images',
 
     autoRandom:        'Auto Random',
     enabled:           'Enabled',
@@ -29,6 +31,9 @@ export default {
     sourceFolder:      'Source Folder',
     sizeMode:          'Size Mode',
     blendMode:         'Blend Mode',
+    windowScope:       'Window Background',
+    perWindowBackground:     'Per-window background',
+    perWindowBackgroundHint: 'On: each window keeps its own image. Off: all windows share one.',
     openCacheFolder:   'Open Cache Folder',
 
     petAssistant:      'Top Pet',
@@ -48,6 +53,10 @@ export default {
     apply:             'Apply',
     supportAuthor:     'Support Author',
     actionCenter:      'Action Center',
+    about:             'About',
+    repository:        'Repository',
+    issues:            'Issues',
+    starOnGithub:      'Star',
 
     language:          'Language',
     langEnglish:       'English',

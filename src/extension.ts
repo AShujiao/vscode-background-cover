@@ -22,7 +22,7 @@ import { PickList } from './PickList';
 import vsHelp from './vsHelp';
 import ReaderViewProvider from './readerView';
 import { setContext } from './global';
-import { CUSTOM_JS_FILE_PATH } from './FileDom';
+import { CUSTOM_JS_FILE_PATH, collectStaleWindowCssFiles } from './FileDom';
 import { BackgroundCoverViewProvider } from './backgroundCoverView';
 import { StudioViewProvider } from './StudioViewProvider';
 import { hasCurrentImageRecord, resolveCurrentImagePath, setCurrentImagePath } from './windowBackground';
@@ -79,10 +79,18 @@ export function activate(context: ExtensionContext) {
 	// 启动自动更换任务
 	PickList.startAutoRandomTask();
 
+	// 回收历史窗口会话遗留的 CSS 文件，不阻塞启动
+	void collectStaleWindowCssFiles();
+
 	// 监听配置变化
 	context.subscriptions.push(workspace.onDidChangeConfiguration(e => {
 		if (e.affectsConfiguration('backgroundCover.autoStatus') || e.affectsConfiguration('backgroundCover.autoInterval')) {
 			PickList.startAutoRandomTask();
+		}
+		if (e.affectsConfiguration('backgroundCover.perWindowBackground')) {
+			// 切换独立/共用模式：重新应用一次，让本窗口写到新的目标 CSS 文件，
+			// 并把注入端的地址复位。其余窗口各自收到同一事件后自行处理。
+			void PickList.applyCurrentBackground();
 		}
 	}));
 
@@ -155,17 +163,18 @@ export function activate(context: ExtensionContext) {
 
 	context.subscriptions.push(commands.registerCommand('backgroundCover.setConfig', async (key: string, value: any) => {
 		if (key === 'backgroundCover.imagePath') {
+			// 全局兜底由 windowBackground 的 globalState 承担，不再回写 settings.json
+			// （旧实现只在首次为空时写入，之后永久冻结在第一张图上）。
 			await setCurrentImagePath(typeof value === 'string' ? value : '');
-			const bgConfig = workspace.getConfiguration('backgroundCover');
-			const globalPath = bgConfig.get<string>('imagePath') || '';
-			if (!globalPath && typeof value === 'string' && value) {
-				await workspace.getConfiguration().update(key, value, true);
-			}
 			await PickList.applyCurrentBackground();
 			return;
 		}
 		const config = workspace.getConfiguration();
 		await config.update(key, value, true);
+		if (key === 'backgroundCover.perWindowBackground') {
+			// 重新应用交给 onDidChangeConfiguration 统一处理，避免连开两次。
+			return;
+		}
 		const newConfig = workspace.getConfiguration('backgroundCover');
 		PickList.needAutoUpdate(newConfig);
 	}));
@@ -189,9 +198,9 @@ export function activate(context: ExtensionContext) {
 	context.globalState.update('ext_version',version);
 	vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
 🚀 更新内容：
-    1.  修复 VS Code 更新后背景不生效、必须手动关闭重开的问题（现在会引导完全退出并重启，软重载无法清除 VS Code 编译缓存）。
-    2.  修复较新版本 VS Code 安全策略（Trusted Types）下打补丁后背景 / 宠物 / 粒子完全不显示的问题。
-    3.  新增适配 Cursor Agent Window（Glass 窗口）背景显示（by @Aierlanta）。
+    1.  新增多窗口独立背景，每个窗口可显示各自的背景图（可在高级设置中切回全部窗口共用）。
+    2.  优化多窗口授权体验，新开窗口不再反复弹出 UAC 授权窗口。
+    3.  优化自动换图容错，网络失败会静默重试或换图，不再弹窗打断。
 
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}
