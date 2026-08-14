@@ -41,7 +41,30 @@ function main(): boolean {
             allOk = false;
         }
     }
+    removeBackgroundCoverCssFiles(path.join(base, 'resources', 'app', 'out', 'vs', 'workbench'));
+    removeBackgroundCoverCssFiles(path.join(base, 'resources', 'app', 'out', 'vs', 'code', 'browser', 'workbench'));
     return allOk;
+}
+
+function removeBackgroundCoverCssFiles(dir: string): void {
+    if (!fs.existsSync(dir)) {
+        return;
+    }
+    let names: string[] = [];
+    try {
+        names = fs.readdirSync(dir);
+    } catch {
+        return;
+    }
+    for (const name of names) {
+        if (name.startsWith('css-background-cover') && name.endsWith('.css')) {
+            try {
+                fs.unlinkSync(path.join(dir, name));
+            } catch {
+                // Best-effort: uninstall runs without vscode APIs or sudo prompts.
+            }
+        }
+    }
 }
 
 function clearCssContent(content: string): string {

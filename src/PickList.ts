@@ -23,6 +23,7 @@ import { BackgroundPatchError, BackgroundApplyCancelledError, shouldTryNextAutoI
 import { ImgItem } from './ImgItem';
 import vsHelp from './vsHelp';
 import { getContext, onDidChangeGlobalState } from './global';
+import { hasCurrentImageRecord, resolveCurrentImagePath, setCurrentImagePath } from './windowBackground';
 import { BlendHelper } from './BlendHelper';
 import Color, { getColorList } from './color'; // 导入颜色定义
 import { OnlineImageHelper } from './OnlineImageHelper';
@@ -211,7 +212,7 @@ export class PickList {
     }
 
     public static needAutoUpdate(config: WorkspaceConfiguration) {
-        if (config.imagePath == '') { return; }
+        if (!resolveCurrentImagePath(config.imagePath || '')) { return; }
 
         const nowBlenaStr = BlendHelper.autoBlendModel();
         PickList.itemList = new PickList(config);
@@ -232,7 +233,7 @@ export class PickList {
 
     public static autoUpdateBlendModel() {
         const config = workspace.getConfiguration('backgroundCover');
-        if (config.imagePath == '') { return; }
+        if (!resolveCurrentImagePath(config.imagePath || '')) { return; }
 
         const context = getContext();
         const blendStr = context.globalState.get('backgroundCoverBlendModel');
@@ -278,11 +279,17 @@ export class PickList {
 
     public static async applyCurrentBackground(): Promise<boolean> {
         const config = workspace.getConfiguration('backgroundCover');
-        if (!config.get<string>('imagePath')) {
+        const resolved = resolveCurrentImagePath(config.get<string>('imagePath') || '');
+        if (!resolved && !hasCurrentImageRecord()) {
             return false;
         }
+        if (resolved) {
+            await setCurrentImagePath(resolved);
+        }
         PickList.itemList = new PickList(config);
-        const result = await PickList.itemList.updateDom(false, BlendHelper.autoBlendModel() as string);
+        const result = resolved
+            ? await PickList.itemList.updateDom(false, BlendHelper.autoBlendModel() as string)
+            : await PickList.itemList.updateDom(true);
         PickList.itemList = undefined;
         return result;
     }
@@ -395,7 +402,7 @@ export class PickList {
 
     public constructor(config: WorkspaceConfiguration, pickList?: QuickPick<ImgItem>) {
         this.config = config;
-        this.imgPath = config.imagePath;
+        this.imgPath = resolveCurrentImagePath(config.imagePath || '');
         this.opacity = config.opacity;
         this.sizeModel = config.sizeModel || 'cover';
         this.imageFileType = 0;
@@ -860,7 +867,7 @@ export class PickList {
                 }
 
                 // Current image (so we can mark it with a check)
-                const currentImg = (this.config.get<string>('imagePath') || '').toLowerCase();
+                const currentImg = (resolveCurrentImagePath(this.config.get<string>('imagePath') || '') || '').toLowerCase();
                 const normalize = (p: string) => p.replace(/\\/g, '/').toLowerCase();
 
                 // Most-recently-used list (kept in globalState, capped at 5)
@@ -1329,7 +1336,7 @@ export class PickList {
         persist: boolean = true,
         options: UpdateBackgroundOptions = {}
     ) {
-        if (!path) { path = this.config.get<string>('imagePath'); }
+        if (!path) { path = resolveCurrentImagePath(this.config.get<string>('imagePath') || ''); }
         if (!path) { return vsHelp.showInfo('Unfetched Picture Path / 未获取到图片路径'); }
 
         // Large local-file pre-check: warn user before applying anything > 5MB so
@@ -1405,11 +1412,15 @@ export class PickList {
     }
 
     private async setConfigValue(name: string, value: any, updateDom: Boolean = true, persist: boolean = true) {
-        if (persist) {
-            await this.config.update(name, value, ConfigurationTarget.Global);
-            this.config = workspace.getConfiguration('backgroundCover');
-        }
         if (name === 'imagePath') {
+            await setCurrentImagePath(typeof value === 'string' ? value : '');
+            if (persist && typeof value === 'string' && value) {
+                const globalPath = this.config.get<string>('imagePath') || '';
+                if (!globalPath) {
+                    await this.config.update(name, value, ConfigurationTarget.Global);
+                    this.config = workspace.getConfiguration('backgroundCover');
+                }
+            }
             const context = getContext();
             const hasOnlineFolder = context.globalState.get('backgroundCoverOnlineFolder');
             if (typeof value === 'string' && value && this.isOnlineUrl(value) && !hasOnlineFolder) {
@@ -1417,10 +1428,16 @@ export class PickList {
             } else {
                 context.globalState.update('backgroundCoverSingleImageSource', undefined);
             }
+            this.imgPath = value;
+            if (updateDom) { await this.updateDom(); }
+            return true;
+        }
+        if (persist) {
+            await this.config.update(name, value, ConfigurationTarget.Global);
+            this.config = workspace.getConfiguration('backgroundCover');
         }
         switch (name) {
             case 'opacity': this.opacity = value; break;
-            case 'imagePath': this.imgPath = value; break;
             case 'sizeModel': this.sizeModel = value; break;
             case 'blur': this.blur = value; break;
             default: break;
@@ -1482,7 +1499,8 @@ export class PickList {
 
         try {
             if (uninstall) {
-                this.config.update("imagePath", "", ConfigurationTarget.Global);
+                await setCurrentImagePath('');
+                this.imgPath = '';
                 result = await dom.clearBackground();
             } else {
                 result = await dom.install();
@@ -1498,23 +1516,23 @@ export class PickList {
                     if (this.quickPick) {
                         this.quickPick.hide();
                     }
-                    if (!dom.didUpdateCss && !dom.didUpdateDynamicJs) {
-                        window.setStatusBarMessage('Background already up to date. / 背景已是最新。', 3000);
-                        return false;
-                    }
+                    const didChangeAssets = uninstall || dom.didUpdateCss || dom.didUpdateDynamicJs;
                     // Unique trigger per call so the MutationObserver in the
                     // injected loader always detects a DOM change (VSCode may
                     // skip mutation events if the text is identical). The kind
                     // segment tells the loader whether it must re-import the
                     // dynamic JS or can simply refresh the CSS in place.
+                    // The session hash binds this window's loader to its own CSS file.
                     PickList._reloadTriggerSeq += 1;
                     const triggerKind = dom.didUpdateDynamicJs ? 'js' : 'css';
-                    const triggerText = `background-cover-reload-trigger:${triggerKind}:${PickList._reloadTriggerSeq}`;
+                    const triggerText = `background-cover-reload-trigger:${triggerKind}:${PickList._reloadTriggerSeq}:${dom.windowCssToken}`;
                     const triggerMsg = window.setStatusBarMessage(triggerText);
 
                     setTimeout(() => {
                         triggerMsg.dispose();
-                        window.setStatusBarMessage('Background updated successfully! / 背景更新成功！', 5000);
+                        if (didChangeAssets) {
+                            window.setStatusBarMessage('Background updated successfully! / 背景更新成功！', 5000);
+                        }
                     }, 1000);
 
                     return false;

@@ -14,6 +14,7 @@ import { getContext } from './global';
 import { getParticleEffectJs } from './ParticleEffect';
 import { getAllPets } from './PickList';
 import Color from './color';
+import { getSessionHash, getWindowCssFileName } from './windowBackground';
 import {
     BackgroundApplyCancelledError,
     BackgroundDownloadError,
@@ -135,7 +136,8 @@ const HTML_FILE_PATH = selectedWorkbench.html ? path.join(selectedWorkbench.root
 const CUSTOM_CSS_FILE_NAME = 'css-background-cover.css';
 const CUSTOM_JS_FILE_NAME = 'js-background-cover.js';
 export const CUSTOM_CSS_FILE_PATH = path.join(selectedWorkbench.root, CUSTOM_CSS_FILE_NAME);
-const CUSTOM_JS_FILE_PATH = path.join(selectedWorkbench.root, CUSTOM_JS_FILE_NAME);
+export const WORKBENCH_DIR = selectedWorkbench.root;
+export const CUSTOM_JS_FILE_PATH = path.join(selectedWorkbench.root, CUSTOM_JS_FILE_NAME);
 const APP_OUT_PATH = path.join(env.appRoot, 'out');
 // Each entry is an additional bundle that needs the same loader IIFE injected
 // (e.g. sessions.desktop.main.js for the AgentView window). Bak path mirrors
@@ -182,6 +184,99 @@ enum SystemType {
     LINUX = 'Linux'
 }
 
+// One elevated grant per directory per process. New per-window CSS files keep
+// appearing under workbench/, so unlocking the folder once avoids a UAC prompt
+// on every new window.
+const dirUnlockInFlight = new Map<string, Promise<void>>();
+
+function quoteWinPath(filePath: string): string {
+    return `"${filePath}"`;
+}
+
+async function unlockDir(dirPath: string): Promise<void> {
+    window.setStatusBarMessage(
+        '正在开放背景文件目录写入权限，请在弹出的授权窗口中确认一次。 / Granting write access to the background folder. Please confirm the permission prompt once.',
+        15000
+    );
+    const systemType = os.type();
+    if (systemType === SystemType.WINDOWS) {
+        const quoted = quoteWinPath(dirPath);
+        // (OI)(CI) = new files and subfolders inherit Users:F, so later windows
+        // can create css-background-cover.<session>.css without another prompt.
+        await SudoPromptHelper.exec(
+            `takeown /f ${quoted} /a & icacls ${quoted} /grant "Users:(OI)(CI)F"`
+        );
+        return;
+    }
+    if (systemType === SystemType.MACOS || systemType === SystemType.LINUX) {
+        await SudoPromptHelper.exec(`chmod a+rwx ${quoteWinPath(dirPath)}`);
+    }
+}
+
+async function ensureDirWritable(dirPath: string): Promise<void> {
+    const normalized = path.normalize(dirPath);
+    const existing = dirUnlockInFlight.get(normalized);
+    if (existing) {
+        await existing;
+        return;
+    }
+    const task = unlockDir(normalized).catch((error) => {
+        dirUnlockInFlight.delete(normalized);
+        throw error;
+    });
+    dirUnlockInFlight.set(normalized, task);
+    await task;
+}
+
+function isElevationCancelled(error: unknown): boolean {
+    return /did not grant permission|canceled|cancelled/i.test(String(error));
+}
+
+export async function removeBackgroundCoverCssFiles(): Promise<void> {
+    if (!(await fse.pathExists(WORKBENCH_DIR))) {
+        return;
+    }
+    let names: string[] = [];
+    try {
+        names = await fse.readdir(WORKBENCH_DIR);
+    } catch (error) {
+        console.warn('[FileDom] Failed to list workbench CSS files:', error);
+        return;
+    }
+    const cssFiles = names.filter(name => name.startsWith('css-background-cover') && name.endsWith('.css'));
+    const systemType = os.type();
+    let dirUnlocked = false;
+    for (const name of cssFiles) {
+        const filePath = path.join(WORKBENCH_DIR, name);
+        try {
+            await fse.remove(filePath);
+            continue;
+        } catch {
+            if (!dirUnlocked) {
+                try {
+                    await ensureDirWritable(WORKBENCH_DIR);
+                    dirUnlocked = true;
+                    await fse.remove(filePath);
+                    continue;
+                } catch (error) {
+                    if (isElevationCancelled(error)) {
+                        throw error;
+                    }
+                }
+            }
+        }
+        try {
+            if (systemType === SystemType.WINDOWS) {
+                await SudoPromptHelper.exec(`del ${quoteWinPath(filePath)}`);
+            } else {
+                await SudoPromptHelper.exec(`rm ${quoteWinPath(filePath)}`);
+            }
+        } catch (error) {
+            console.warn(`[FileDom] Failed to remove ${filePath}:`, error);
+        }
+    }
+}
+
 export class FileDom {
     private readonly filePath: string;
     private readonly extName = "backgroundCover";
@@ -194,6 +289,8 @@ export class FileDom {
     private readonly forceHttpsUpgrade: boolean;
     private readonly skipOnlineCache: boolean;
     private readonly shouldApply: () => boolean;
+    private readonly windowCssFilePath: string;
+    public readonly windowCssToken: string;
     private readonly silent: boolean;
     private upCssContent: string = '';
     private bakStatus: boolean = false;
@@ -226,6 +323,8 @@ export class FileDom {
         this.forceHttpsUpgrade = this.workConfig.get('forceHttpsUpgrade', true);
         this.skipOnlineCache = skipOnlineCache;
         this.shouldApply = shouldApply;
+        this.windowCssToken = getSessionHash();
+        this.windowCssFilePath = path.join(selectedWorkbench.root, getWindowCssFileName());
         this.silent = silent;
         
         this.initializePromise = this.initializeImage().catch((error: unknown) => {
@@ -762,27 +861,23 @@ export class FileDom {
         }
     }
 
-    // 获取文件权限
+    // 获取单个文件权限（目录授权仍盖不住的已有受保护文件才走这里）
     public async getFilePermission(filePath: string): Promise<void> {
         try {
-            if (!(await fse.pathExists(filePath))) {
-                if (this.systemType === SystemType.WINDOWS) {
-                    await SudoPromptHelper.exec(`echo. > "${filePath}"`);
-                } else {
-                    await SudoPromptHelper.exec(`touch "${filePath}"`);
-                }
+            const quoted = quoteWinPath(filePath);
+            const exists = await fse.pathExists(filePath);
+            if (this.systemType === SystemType.WINDOWS) {
+                const create = exists ? '' : `echo. > ${quoted} & `;
+                await SudoPromptHelper.exec(
+                    `${create}takeown /f ${quoted} /a & icacls ${quoted} /grant Users:F`
+                );
+                return;
             }
-            switch (this.systemType) {
-                case SystemType.WINDOWS:
-                    await SudoPromptHelper.exec(`takeown /f "${filePath}" /a`);
-                    await SudoPromptHelper.exec(`icacls "${filePath}" /grant Users:F`);
-                    break;
-                case SystemType.MACOS:
-                    await SudoPromptHelper.exec(`chmod a+rwx "${filePath}"`);
-                    break;
-                case SystemType.LINUX:
-                    await SudoPromptHelper.exec(`chmod 666 "${filePath}"`);
-                    break;
+            const chmodCmd = this.systemType === SystemType.MACOS ? 'chmod a+rwx' : 'chmod 666';
+            if (exists) {
+                await SudoPromptHelper.exec(`${chmodCmd} ${quoted}`);
+            } else {
+                await SudoPromptHelper.exec(`touch ${quoted} && ${chmodCmd} ${quoted}`);
             }
         } catch (error) {
             console.error(`Failed to get permission for ${filePath}:`, error);
@@ -812,18 +907,8 @@ export class FileDom {
                 }
             }
 
-            // Remove CSS file
-            if (await fse.pathExists(CUSTOM_CSS_FILE_PATH)) {
-                try {
-                    await fse.remove(CUSTOM_CSS_FILE_PATH);
-                } catch {
-                    if (this.systemType === SystemType.WINDOWS) {
-                        await SudoPromptHelper.exec(`del "${CUSTOM_CSS_FILE_PATH}"`);
-                    } else {
-                        await SudoPromptHelper.exec(`rm "${CUSTOM_CSS_FILE_PATH}"`);
-                    }
-                }
-            }
+            // Remove CSS files (shared fallback + per-window copies)
+            await removeBackgroundCoverCssFiles();
 
             if (await fse.pathExists(CUSTOM_JS_FILE_PATH)) {
                 try {
@@ -849,7 +934,7 @@ export class FileDom {
     // 清除背景
     public async clearBackground(): Promise<boolean> {
         try {
-            await this.writeWithPermission(CUSTOM_CSS_FILE_PATH, '');
+            await this.writeWithPermission(this.windowCssFilePath, '');
             this.requiresReload = false;
             return true;
         } catch (error) {
@@ -883,32 +968,28 @@ export class FileDom {
     private async writeWithPermission(filePath: string, content: string): Promise<void> {
         try {
             await fse.writeFile(filePath, content, { encoding: 'utf-8' });
-        } catch (err) {
-            await this.getFilePermission(filePath);
-            await fse.writeFile(filePath, content, { encoding: 'utf-8' });
+            return;
+        } catch {
+            // Install dir is protected; unlock the folder first.
         }
+        try {
+            await ensureDirWritable(path.dirname(filePath));
+            await fse.writeFile(filePath, content, { encoding: 'utf-8' });
+            return;
+        } catch (error) {
+            if (isElevationCancelled(error)) {
+                throw error;
+            }
+            // Existing files (workbench js) can keep a restrictive ACL after the
+            // directory grant. Unlock that one file and retry.
+        }
+        await this.getFilePermission(filePath);
+        await fse.writeFile(filePath, content, { encoding: 'utf-8' });
     }
 
     // 写入备份文件
     private async bakFile(): Promise<void> {
-        try {
-            await fse.writeFile(BAK_FILE_PATH, this.bakJsContent, { encoding: 'utf-8' });
-        } catch (err) {
-            await this.createAndWriteBakFile();
-        }
-    }
-
-    // 创建并写入备份文件
-    private async createAndWriteBakFile(): Promise<void> {
-        if (this.systemType === SystemType.WINDOWS) {
-            await SudoPromptHelper.exec(`echo. > "${BAK_FILE_PATH}"`);
-            await SudoPromptHelper.exec(`icacls "${BAK_FILE_PATH}" /grant Users:F`);
-        } else {
-            await SudoPromptHelper.exec(`touch "${BAK_FILE_PATH}"`);
-            const chmodCmd = this.systemType === SystemType.MACOS ? 'chmod a+rwx' : 'chmod 666';
-            await SudoPromptHelper.exec(`${chmodCmd} "${BAK_FILE_PATH}"`);
-        }
-        await fse.writeFile(BAK_FILE_PATH, this.bakJsContent, { encoding: 'utf-8' });
+        await this.writeWithPermission(BAK_FILE_PATH, this.bakJsContent);
     }
 
     public requiresReload: boolean = true;
@@ -916,18 +997,30 @@ export class FileDom {
     // 写入css内容
     private async saveCssContent(): Promise<boolean> {
         const css = this.getCss();
+        let changed = true;
         try {
-            if (await fse.pathExists(CUSTOM_CSS_FILE_PATH)) {
-                const current = await fse.readFile(CUSTOM_CSS_FILE_PATH, 'utf-8');
+            if (await fse.pathExists(this.windowCssFilePath)) {
+                const current = await fse.readFile(this.windowCssFilePath, 'utf-8');
                 if (current === css) {
-                    return false;
+                    changed = false;
                 }
             }
         } catch {
             // Fall through to write; permission handling below will surface real failures.
         }
-        await this.writeWithPermission(CUSTOM_CSS_FILE_PATH, css);
-        return true;
+        if (changed) {
+            await this.writeWithPermission(this.windowCssFilePath, css);
+        }
+        // Shared file is only a pre-handshake fallback. Seed it when missing so a
+        // brand-new window has something to show before this session's trigger.
+        try {
+            if (!(await fse.pathExists(CUSTOM_CSS_FILE_PATH))) {
+                await this.writeWithPermission(CUSTOM_CSS_FILE_PATH, css);
+            }
+        } catch (error) {
+            console.warn('[FileDom] Failed to seed shared CSS fallback:', error);
+        }
+        return changed;
     }
 
     private async saveDynamicJsContent(): Promise<boolean> {
@@ -1647,6 +1740,19 @@ export class FileDom {
             };
             const cssUrl = resolveCssUrl();
             const cssBaseHref = getCssBaseHref(cssUrl);
+
+            function cssUrlForToken(token) {
+                if (!token) return cssUrl;
+                const windowFile = cssFileName.replace(/\\.css$/, '.' + token + '.css');
+                if (cssUrl.indexOf(cssFileName) !== -1) {
+                    return cssUrl.split(cssFileName).join(windowFile);
+                }
+                return cssUrl;
+            }
+
+            function activeCssUrl() {
+                return window.__backgroundCoverCssUrl || cssUrl;
+            }
             
             ${videoSetup}
 
@@ -1690,6 +1796,13 @@ export class FileDom {
 
             function applyToWindow(w) {
                 if (!isWindowAlive(w)) return;
+                try {
+                    if (window.__backgroundCoverCssUrl) {
+                        w.__backgroundCoverCssUrl = window.__backgroundCoverCssUrl;
+                    }
+                } catch (e) {
+                    // Auxiliary windows may not allow property writes during init.
+                }
                 applyStyle(w, lastCss);
                 applyVideo(w, lastVideoConfig);
             }
@@ -1773,9 +1886,10 @@ export class FileDom {
                 if (cssLoadInFlight) return;
                 cssLoadInFlight = true;
                 lastCssLoadAt = Date.now();
-                const url = withCacheBust(cssUrl);
+                const currentCssUrl = activeCssUrl();
+                const url = withCacheBust(currentCssUrl);
                 fetch(url).then(r => r.text()).then(css => {
-                    const resolvedCss = replaceRelativeTokens(css, cssBaseHref);
+                    const resolvedCss = replaceRelativeTokens(css, getCssBaseHref(currentCssUrl) || cssBaseHref);
                     lastCss = resolvedCss;
 
                     const match = resolvedCss.match(/\\/\\*background-cover-video-start\\*\\/([\\s\\S]*?)\\/\\*background-cover-video-end\\*\\//);
@@ -1822,6 +1936,10 @@ export class FileDom {
                             // ':js:' means the dynamic bundle itself changed and must be
                             // re-imported; a CSS-only change just refreshes the stylesheet
                             // so the pet/particle runtime keeps its state.
+                            const triggerMatch = target.textContent.match(/background-cover-reload-trigger:(css|js):\\d+:([0-9a-f]+)/i);
+                            if (triggerMatch && triggerMatch[2]) {
+                                window.__backgroundCoverCssUrl = cssUrlForToken(triggerMatch[2]);
+                            }
                             const wantsJsReload = target.textContent.includes('background-cover-reload-trigger:js:');
                             const bootstrap = window.__backgroundCoverBootstrap;
                             if (wantsJsReload && bootstrap && typeof bootstrap.reload === 'function') {

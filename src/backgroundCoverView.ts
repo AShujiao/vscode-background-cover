@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ActionType, PickList } from './PickList';
 import { getContext, onDidChangeGlobalState } from './global';
+import { resolveCurrentImagePath } from './windowBackground';
 
 // Localization
 const messages = {
@@ -261,7 +262,7 @@ export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<Conf
         const onlineFolder = context?.globalState.get<string>('backgroundCoverOnlineFolder');
 
         if (element.label === t('imageSource')) {
-            const currentPath = config.get<string>('imagePath') || t('none');
+            const currentPath = resolveCurrentImagePath(config.get<string>('imagePath') || '') || t('none');
             const displayPath = currentPath.length > 30 ? '...' + currentPath.substr(-30) : currentPath;
             
             items.push(new ConfigItem(t('currentImage'), vscode.TreeItemCollapsibleState.None, 'value', undefined, undefined, undefined, displayPath, 'file'));
