@@ -14,6 +14,19 @@ import { getContext } from './global';
 import { getParticleEffectJs } from './ParticleEffect';
 import { getAllPets } from './PickList';
 import Color from './color';
+import {
+    BackgroundApplyCancelledError,
+    BackgroundDownloadError,
+    BackgroundPatchError,
+    wrapDownloadError
+} from './downloadError';
+
+export {
+    BackgroundApplyCancelledError,
+    BackgroundDownloadError,
+    BackgroundPatchError,
+    shouldTryNextAutoImage
+} from './downloadError';
 
 interface AdditionalBundle {
     // Path relative to env.appRoot/out, e.g. 'vs/sessions/sessions.desktop.main.js'.
@@ -143,6 +156,12 @@ const HTML_CACHE_BUST_PARAM = 'background-cover';
 const BOOTSTRAP_VERSION = '1';
 const DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
 const DEFAULT_ACCEPT_HEADER = 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8';
+const DOWNLOAD_MAX_ATTEMPTS = 3;
+const DOWNLOAD_RETRY_DELAYS_MS = [0, 500, 1500];
+
+function delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 function getWebRelativePath(filePath: string): string | undefined {
     try {
@@ -175,6 +194,7 @@ export class FileDom {
     private readonly forceHttpsUpgrade: boolean;
     private readonly skipOnlineCache: boolean;
     private readonly shouldApply: () => boolean;
+    private readonly silent: boolean;
     private upCssContent: string = '';
     private bakStatus: boolean = false;
     private bakJsContent: string = '';
@@ -192,7 +212,8 @@ export class FileDom {
         blur: number = 0,
         blendModel: string = '',
         skipOnlineCache: boolean = false,
-        shouldApply: () => boolean = () => true
+        shouldApply: () => boolean = () => true,
+        silent: boolean = false
     ) {
         this.workConfig = workConfig;
         this.filePath = JS_FILE_PATH;
@@ -205,6 +226,7 @@ export class FileDom {
         this.forceHttpsUpgrade = this.workConfig.get('forceHttpsUpgrade', true);
         this.skipOnlineCache = skipOnlineCache;
         this.shouldApply = shouldApply;
+        this.silent = silent;
         
         this.initializePromise = this.initializeImage().catch((error: unknown) => {
             console.error('[FileDom] Failed to preprocess image:', error);
@@ -293,33 +315,67 @@ export class FileDom {
                 return;
             }
 
-            const timestamp = Date.now();
-            const tempPath = path.join(cacheDir, `${urlHash}-${timestamp}${ext}.tmp`);
-
-            try {
-                const { contentType } = await this.downloadFile(this.imagePath, tempPath);
-                let finalExt = ext;
-                if ((!ext || ext === '.img' || uniqueDownload) && contentType) {
-                    finalExt = this.getExtensionFromContentType(contentType) || finalExt;
+            let lastError: BackgroundDownloadError | undefined;
+            for (let attempt = 0; attempt < DOWNLOAD_MAX_ATTEMPTS; attempt++) {
+                if (!this.shouldApply()) {
+                    throw new BackgroundApplyCancelledError();
+                }
+                if (attempt > 0) {
+                    if (!lastError || !lastError.retrySame) {
+                        break;
+                    }
+                    const waitMs = DOWNLOAD_RETRY_DELAYS_MS[attempt] || 1500;
+                    console.warn(`[FileDom] Retrying download (${attempt + 1}/${DOWNLOAD_MAX_ATTEMPTS}) in ${waitMs}ms:`, lastError.message);
+                    await delay(waitMs);
+                    if (!this.shouldApply()) {
+                        throw new BackgroundApplyCancelledError();
+                    }
                 }
 
-                const targetPath = (!uniqueDownload && isStaticImage)
-                    ? cachePath
-                    : path.join(cacheDir, `${urlHash}-${timestamp}${finalExt || '.img'}`);
+                const timestamp = Date.now();
+                const tempPath = path.join(cacheDir, `${urlHash}-${timestamp}-${attempt}${ext}.tmp`);
+                try {
+                    const { contentType } = await this.downloadFile(this.imagePath, tempPath);
+                    let finalExt = ext;
+                    if ((!ext || ext === '.img' || uniqueDownload) && contentType) {
+                        finalExt = this.getExtensionFromContentType(contentType) || finalExt;
+                    }
 
-                await fse.move(tempPath, targetPath, { overwrite: true });
-                this.imagePath = targetPath;
-            } catch (error) {
-                if (await fse.pathExists(cachePath)) {
-                    this.imagePath = cachePath;
-                    console.warn('[FileDom] Download failed, using cached image:', error);
-                } else {
-                    throw error;
+                    const targetPath = (!uniqueDownload && isStaticImage)
+                        ? cachePath
+                        : path.join(cacheDir, `${urlHash}-${timestamp}${finalExt || '.img'}`);
+
+                    await fse.move(tempPath, targetPath, { overwrite: true });
+                    this.imagePath = targetPath;
+                    return;
+                } catch (error) {
+                    lastError = wrapDownloadError(error);
+                    try {
+                        if (await fse.pathExists(tempPath)) {
+                            await fse.unlink(tempPath);
+                        }
+                    } catch {
+                        // ignore temp cleanup
+                    }
+                    if (!lastError.retrySame) {
+                        break;
+                    }
                 }
             }
+
+            if (await fse.pathExists(cachePath)) {
+                this.imagePath = cachePath;
+                console.warn('[FileDom] Download failed, using cached image:', lastError);
+                return;
+            }
+            throw lastError || new BackgroundDownloadError('Failed to download image');
         } catch (error) {
-            console.error('[FileDom] Failed to download image:', error);
-            throw error;
+            if (error instanceof BackgroundApplyCancelledError) {
+                throw error;
+            }
+            const downloadError = wrapDownloadError(error);
+            console.error('[FileDom] Failed to download image:', downloadError);
+            throw downloadError;
         }
     }
 
@@ -330,7 +386,7 @@ export class FileDom {
             try {
                 urlObj = new URL(url);
             } catch (error) {
-                reject(error);
+                reject(wrapDownloadError(error));
                 return;
             }
 
@@ -340,6 +396,10 @@ export class FileDom {
                 'Referer': `${urlObj.protocol}//${urlObj.host}/`,
             } as Record<string, string>;
 
+            const fail = (error: unknown, statusCode?: number) => {
+                reject(wrapDownloadError(error, statusCode));
+            };
+
             const protocolHandler = urlObj.protocol === 'https:' ? https : http;
             const request = protocolHandler.request(urlObj, { method: 'GET', headers }, (response) => {
                 const statusCode = response.statusCode ?? 0;
@@ -348,12 +408,12 @@ export class FileDom {
                     const location = response.headers.location;
                     if (!location) {
                         response.resume();
-                        reject(new Error(`Failed to download: ${statusCode}`));
+                        fail(new Error(`Failed to download: ${statusCode}`), statusCode);
                         return;
                     }
                     if (redirectCount > 5) {
                         response.resume();
-                        reject(new Error('Too many redirects'));
+                        fail(new Error('Too many redirects'));
                         return;
                     }
                     const nextUrl = new URL(location, urlObj).toString();
@@ -364,7 +424,7 @@ export class FileDom {
 
                 if (statusCode !== 200) {
                     response.resume();
-                    reject(new Error(`Failed to download: ${statusCode}`));
+                    fail(new Error(`Failed to download: ${statusCode}`), statusCode);
                     return;
                 }
 
@@ -375,7 +435,7 @@ export class FileDom {
                     resolve({ contentType: response.headers['content-type'] as string | undefined });
                 });
                 file.on('error', (err) => {
-                    fs.unlink(dest, () => reject(err));
+                    fs.unlink(dest, () => fail(err));
                 });
             });
 
@@ -384,7 +444,7 @@ export class FileDom {
             });
 
             request.on('error', (err) => {
-                reject(err);
+                fail(err);
             });
 
             request.setTimeout(15000);
@@ -395,6 +455,9 @@ export class FileDom {
     //应用补丁安装
     public async install(): Promise<boolean> {
         if (!(await this.checkFileExists())) {
+            if (this.silent) {
+                throw new BackgroundPatchError('Workbench file is missing');
+            }
             return false;
         }
 
@@ -440,19 +503,16 @@ export class FileDom {
 
     // 应用补丁
     private async applyPatch(): Promise<boolean> {
-        if (this.initializePromise) {
-            await this.initializePromise;
-            this.initializePromise = undefined;
-        }
-
-        if (!this.shouldApply()) {
-            return false;
-        }
-
         const lockPath = path.join(os.tmpdir(), 'vscode-background.lock');
         let release: (() => Promise<void>) | undefined;
 
         try {
+            await this.ensureInitialized();
+
+            if (!this.shouldApply()) {
+                throw new BackgroundApplyCancelledError();
+            }
+
             if (!(await fse.pathExists(lockPath))) {
                 await fse.writeFile(lockPath, '', 'utf-8');
             }
@@ -468,7 +528,7 @@ export class FileDom {
             });
 
             if (!this.shouldApply()) {
-                return false;
+                throw new BackgroundApplyCancelledError();
             }
 
             // Save dynamic assets first. The patched workbench bundle only keeps a
@@ -478,18 +538,31 @@ export class FileDom {
                 this.didUpdateDynamicJs = await this.saveDynamicJsContent();
             } catch (e) {
                 window.showErrorMessage('Failed to write background assets: ' + e);
+                if (this.silent) {
+                    throw new BackgroundPatchError(String(e));
+                }
                 return false;
             }
 
             const content = this.getJs().trim();
-            if (!content) return false;
+            if (!content) {
+                if (this.silent) {
+                    throw new BackgroundPatchError('Generated patch content is empty');
+                }
+                return false;
+            }
 
             const patchHash = crypto.createHash('md5').update(content).digest('hex').slice(0, 8);
 
             // Patch main workbench bundle. captureBak: true means if no backup exists
             // yet we save the pre-patch content for safety.
             const mainResult = await this.patchOneJsFile(this.filePath, BAK_FILE_PATH, content, true);
-            if (mainResult === 'failed') return false;
+            if (mainResult === 'failed') {
+                if (this.silent) {
+                    throw new BackgroundPatchError('Failed to patch workbench file');
+                }
+                return false;
+            }
 
             // Patch any additional bundles (AgentView etc). Skipping ones that don't
             // exist keeps us forward/backward compatible across VSCode versions.
@@ -513,7 +586,13 @@ export class FileDom {
             return true;
 
         } catch (error: any) {
+            if (error instanceof BackgroundApplyCancelledError || error instanceof BackgroundDownloadError) {
+                throw error;
+            }
             await this.handlePatchError(error);
+            if (this.silent) {
+                throw new BackgroundPatchError((error && (error.message || error.toString())) || 'Failed to install background patch');
+            }
             return false;
         } finally {
             if (release) {
@@ -523,6 +602,24 @@ export class FileDom {
                     console.error(`Failed to unlock ${lockPath}:`, err);
                 }
             }
+        }
+    }
+
+    private async ensureInitialized(): Promise<void> {
+        if (!this.initializePromise) {
+            return;
+        }
+        const pending = this.initializePromise;
+        try {
+            await pending;
+            if (this.initializePromise === pending) {
+                this.initializePromise = undefined;
+            }
+        } catch (error) {
+            if (this.initializePromise === pending) {
+                this.initializePromise = undefined;
+            }
+            throw error;
         }
     }
 
@@ -565,7 +662,12 @@ export class FileDom {
         if (!choice) { return; }
         if (choice === 'Retry / 重试') {
             // Re-attempt without recursion blowing the stack; small delay so any
-            // transient lock has a chance to clear.
+            // transient lock has a chance to clear. Restart image preprocessing
+            // so a previous failed download is not reused.
+            this.initializePromise = this.initializeImage().catch((error: unknown) => {
+                console.error('[FileDom] Failed to preprocess image:', error);
+                throw error;
+            });
             setTimeout(() => { void this.applyPatch(); }, 300);
             return;
         }
