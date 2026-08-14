@@ -19,6 +19,7 @@ import {
 } from 'vscode';
 
 import { FileDom } from './FileDom';
+import { BackgroundPatchError, BackgroundApplyCancelledError, shouldTryNextAutoImage, pickUnusedCandidate } from './downloadError';
 import { ImgItem } from './ImgItem';
 import vsHelp from './vsHelp';
 import { getContext, onDidChangeGlobalState } from './global';
@@ -87,6 +88,13 @@ export interface PetEntry {
 
 interface UpdateBackgroundOptions {
     skipLargeImagePrompt?: boolean;
+}
+
+const AUTO_IMAGE_ATTEMPTS = 3;
+const ONLINE_LIST_FETCH_ATTEMPTS = 2;
+
+function delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /** Single source of truth for available pets (used by PickList + FileDom + Studio webview). */
@@ -188,6 +196,7 @@ export class PickList {
     private blur: number;
     private randUpdate: boolean = false;
     private skipOnlineCache: boolean = false;
+    private silentApply: boolean = false;
 
     // --- Static Entry Points ---
 
@@ -646,6 +655,7 @@ export class PickList {
     }
 
     private async autoUpdateBackground(persist: boolean = true): Promise<boolean> {
+        this.silentApply = !persist;
         const context = getContext();
         const onlineFolder = context.globalState.get<string>('backgroundCoverOnlineFolder');
         const cachedImages = context.globalState.get<string[]>('backgroundCoverOnlineImageList');
@@ -654,42 +664,95 @@ export class PickList {
             try {
                 let images = cachedImages as string[] | undefined;
                 if (!images || images.length === 0) {
-                    if (persist) {
-                        window.showInformationMessage('正在从在线文件夹获取图片列表...');
-                    }
-                    images = await OnlineImageHelper.getOnlineImages(onlineFolder);
-                    context.globalState.update('backgroundCoverOnlineImageList', images);
+                    images = await this.fetchOnlineImageList(onlineFolder, persist);
                 }
                 if (images && images.length > 0) {
+                    if (!persist) {
+                        return await this.applyAutoCandidates(images, persist);
+                    }
                     const randomImage = images[Math.floor(Math.random() * images.length)];
                     await this.updateBackgound(randomImage, false, persist, { skipLargeImagePrompt: true });
                     return true;
                 }
             } catch (error: any) {
                 console.error('从在线文件夹获取图片失败:', error);
+                if (error instanceof BackgroundApplyCancelledError || error instanceof BackgroundPatchError) {
+                    return false;
+                }
                 if (persist) {
                     window.showWarningMessage('在线文件夹访问失败，请检查网络连接！');
                 }
-                this.clearOnlineFolder(true);
             }
         }
 
         const singleSource = context.globalState.get<string>('backgroundCoverSingleImageSource');
         if (singleSource && this.isOnlineUrl(singleSource)) {
+            if (!persist) {
+                return await this.applyAutoCandidates([singleSource], persist);
+            }
             await this.updateBackgound(singleSource, false, persist, { skipLargeImagePrompt: true });
             return true;
         }
 
         const randomImageFolder = this.config.get<string>('randomImageFolder');
         if (randomImageFolder && this.checkFolder(randomImageFolder)) {
-            const files = this.getFolderImgList(randomImageFolder);
+            const files = this.getFolderImgList(randomImageFolder).map(file => path.join(randomImageFolder, file));
             if (files.length > 0) {
+                if (!persist) {
+                    return await this.applyAutoCandidates(files, persist);
+                }
                 const randomFile = files[Math.floor(Math.random() * files.length)];
-                const file = path.join(randomImageFolder, randomFile);
-                await this.updateBackgound(file, false, persist, { skipLargeImagePrompt: true });
+                await this.updateBackgound(randomFile, false, persist, { skipLargeImagePrompt: true });
             }
         }
         return true;
+    }
+
+    private async fetchOnlineImageList(onlineFolder: string, persist: boolean): Promise<string[] | undefined> {
+        const attempts = persist ? 1 : ONLINE_LIST_FETCH_ATTEMPTS;
+        for (let i = 0; i < attempts; i++) {
+            if (i > 0) {
+                await delay(500);
+            }
+            if (persist && i === 0) {
+                window.showInformationMessage('正在从在线文件夹获取图片列表...');
+            }
+            try {
+                const images = await OnlineImageHelper.getOnlineImages(onlineFolder);
+                if (images && images.length > 0) {
+                    getContext().globalState.update('backgroundCoverOnlineImageList', images);
+                    return images;
+                }
+            } catch (error) {
+                console.error('[BackgroundCover] Failed to fetch online image list:', error);
+            }
+        }
+        return undefined;
+    }
+
+    private async applyAutoCandidates(candidates: string[], persist: boolean): Promise<boolean> {
+        const tried = new Set<string>();
+        for (let i = 0; i < AUTO_IMAGE_ATTEMPTS; i++) {
+            const next = pickUnusedCandidate(candidates, tried);
+            if (!next) {
+                break;
+            }
+            tried.add(next);
+            try {
+                await this.updateBackgound(next, false, persist, { skipLargeImagePrompt: true });
+                return true;
+            } catch (error) {
+                if (error instanceof BackgroundApplyCancelledError || error instanceof BackgroundPatchError) {
+                    return false;
+                }
+                console.error('[BackgroundCover] Auto image update failed:', error);
+                if (!shouldTryNextAutoImage(error)) {
+                    return false;
+                }
+            }
+        }
+        window.setStatusBarMessage('自动换图失败，将在下个间隔再试 / Auto background update failed, will retry next interval.', 5000);
+        return false;
     }
 
     private openCacheFolder() {
@@ -1431,7 +1494,7 @@ export class PickList {
 
         const seq = ++PickList._updateSeq;
         const isCurrentUpdate = () => seq === PickList._updateSeq;
-        const dom = new FileDom(this.config, this.imgPath, this.opacity, this.sizeModel, this.blur, colorThemeKind, this.skipOnlineCache, isCurrentUpdate);
+        const dom = new FileDom(this.config, this.imgPath, this.opacity, this.sizeModel, this.blur, colorThemeKind, this.skipOnlineCache, isCurrentUpdate, this.silentApply);
         let result = false;
 
         try {
@@ -1501,6 +1564,9 @@ export class PickList {
                 }
             }
         } catch (error: any) {
+            if (this.silentApply) {
+                throw error;
+            }
             await window.showErrorMessage(`更新失败: ${error.message}`);
         }
         return result && (dom.requiresReload || uninstall);
