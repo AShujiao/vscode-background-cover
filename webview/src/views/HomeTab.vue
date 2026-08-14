@@ -129,11 +129,8 @@ import { isVideoPath } from '../utils/media';
 const { t } = useI18n();
 const bridge = useBridge();
 
-const displayUrl = computed(() => {
-    const p = config.imagePath || '';
-    if (/^https?:\/\//i.test(p)) { return p; }
-    return config.imagePathDisplay || '';
-});
+// 只用扩展侧给出的本地路径。在线地址一律不直连，避免每次刷新都回源云存储。
+const displayUrl = computed(() => config.imagePathDisplay || '');
 
 const isVideo = computed(() => isVideoPath(config.imagePath));
 

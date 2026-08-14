@@ -22,6 +22,8 @@ export default {
     emptyRecent:       'No recent images yet — pick one to start.',
     openOnlineInBrowser: 'Open in Browser',
     refreshOnline:     'Refresh',
+    loadOnlineGallery: 'Load Online Gallery',
+    loadOnlineGalleryHint: 'Loaded on demand so opening the panel does not fetch online images',
 
     autoRandom:        'Auto Random',
     enabled:           'Enabled',

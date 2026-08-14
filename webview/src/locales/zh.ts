@@ -22,6 +22,8 @@ export default {
     emptyRecent:       '还没有最近使用的图片 — 选一张开始吧。',
     openOnlineInBrowser: '浏览器打开',
     refreshOnline:     '刷新',
+    loadOnlineGallery: '加载在线图库',
+    loadOnlineGalleryHint: '按需加载，避免每次打开面板都请求在线图片',
 
     autoRandom:        '自动随机',
     enabled:           '启用',

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"d:\\\\code\\\\other\\\\nodejs\\\\vscode-background-cover\\\\webview\" -Recurse -File | Where-Object { $_.FullName -notmatch 'node_modules' } | Select-Object -ExpandProperty FullName)"
+    ]
+  }
+}

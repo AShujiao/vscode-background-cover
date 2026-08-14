@@ -11,6 +11,7 @@ import version from './version';
 import { SudoPromptHelper } from './SudoPromptHelper';
 import * as fse from 'fs-extra';
 import { getContext } from './global';
+import { getOnlineCacheDir, getOnlineCacheHash } from './onlineCache';
 import { getParticleEffectJs } from './ParticleEffect';
 import { getAllPets } from './PickList';
 import Color from './color';
@@ -426,11 +427,10 @@ export class FileDom {
     // 将在线图片下载并缓存到本地
     private async downloadAndCacheImage(): Promise<void> {
         try {
-            const context = getContext();
-            const cacheDir = path.join(context.globalStorageUri.fsPath, 'images');
+            const cacheDir = getOnlineCacheDir();
             await fse.ensureDir(cacheDir);
 
-            const urlHash = crypto.createHash('md5').update(this.imagePath).digest('hex');
+            const urlHash = getOnlineCacheHash(this.imagePath);
             let ext = '.jpg';
             let isStaticImage = false;
             let uniqueDownload = false;

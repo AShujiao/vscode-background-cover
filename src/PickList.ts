@@ -27,6 +27,7 @@ import { hasCurrentImageRecord, resolveCurrentImagePath, setCurrentImagePath } f
 import { BlendHelper } from './BlendHelper';
 import Color, { getColorList } from './color'; // 导入颜色定义
 import { OnlineImageHelper } from './OnlineImageHelper';
+import { getOnlineCacheDir } from './onlineCache';
 
 
 
@@ -756,8 +757,7 @@ export class PickList {
     }
 
     private openCacheFolder() {
-        const context = getContext();
-        const cacheDir = path.join(context.globalStorageUri.fsPath, 'images');
+        const cacheDir = getOnlineCacheDir();
         // 确保目录存在
         if (!fs.existsSync(cacheDir)) {
             fs.mkdirSync(cacheDir, { recursive: true });
