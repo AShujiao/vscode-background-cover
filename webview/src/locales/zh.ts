@@ -29,6 +29,9 @@ export default {
     sourceFolder:      '来源目录',
     sizeMode:          '尺寸模式',
     blendMode:         '混合模式',
+    windowScope:       '窗口背景',
+    perWindowBackground:     '每个窗口独立',
+    perWindowBackgroundHint: '开启后各窗口可显示不同背景；关闭则所有窗口共用同一张',
     openCacheFolder:   '打开缓存目录',
 
     petAssistant:      '顶部小宠物',

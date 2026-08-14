@@ -14,12 +14,11 @@
 ![Background Cover Studio preview](resources/readme-preview.jpg)
 
 
-## 🚀 3.5.3 主要更新
+## 🚀 3.6.0 主要更新
 
-1. **🐛 修复更新后需手动重启才生效**：VS Code 更新后应用背景补丁，现在会引导完全退出并重启（软重载无法清除核心界面的编译缓存）。
-2. **🐛 修复新版 VS Code 下背景不显示**：适配较新 VS Code 的 Trusted Types 安全策略，重构脚本注入方式，修复打补丁后背景 / 宠物 / 粒子不显示的问题。
-3. **🖥️ 适配 Cursor Agent Window**：支持 Cursor 的 Agent Window（Glass 窗口）背景显示（[#214](https://github.com/AShujiao/vscode-background-cover/pull/214) by @Aierlanta）。
-4. **✨ 切换体验优化**：仅切换图片时保留宠物与粒子状态；装饰面板「重启生效」按钮移到顶部。
+1. **🖥️ 多窗口独立背景**：每个窗口可显示各自的背景图，在一个窗口换图不再影响其他窗口；可在「高级设置 → 窗口背景」中切回全部窗口共用（[#226](https://github.com/AShujiao/vscode-background-cover/pull/226) by @Aierlanta）。
+2. **🔑 授权体验优化**：新开窗口不再反复弹出 UAC 授权窗口。
+3. **✨ 自动换图容错**：网络失败会静默重试或自动换下一张，不再弹窗打断（[#225](https://github.com/AShujiao/vscode-background-cover/pull/225) by @Aierlanta）。
 
 ---
 
@@ -30,6 +29,7 @@
 - **顶部小宠物**：内置多款可爱宠物，支持同步 `~/.codex/pets` / `CODEX_HOME/pets` 中的 Codex 宠物，并可自定义多行冒泡文案。
 - **图片/视频背景**：支持本地图片、网络图片、本地视频、在线视频。
 - **热更新**：切换背景即刻生效，无需重启 VS Code。
+- **多窗口独立背景**：每个窗口可显示各自的背景图，也可切回全部窗口共用。
 - **AgentView 支持**：支持 VS Code AgentView / Agent Sessions 独立窗口背景显示。
 - **自动轮播**：多张图片/视频可定时自动切换。
 - **粒子动画**：集成鼠标跟随粒子特效，支持数量、透明度、预设颜色和自定义颜色。
@@ -112,6 +112,13 @@ A: 插件会自动请求密码，或手动 `sudo chown` 相关文件。
 ## 📝 更新日志
 
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
+
+#### ver 3.6.0 (2026/08/14)
+
+1. 新增多窗口独立背景，每个窗口可显示各自的背景图（可在高级设置中切回全部窗口共用）（[#226](https://github.com/AShujiao/vscode-background-cover/pull/226) by @Aierlanta）。
+2. 优化多窗口授权体验，新开窗口不再反复弹出 UAC 授权窗口。
+3. 优化自动换图容错，网络失败会静默重试或换图，不再弹窗打断（[#225](https://github.com/AShujiao/vscode-background-cover/pull/225) by @Aierlanta）。
+    感谢 @Aierlanta 的贡献！
 
 #### ver 3.5.3 (2026/07/06)
 

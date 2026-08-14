@@ -6,6 +6,14 @@
 -->
 ## 更新日志
 
+#### ver 3.6.0 (2026/08/14)
+
+    1. 新增多窗口独立背景，每个窗口可显示各自的背景图（可在高级设置中切回全部窗口共用）（[#226](https://github.com/AShujiao/vscode-background-cover/pull/226) by @Aierlanta）。
+    2. 优化多窗口授权体验，新开窗口不再反复弹出 UAC 授权窗口。
+    3. 优化自动换图容错，网络失败会静默重试或换图，不再弹窗打断（[#225](https://github.com/AShujiao/vscode-background-cover/pull/225) by @Aierlanta）。
+
+    感谢 @Aierlanta 的贡献！
+
 #### ver 3.5.3 (2026/07/06)
 
     1. 修复 VS Code 更新后背景不生效、必须手动关闭再重新打开才生效的问题（现代 VS Code 的核心界面编译缓存由主进程持有，软重载无法清除，现在会引导完全退出并重启）。

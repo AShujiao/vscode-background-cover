@@ -31,4 +31,4 @@ export const SIZE_MODES = [
 
 export const BLEND_MODES = ['auto', 'multiply', 'lighten'];
 
-export const ONLINE_GALLERY_URL = 'https://vs.20988.xyz/d/24-vscodebei-jing-tu-tu-ku';
+export const ONLINE_GALLERY_URL = 'https://vs.20988.xyz';

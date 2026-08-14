@@ -14,7 +14,7 @@ import { getContext } from './global';
 import { getParticleEffectJs } from './ParticleEffect';
 import { getAllPets } from './PickList';
 import Color from './color';
-import { getSessionHash, getWindowCssFileName } from './windowBackground';
+import { getSessionHash, getWindowCssFileName, isPerWindowEnabled } from './windowBackground';
 import {
     BackgroundApplyCancelledError,
     BackgroundDownloadError,
@@ -135,6 +135,8 @@ const BAK_FILE_PATH = path.join(selectedWorkbench.root, selectedWorkbench.bak);
 const HTML_FILE_PATH = selectedWorkbench.html ? path.join(selectedWorkbench.root, selectedWorkbench.html) : undefined;
 const CUSTOM_CSS_FILE_NAME = 'css-background-cover.css';
 const CUSTOM_JS_FILE_NAME = 'js-background-cover.js';
+// 共用模式下随 reload trigger 一起下发的固定 token，注入端见到它就回到共享 CSS。
+const SHARED_CSS_TOKEN = 'shared';
 export const CUSTOM_CSS_FILE_PATH = path.join(selectedWorkbench.root, CUSTOM_CSS_FILE_NAME);
 export const WORKBENCH_DIR = selectedWorkbench.root;
 export const CUSTOM_JS_FILE_PATH = path.join(selectedWorkbench.root, CUSTOM_JS_FILE_NAME);
@@ -277,6 +279,44 @@ export async function removeBackgroundCoverCssFiles(): Promise<void> {
     }
 }
 
+// 每个窗口会话都会新建一份 css-background-cover.<session>.css，而 session 在重载
+// 后就会变，旧文件不会再有人读。这里做 best-effort 回收：绝不提权、绝不弹窗，删不掉
+// 就留给下次启动。按 mtime 判定过期，误删一个长期开着又没换过图的窗口的文件时，
+// 该窗口 loadCss 的 fetch 会失败并保留已在 DOM 里的样式，不会白屏。
+const WINDOW_CSS_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const WINDOW_CSS_FILE_RE = /^css-background-cover\..+\.css$/;
+
+export async function collectStaleWindowCssFiles(): Promise<void> {
+    try {
+        if (!(await fse.pathExists(WORKBENCH_DIR))) {
+            return;
+        }
+        const currentName = getWindowCssFileName();
+        const names = await fse.readdir(WORKBENCH_DIR);
+        const now = Date.now();
+        for (const name of names) {
+            if (name === CUSTOM_CSS_FILE_NAME || name === currentName) {
+                continue;
+            }
+            if (!WINDOW_CSS_FILE_RE.test(name)) {
+                continue;
+            }
+            const filePath = path.join(WORKBENCH_DIR, name);
+            try {
+                const stat = await fse.stat(filePath);
+                if (now - stat.mtimeMs < WINDOW_CSS_MAX_AGE_MS) {
+                    continue;
+                }
+                await fse.remove(filePath);
+            } catch {
+                // 被占用或无写权限：跳过，下次启动再试。
+            }
+        }
+    } catch (error) {
+        console.warn('[FileDom] Failed to collect stale window CSS files:', error);
+    }
+}
+
 export class FileDom {
     private readonly filePath: string;
     private readonly extName = "backgroundCover";
@@ -323,8 +363,13 @@ export class FileDom {
         this.forceHttpsUpgrade = this.workConfig.get('forceHttpsUpgrade', true);
         this.skipOnlineCache = skipOnlineCache;
         this.shouldApply = shouldApply;
-        this.windowCssToken = getSessionHash();
-        this.windowCssFilePath = path.join(selectedWorkbench.root, getWindowCssFileName());
+        // 共用模式(perWindowBackground=false)下直接写共享 CSS 文件，并用固定 token
+        // 让注入端把 __backgroundCoverCssUrl 复位到共享地址。
+        const perWindow = isPerWindowEnabled();
+        this.windowCssToken = perWindow ? getSessionHash() : SHARED_CSS_TOKEN;
+        this.windowCssFilePath = perWindow
+            ? path.join(selectedWorkbench.root, getWindowCssFileName())
+            : CUSTOM_CSS_FILE_PATH;
         this.silent = silent;
         
         this.initializePromise = this.initializeImage().catch((error: unknown) => {
@@ -570,7 +615,9 @@ export class FileDom {
     private async checkFileExists(): Promise<boolean> {
         const isExist = await fse.pathExists(this.filePath);
         if (!isExist) {
-            await window.showErrorMessage(`文件不存在，提醒开发者修复吧！`);
+            if (!this.silent) {
+                await window.showErrorMessage(`文件不存在，提醒开发者修复吧！`);
+            }
             return false;
         }
         return true;
@@ -636,10 +683,11 @@ export class FileDom {
                 this.didUpdateCss = await this.saveCssContent();
                 this.didUpdateDynamicJs = await this.saveDynamicJsContent();
             } catch (e) {
-                window.showErrorMessage('Failed to write background assets: ' + e);
+                // 静默模式(定时自动换图)不能弹窗，直接抛给上层去挑下一张候选图。
                 if (this.silent) {
                     throw new BackgroundPatchError(String(e));
                 }
+                window.showErrorMessage('Failed to write background assets: ' + e);
                 return false;
             }
 
@@ -688,10 +736,17 @@ export class FileDom {
             if (error instanceof BackgroundApplyCancelledError || error instanceof BackgroundDownloadError) {
                 throw error;
             }
-            await this.handlePatchError(error);
+            // 静默模式必须先于 handlePatchError 返回：后者是个 await 住的模态框，
+            // 会把定时换图的调度器(isAutoRunning)一直卡住，而且 BackgroundPatchError
+            // 本来就是上面几处静默分支自己抛的，不该再被当成未知错误弹一次窗。
             if (this.silent) {
+                if (error instanceof BackgroundPatchError) {
+                    throw error;
+                }
+                console.error('[FileDom] applyPatch error (silent):', error);
                 throw new BackgroundPatchError((error && (error.message || error.toString())) || 'Failed to install background patch');
             }
+            await this.handlePatchError(error);
             return false;
         } finally {
             if (release) {
@@ -938,6 +993,9 @@ export class FileDom {
             this.requiresReload = false;
             return true;
         } catch (error) {
+            if (this.silent) {
+                throw new BackgroundPatchError(`清除背景失败: ${error}`);
+            }
             await window.showErrorMessage(`清除背景失败: ${error}`);
             return false;
         }
@@ -1611,6 +1669,7 @@ export class FileDom {
             const cssFileName = '${cssFileName}';
             const workbenchJsName = '${workbenchJsName}';
             const relativePlaceholder = '${relativePlaceholder}';
+            const perWindowEnabled = ${isPerWindowEnabled()};
 
             // Pet Config
             const petEnabled = ${petEnabled};
@@ -1742,12 +1801,23 @@ export class FileDom {
             const cssBaseHref = getCssBaseHref(cssUrl);
 
             function cssUrlForToken(token) {
-                if (!token) return cssUrl;
+                // 'shared' = 共用模式：回到不带 session 后缀的共享 CSS。
+                if (!token || token === '${SHARED_CSS_TOKEN}') return cssUrl;
                 const windowFile = cssFileName.replace(/\\.css$/, '.' + token + '.css');
                 if (cssUrl.indexOf(cssFileName) !== -1) {
                     return cssUrl.split(cssFileName).join(windowFile);
                 }
                 return cssUrl;
+            }
+
+            // 从"每窗口独立"切到"共用"时，window 上可能还留着上一模式指向 per-window
+            // 文件的地址，而那个文件已经不再更新了。动态脚本每次重载都按当前模式复位。
+            if (!perWindowEnabled) {
+                try {
+                    window.__backgroundCoverCssUrl = undefined;
+                } catch (e) {
+                    console.error('[BackgroundCover] Reset css url failed:', e);
+                }
             }
 
             function activeCssUrl() {
@@ -1936,7 +2006,7 @@ export class FileDom {
                             // ':js:' means the dynamic bundle itself changed and must be
                             // re-imported; a CSS-only change just refreshes the stylesheet
                             // so the pet/particle runtime keeps its state.
-                            const triggerMatch = target.textContent.match(/background-cover-reload-trigger:(css|js):\\d+:([0-9a-f]+)/i);
+                            const triggerMatch = target.textContent.match(/background-cover-reload-trigger:(css|js):\\d+:([0-9a-z]+)/i);
                             if (triggerMatch && triggerMatch[2]) {
                                 window.__backgroundCoverCssUrl = cssUrlForToken(triggerMatch[2]);
                             }

@@ -29,6 +29,9 @@ export default {
     sourceFolder:      'Source Folder',
     sizeMode:          'Size Mode',
     blendMode:         'Blend Mode',
+    windowScope:       'Window Background',
+    perWindowBackground:     'Per-window background',
+    perWindowBackgroundHint: 'On: each window keeps its own image. Off: all windows share one.',
     openCacheFolder:   'Open Cache Folder',
 
     petAssistant:      'Top Pet',

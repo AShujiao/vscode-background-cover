@@ -150,7 +150,8 @@ export class StudioViewProvider implements WebviewViewProvider {
                     autoInterval: cfg.get('autoInterval') ?? 10,
                     sizeModel: cfg.get('sizeModel') ?? 'cover',
                     blendModel: cfg.get('blendModel') ?? 'auto',
-                    randomImageFolder: cfg.get('randomImageFolder') ?? ''
+                    randomImageFolder: cfg.get('randomImageFolder') ?? '',
+                    perWindowBackground: cfg.get('perWindowBackground') ?? true
                 },
                 state: {
                     petEnabled: gs.get('backgroundCoverPetEnabled') ?? false,

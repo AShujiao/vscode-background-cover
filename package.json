@@ -2,7 +2,7 @@
     "name": "background-cover",
     "displayName": "background-cover",
     "description": "Add a picture you like to cover the entire vscode background (Hot Reload Supported). / 添加你喜欢的图片覆盖整个vscode背景（支持热更新）",
-    "version": "3.5.3",
+    "version": "3.6.0",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.38.0"
@@ -97,6 +97,11 @@
                     "type": "string",
                     "default": "",
                     "description": "Background image path / 背景图片路径"
+                },
+                "backgroundCover.perWindowBackground": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Let each window keep its own background image. Turn this off to share one background across all windows (legacy behavior). / 每个窗口使用各自的背景图；关闭后所有窗口共用同一张背景图（旧版行为）"
                 },
                 "backgroundCover.randomImageFolder": {
                     "type": "string",

@@ -433,7 +433,7 @@ export class PickList {
             { label: '$(file-media) Select Pictures', detail: '选择一张背景图', imageType: ActionType.SelectPictures },
             { label: '$(file-directory) Add Directory', detail: '添加图片目录', imageType: ActionType.AddDirectory },
             { label: '$(pencil) Input : Path/Https', detail: '输入图片路径：本地/https/json(api)/html(a标签)/在线图库（帖子地址）', imageType: ActionType.InputPath },
-            { label: '$(ports-open-browser-icon) Online images', detail: '在线图库', imageType: ActionType.OnlineImages, path: "https://vs.20988.xyz/d/24-bei-jing-tu-tu-ku" }
+            { label: '$(ports-open-browser-icon) Online images', detail: '在线图库', imageType: ActionType.OnlineImages, path: "https://vs.20988.xyz" }
         );
 
         const context = getContext();
@@ -1413,23 +1413,29 @@ export class PickList {
 
     private async setConfigValue(name: string, value: any, updateDom: Boolean = true, persist: boolean = true) {
         if (name === 'imagePath') {
-            await setCurrentImagePath(typeof value === 'string' ? value : '');
-            if (persist && typeof value === 'string' && value) {
-                const globalPath = this.config.get<string>('imagePath') || '';
-                if (!globalPath) {
-                    await this.config.update(name, value, ConfigurationTarget.Global);
-                    this.config = workspace.getConfiguration('backgroundCover');
-                }
-            }
+            const nextPath = typeof value === 'string' ? value : '';
+            const previousPath = this.imgPath;
+            this.imgPath = nextPath;
+
             const context = getContext();
             const hasOnlineFolder = context.globalState.get('backgroundCoverOnlineFolder');
-            if (typeof value === 'string' && value && this.isOnlineUrl(value) && !hasOnlineFolder) {
-                context.globalState.update('backgroundCoverSingleImageSource', value);
+            if (nextPath && this.isOnlineUrl(nextPath) && !hasOnlineFolder) {
+                context.globalState.update('backgroundCoverSingleImageSource', nextPath);
             } else {
                 context.globalState.update('backgroundCoverSingleImageSource', undefined);
             }
-            this.imgPath = value;
-            if (updateDom) { await this.updateDom(); }
+
+            // 先应用再记录：静默自动换图失败时 updateDom 会抛，此时这张图不该被
+            // 记成当前背景，否则重试完三张候选后留下的"当前图"是最后一张失败的地址。
+            if (updateDom) {
+                try {
+                    await this.updateDom();
+                } catch (error) {
+                    this.imgPath = previousPath;
+                    throw error;
+                }
+            }
+            await setCurrentImagePath(nextPath, { persist });
             return true;
         }
         if (persist) {
@@ -1501,6 +1507,13 @@ export class PickList {
             if (uninstall) {
                 await setCurrentImagePath('');
                 this.imgPath = '';
+                // 关背景必须把 settings.json 里的旧值一起清掉：它是新窗口/无工作区
+                // 窗口的最后一层兜底，留着的话用户"关闭背景"后新开窗口又会把图捞回来，
+                // 而 UI 上没有任何入口能清它。
+                if (this.config.get<string>('imagePath')) {
+                    await this.config.update('imagePath', '', ConfigurationTarget.Global);
+                    this.config = workspace.getConfiguration('backgroundCover');
+                }
                 result = await dom.clearBackground();
             } else {
                 result = await dom.install();
