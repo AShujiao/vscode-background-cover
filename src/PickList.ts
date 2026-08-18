@@ -23,7 +23,7 @@ import { BackgroundPatchError, BackgroundApplyCancelledError, shouldTryNextAutoI
 import { ImgItem } from './ImgItem';
 import vsHelp from './vsHelp';
 import { getContext, onDidChangeGlobalState } from './global';
-import { hasCurrentImageRecord, resolveCurrentImagePath, setCurrentImagePath } from './windowBackground';
+import { hasCurrentImageRecord, resolveCurrentBlur, resolveCurrentImagePath, resolveCurrentOpacity, setCurrentBlur, setCurrentImagePath, setCurrentOpacity } from './windowBackground';
 import { BlendHelper } from './BlendHelper';
 import Color, { getColorList } from './color'; // 导入颜色定义
 import { OnlineImageHelper } from './OnlineImageHelper';
@@ -404,10 +404,12 @@ export class PickList {
     public constructor(config: WorkspaceConfiguration, pickList?: QuickPick<ImgItem>) {
         this.config = config;
         this.imgPath = resolveCurrentImagePath(config.imagePath || '');
-        this.opacity = config.opacity;
+        // 独立模式下透明度/模糊度按窗口+工作区存储，这里解析出当前窗口实际生效的值，
+        // 保证预览滑块起点与最终写入的 CSS 一致。
+        this.opacity = resolveCurrentOpacity(config.opacity);
         this.sizeModel = config.sizeModel || 'cover';
         this.imageFileType = 0;
-        this.blur = config.blur;
+        this.blur = resolveCurrentBlur(config.blur);
 
         if (pickList) {
             this.quickPick = pickList;
@@ -1439,7 +1441,16 @@ export class PickList {
             return true;
         }
         if (persist) {
-            await this.config.update(name, value, ConfigurationTarget.Global);
+            if (name === 'opacity' || name === 'blur') {
+                // 独立模式下写 globalState 的窗口/工作区记录，共用模式下回写 settings.json。
+                if (name === 'opacity') {
+                    await setCurrentOpacity(value, this.config);
+                } else {
+                    await setCurrentBlur(value, this.config);
+                }
+            } else {
+                await this.config.update(name, value, ConfigurationTarget.Global);
+            }
             this.config = workspace.getConfiguration('backgroundCover');
         }
         switch (name) {

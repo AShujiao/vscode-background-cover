@@ -25,7 +25,7 @@ import { setContext } from './global';
 import { CUSTOM_JS_FILE_PATH, collectStaleWindowCssFiles } from './FileDom';
 import { BackgroundCoverViewProvider } from './backgroundCoverView';
 import { StudioViewProvider } from './StudioViewProvider';
-import { hasCurrentImageRecord, resolveCurrentImagePath, setCurrentImagePath } from './windowBackground';
+import { hasCurrentImageRecord, resolveCurrentImagePath, setCurrentBlur, setCurrentImagePath, setCurrentOpacity } from './windowBackground';
 
 
 export function activate(context: ExtensionContext) {
@@ -169,14 +169,26 @@ export function activate(context: ExtensionContext) {
 			await PickList.applyCurrentBackground();
 			return;
 		}
-		const config = workspace.getConfiguration();
-		await config.update(key, value, true);
+		const config = workspace.getConfiguration('backgroundCover');
+		if (key === 'backgroundCover.opacity' || key === 'backgroundCover.blur') {
+			// 独立模式下透明度/模糊度按窗口+工作区记录在 globalState 里，让每个
+			// 窗口的 webview 显示各自的值；共用模式下才回写全局 settings.json。
+			const num = typeof value === 'number' ? value : parseFloat(value);
+			if (Number.isNaN(num)) { return; }
+			if (key === 'backgroundCover.opacity') {
+				await setCurrentOpacity(num, config);
+			} else {
+				await setCurrentBlur(num, config);
+			}
+			PickList.needAutoUpdate(config);
+			return;
+		}
+		await config.update(key.replace(/^backgroundCover\./, ''), value, true);
 		if (key === 'backgroundCover.perWindowBackground') {
 			// 重新应用交给 onDidChangeConfiguration 统一处理，避免连开两次。
 			return;
 		}
-		const newConfig = workspace.getConfiguration('backgroundCover');
-		PickList.needAutoUpdate(newConfig);
+		PickList.needAutoUpdate(config);
 	}));
 
 	// Initialize context
@@ -198,9 +210,8 @@ export function activate(context: ExtensionContext) {
 	context.globalState.update('ext_version',version);
 	vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
 🚀 更新内容：
-    1.  新增多窗口独立背景，每个窗口可显示各自的背景图（可在高级设置中切回全部窗口共用）。
-    2.  优化多窗口授权体验，新开窗口不再反复弹出 UAC 授权窗口。
-    3.  优化自动换图容错，网络失败会静默重试或换图，不再弹窗打断。
+    1.  透明度/模糊度按窗口独立：每个工作区可各自保存并显示不同的透明度与模糊度数值，在一个窗口调透明度/模糊度不再把其他窗口的数值刷成同一个。
+    2.  独立模式下透明度/模糊度不再回写全局 settings.json，切回「全部窗口共用」后恢复全局共享。
 
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}
