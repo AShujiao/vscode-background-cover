@@ -112,6 +112,10 @@
                     <span class="tile-icon tile-icon--gold"><el-icon><StarFilled /></el-icon></span>
                     <span class="about-label">{{ t('starOnGithub') }}</span>
                 </button>
+                <button class="about-tile" @click="onWechat">
+                    <span class="tile-icon tile-icon--green"><el-icon><ChatLineRound /></el-icon></span>
+                    <span class="about-label">{{ t('wechatGroup') }}</span>
+                </button>
             </div>
         </el-card>
     </div>
@@ -119,7 +123,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Picture, Upload, Operation, RefreshRight, Delete, Grid, FolderOpened, Star, Link, ChatDotRound, StarFilled } from '@element-plus/icons-vue';
+import { Picture, Upload, Operation, RefreshRight, Delete, Grid, FolderOpened, Star, Link, ChatDotRound, ChatLineRound, StarFilled } from '@element-plus/icons-vue';
 import { useI18n } from '../composables/useI18n';
 import { useBridge } from '../composables/useBridge';
 import { config } from '../composables/useStore';
@@ -165,6 +169,7 @@ function onClear()   { bridge.post({ type: 'runAction', action: ActionType.Close
 function onRefresh() { bridge.post({ type: 'runAction', action: ActionType.UpdateBackground }); }
 function onOpenCache() { bridge.post({ type: 'runAction', action: ActionType.OpenCacheFolder }); }
 function onSupport()   { bridge.post({ type: 'runAction', action: ActionType.OpenFilePath, path: '//resources//support.jpg' }); }
+function onWechat()    { bridge.post({ type: 'runAction', action: ActionType.OpenFilePath, path: '//resources//wx.jpg' }); }
 
 function onRepo()   { bridge.post({ type: 'openExternal', url: GITHUB_REPO_URL }); }
 function onIssues() { bridge.post({ type: 'openExternal', url: GITHUB_ISSUES_URL }); }
@@ -367,17 +372,23 @@ function onStar()   { bridge.post({ type: 'openExternal', url: GITHUB_REPO_URL }
             0 1px 0 rgba(255, 255, 255, 0.2) inset,
             0 4px 12px rgba(232, 176, 33, 0.45);
     }
+    &--green {
+        background: linear-gradient(135deg, #6fd88a 0%, #35a85c 100%);
+        box-shadow:
+            0 1px 0 rgba(255, 255, 255, 0.2) inset,
+            0 4px 12px rgba(53, 168, 92, 0.45);
+    }
 }
 
 .about-card :deep(.el-card__body) { padding: 10px 12px 12px; }
 
 .about-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
 }
 
-/* 侧边栏很窄，三个入口改成竖排图标+文字，避免横排时文字被截断 */
+/* 侧边栏很窄，四个入口改成 2x2 竖排图标+文字，避免横排时文字被截断 */
 .about-tile {
     display: flex;
     flex-direction: column;

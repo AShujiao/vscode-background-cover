@@ -17,7 +17,7 @@ import {
 import { PickList, getAllPets } from './PickList';
 import { onDidChangeGlobalState } from './global';
 import { getColorEntries } from './color';
-import { resolveCurrentImagePath } from './windowBackground';
+import { resolveCurrentBlur, resolveCurrentImagePath, resolveCurrentOpacity } from './windowBackground';
 import { findCachedOnlineImage, isOnlineUrl, readOnlineCacheEntries } from './onlineCache';
 
 /**
@@ -145,8 +145,10 @@ export class StudioViewProvider implements WebviewViewProvider {
                 brandLogo,
                 brandName,
                 config: {
-                    opacity: cfg.get('opacity') ?? 0.2,
-                    blur: cfg.get('blur') ?? 0,
+                    // 透明度/模糊度按窗口+工作区独立存储，推送当前窗口实际生效的值，
+                    // 不同工作区窗口的 webview 会显示各自不同的数值。
+                    opacity: resolveCurrentOpacity(cfg.get('opacity') ?? 0.2),
+                    blur: resolveCurrentBlur(cfg.get('blur') ?? 0),
                     imagePath,
                     imagePathDisplay,
                     autoStatus: cfg.get('autoStatus') ?? false,

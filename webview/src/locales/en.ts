@@ -57,6 +57,7 @@ export default {
     repository:        'Repository',
     issues:            'Issues',
     starOnGithub:      'Star',
+    wechatGroup:       'WeChat Group',
 
     language:          'Language',
     langEnglish:       'English',
