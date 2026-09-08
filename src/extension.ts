@@ -23,6 +23,7 @@ import vsHelp from './vsHelp';
 import ReaderViewProvider from './readerView';
 import { setContext } from './global';
 import { CUSTOM_JS_FILE_PATH, collectStaleWindowCssFiles } from './FileDom';
+import { pruneOnlineCache } from './onlineCache';
 import { BackgroundCoverViewProvider } from './backgroundCoverView';
 import { StudioViewProvider } from './StudioViewProvider';
 import { hasCurrentImageRecord, resolveCurrentImagePath, setCurrentBlur, setCurrentImagePath, setCurrentOpacity } from './windowBackground';
@@ -82,6 +83,10 @@ export function activate(context: ExtensionContext) {
 	// 回收历史窗口会话遗留的 CSS 文件，不阻塞启动
 	void collectStaleWindowCssFiles();
 
+	// 收敛在线图片缓存目录：无扩展名在线源每次换图都会新增缓存文件，长期自动换图
+	// 会让 images/ 无限增长（#233）。启动时清一次超过上限的最旧文件，不阻塞启动。
+	void pruneOnlineCache();
+
 	// 监听配置变化
 	context.subscriptions.push(workspace.onDidChangeConfiguration(e => {
 		if (e.affectsConfiguration('backgroundCover.autoStatus') || e.affectsConfiguration('backgroundCover.autoInterval')) {
@@ -91,6 +96,10 @@ export function activate(context: ExtensionContext) {
 			// 切换独立/共用模式：重新应用一次，让本窗口写到新的目标 CSS 文件，
 			// 并把注入端的地址复位。其余窗口各自收到同一事件后自行处理。
 			void PickList.applyCurrentBackground();
+		}
+		if (e.affectsConfiguration('backgroundCover.cacheLimit')) {
+			// 调小上限后立即收敛一次，不必等下次下载或重启窗口。
+			void pruneOnlineCache();
 		}
 	}));
 

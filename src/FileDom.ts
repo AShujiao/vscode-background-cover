@@ -11,7 +11,7 @@ import version from './version';
 import { SudoPromptHelper } from './SudoPromptHelper';
 import * as fse from 'fs-extra';
 import { getContext } from './global';
-import { getOnlineCacheDir, getOnlineCacheHash } from './onlineCache';
+import { getOnlineCacheDir, getOnlineCacheHash, findCachedOnlineImage, pruneOnlineCache } from './onlineCache';
 import { getParticleEffectJs } from './ParticleEffect';
 import { getAllPets } from './PickList';
 import Color from './color';
@@ -362,6 +362,8 @@ export class FileDom {
         this.blendModel = blendModel || this.workConfig.get('blendModel', '');
         this.systemType = os.type();
         this.forceHttpsUpgrade = this.workConfig.get('forceHttpsUpgrade', true);
+        // skipOnlineCache 只影响静态图是否复用已下载副本（换图源需要重下覆盖），
+        // 不影响无扩展名动态源（其文件数由 pruneOnlineCache 收敛）。
         this.skipOnlineCache = skipOnlineCache;
         this.shouldApply = shouldApply;
         // 共用模式(perWindowBackground=false)下直接写共享 CSS 文件，并用固定 token
@@ -454,8 +456,16 @@ export class FileDom {
             
             const cachePath = path.join(cacheDir, `${urlHash}${ext}`);
 
+            // 复用已有缓存：静态图（有扩展名 URL）下载到固定的 <hash><ext> 路径。
+            // skipOnlineCache=true（自动随机换图时设置）表示"该源每次可能返回不同
+            // 内容"（如 picsum.photos 的 .jpg 轮换源），必须重新下载并覆盖同一文件来
+            // 换图——覆盖不累积磁盘，只是费流量。无扩展名/动态源（uniqueDownload）
+            // 另走下方按内容哈希命名的新文件分支，文件数由 pruneOnlineCache 收敛。
             if (!this.skipOnlineCache && isStaticImage && !uniqueDownload && await fse.pathExists(cachePath)) {
                 this.imagePath = cachePath;
+                // 复用即刷新 mtime：pruneOnlineCache 按 mtime 淘汰最旧的文件，不刷新的话
+                // 很久以前设置的静态背景会因为"下载时间最旧"被清掉，下次应用还得重下。
+                await this.touchCacheFile(cachePath);
                 return;
             }
 
@@ -485,12 +495,32 @@ export class FileDom {
                         finalExt = this.getExtensionFromContentType(contentType) || finalExt;
                     }
 
+                    // 动态源按"内容"而不是"下载时刻"命名：图池型/内容稳定的源重复下载
+                    // 同一张图时会命中已有文件，不再新增副本（否则每次换图都多一个文件，
+                    // 只能靠 pruneOnlineCache 压回上限）。哈希失败时退回时间戳命名，
+                    // 保证新增逻辑不会让下载失败。命名保留 <urlHash> 前缀，
+                    // findCachedOnlineImage 的 URL→文件查找不受影响。
+                    const contentHash = uniqueDownload ? await this.hashFile(tempPath) : undefined;
                     const targetPath = (!uniqueDownload && isStaticImage)
                         ? cachePath
-                        : path.join(cacheDir, `${urlHash}-${timestamp}${finalExt || '.img'}`);
+                        : path.join(cacheDir, `${urlHash}-${contentHash || timestamp}${finalExt || '.img'}`);
+
+                    if (uniqueDownload && contentHash && await fse.pathExists(targetPath)) {
+                        // 内容已在缓存里：丢弃临时文件，复用已有副本并刷新 mtime。
+                        // 没有新增文件，所以这里不需要再收敛缓存。
+                        await fse.remove(tempPath);
+                        this.imagePath = targetPath;
+                        await this.touchCacheFile(targetPath);
+                        return;
+                    }
 
                     await fse.move(tempPath, targetPath, { overwrite: true });
                     this.imagePath = targetPath;
+                    // 只有无扩展名/动态地址的在线源会新增文件（静态源是覆盖写同一路径，
+                    // 目录不增长），所以只在这条分支收敛缓存，避免每次换图都扫一遍目录。
+                    if (uniqueDownload) {
+                        await pruneOnlineCache();
+                    }
                     return;
                 } catch (error) {
                     lastError = wrapDownloadError(error);
@@ -512,6 +542,15 @@ export class FileDom {
                 console.warn('[FileDom] Download failed, using cached image:', lastError);
                 return;
             }
+            // 下载失败时兜底复用同 URL 已下载过的最新文件。对无扩展名/动态地址源，
+            // 之前每次下载都生成 <hash>-<timestamp><ext> 新文件，cachePath 永远不存在，
+            // 这里必须用 findCachedOnlineImage 才能命中旧的下载记录。
+            const fallback = findCachedOnlineImage(this.imagePath);
+            if (fallback) {
+                this.imagePath = fallback;
+                console.warn('[FileDom] Download failed, using latest cached image:', lastError);
+                return;
+            }
             throw lastError || new BackgroundDownloadError('Failed to download image');
         } catch (error) {
             if (error instanceof BackgroundApplyCancelledError) {
@@ -520,6 +559,34 @@ export class FileDom {
             const downloadError = wrapDownloadError(error);
             console.error('[FileDom] Failed to download image:', downloadError);
             throw downloadError;
+        }
+    }
+
+    /**
+     * 流式计算文件内容哈希（sha256），用于动态在线源按内容去重。
+     * 用 sha256 而非 md5：成本几乎相同，但避免"内容寻址撞车导致显示错图"的理论风险。
+     * 读失败时返回 undefined，调用方退回按时间戳命名。
+     */
+    private hashFile(filePath: string): Promise<string | undefined> {
+        return new Promise(resolve => {
+            const hash = crypto.createHash('sha256');
+            const stream = fs.createReadStream(filePath);
+            stream.on('data', chunk => hash.update(chunk));
+            stream.on('error', () => resolve(undefined));
+            stream.on('end', () => resolve(hash.digest('hex')));
+        });
+    }
+
+    /**
+     * 刷新缓存文件的 mtime。pruneOnlineCache 按 mtime 淘汰最旧的文件，只有刷新
+     * 才能让淘汰按"最近使用"而不是"最近下载"，正在用的图就不会被清掉。
+     */
+    private async touchCacheFile(filePath: string): Promise<void> {
+        try {
+            const now = new Date();
+            await fse.utimes(filePath, now, now);
+        } catch {
+            // 刷新失败不影响使用
         }
     }
 
