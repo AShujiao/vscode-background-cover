@@ -19,6 +19,7 @@ import { onDidChangeGlobalState } from './global';
 import { getColorEntries } from './color';
 import { resolveCurrentBlur, resolveCurrentImagePath, resolveCurrentOpacity } from './windowBackground';
 import { DEFAULT_ONLINE_CACHE_LIMIT, findCachedOnlineImage, isOnlineUrl, readOnlineCacheEntries } from './onlineCache';
+import { DEFAULT_PARTICLE_FPS } from './ParticleEffect';
 
 /**
  * Vue-powered single-pane configuration webview.
@@ -167,6 +168,7 @@ export class StudioViewProvider implements WebviewViewProvider {
                     particleColor: gs.get('backgroundCoverParticleColor') ?? '#ffffff',
                     particleCount: gs.get('backgroundCoverParticleCount') ?? 60,
                     particleOpacity: gs.get('backgroundCoverParticleOpacity') ?? 0.5,
+                    particleFps: gs.get('backgroundCoverParticleFps') ?? DEFAULT_PARTICLE_FPS,
                     recentImages,
                     folderImages,
                     folderImagesTotal,
@@ -255,7 +257,8 @@ export class StudioViewProvider implements WebviewViewProvider {
             'backgroundCoverParticleEffect',
             'backgroundCoverParticleColor',
             'backgroundCoverParticleCount',
-            'backgroundCoverParticleOpacity'
+            'backgroundCoverParticleOpacity',
+            'backgroundCoverParticleFps'
         ];
         for (const key of allowedKeys) {
             if (Object.prototype.hasOwnProperty.call(state, key)) {

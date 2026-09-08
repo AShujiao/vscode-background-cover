@@ -102,6 +102,19 @@
                 <span class="slider-value">{{ state.particleCount ?? 60 }}</span>
             </div>
 
+            <div class="slider-row">
+                <span class="slider-label">{{ t('particleFps') }}</span>
+                <el-slider
+                    class="slider-input"
+                    :model-value="Number(state.particleFps ?? DEFAULT_PARTICLE_FPS)"
+                    :min="MIN_PARTICLE_FPS" :max="MAX_PARTICLE_FPS" :step="10"
+                    :show-tooltip="false"
+                    @input="onParticleFpsInput"
+                />
+                <span class="slider-value">{{ Number(state.particleFps ?? DEFAULT_PARTICLE_FPS) }}</span>
+            </div>
+            <div class="slider-hint">{{ t('particleFpsHint') }}</div>
+
             <div class="color-section">
                 <div class="color-section-head">
                     <span class="slider-label">{{ t('presetColors') }}</span>
@@ -138,7 +151,7 @@ import { Sunny, MagicStick, Picture, Check, RefreshRight } from '@element-plus/i
 import { useI18n } from '../composables/useI18n';
 import { useBridge } from '../composables/useBridge';
 import { state } from '../composables/useStore';
-import { ActionType } from '../constants';
+import { ActionType, DEFAULT_PARTICLE_FPS, MIN_PARTICLE_FPS, MAX_PARTICLE_FPS } from '../constants';
 import { rgbStringToHex, hexToRgbString } from '../utils/color';
 
 const { t } = useI18n();
@@ -183,6 +196,16 @@ function onParticleCountInput(v: number | number[]) {
     }, 180);
 }
 
+let fpsTimer: number | undefined;
+function onParticleFpsInput(v: number | number[]) {
+    const value = Array.isArray(v) ? v[0] : v;
+    state.particleFps = value;
+    if (fpsTimer) { clearTimeout(fpsTimer); }
+    fpsTimer = window.setTimeout(() => {
+        bridge.post({ type: 'setGlobalState', key: 'backgroundCoverParticleFps', value });
+    }, 180);
+}
+
 let messagesTimer: number | undefined;
 function onPetMessagesInput(value: string) {
     state.petMessages = value;
@@ -213,6 +236,10 @@ function onApply() {
         clearTimeout(countTimer);
         countTimer = undefined;
     }
+    if (fpsTimer) {
+        clearTimeout(fpsTimer);
+        fpsTimer = undefined;
+    }
     if (messagesTimer) {
         clearTimeout(messagesTimer);
         messagesTimer = undefined;
@@ -226,7 +253,8 @@ function onApply() {
             backgroundCoverParticleEffect: !!state.particleEffect,
             backgroundCoverParticleColor: state.particleColor,
             backgroundCoverParticleCount: Number(state.particleCount ?? 60),
-            backgroundCoverParticleOpacity: Number(state.particleOpacity ?? 0.5)
+            backgroundCoverParticleOpacity: Number(state.particleOpacity ?? 0.5),
+            backgroundCoverParticleFps: Number(state.particleFps ?? DEFAULT_PARTICLE_FPS)
         }
     });
 }
@@ -389,6 +417,13 @@ function onApply() {
     font-size: 11px;
     color: var(--vscode-foreground);
     font-variant-numeric: tabular-nums;
+}
+
+.slider-hint {
+    font-size: 10px;
+    line-height: 1.45;
+    color: var(--vscode-descriptionForeground);
+    padding: 2px 0 6px;
 }
 
 /* ===== Color section ===== */

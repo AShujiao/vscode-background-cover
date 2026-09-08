@@ -48,6 +48,8 @@ export default {
     particleColor:     '颜色',
     particleCount:     '数量',
     particleOpacity:   '透明度',
+    particleFps:       '帧率',
+    particleFpsHint:   '粒子特效的绘制帧率上限。高刷新率屏幕（120/144/240Hz）下调低可显著降低 GPU 占用；调低后粒子移动会变慢。',
 
     notSet:            '未设置',
     apply:             '应用',

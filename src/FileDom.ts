@@ -12,7 +12,7 @@ import { SudoPromptHelper } from './SudoPromptHelper';
 import * as fse from 'fs-extra';
 import { getContext } from './global';
 import { getOnlineCacheDir, getOnlineCacheHash, findCachedOnlineImage, pruneOnlineCache } from './onlineCache';
-import { getParticleEffectJs } from './ParticleEffect';
+import { getParticleEffectJs, DEFAULT_PARTICLE_FPS } from './ParticleEffect';
 import { getAllPets } from './PickList';
 import Color from './color';
 import { getSessionHash, getWindowCssFileName, isPerWindowEnabled } from './windowBackground';
@@ -1424,8 +1424,10 @@ export class FileDom {
         const opacity = context.globalState.get('backgroundCoverParticleOpacity', 0.6);
         const color = this.normalizeParticleColor(context.globalState.get('backgroundCoverParticleColor', '#ffffff'));
         const count = context.globalState.get('backgroundCoverParticleCount', 50);
+        // 帧率上限（#230）：高刷屏下不节流，粒子重绘次数会随刷新率线性上升
+        const fps = context.globalState.get('backgroundCoverParticleFps', DEFAULT_PARTICLE_FPS);
 
-        return getParticleEffectJs(opacity, color, count);
+        return getParticleEffectJs(opacity, color, count, fps);
     }
 
     private normalizeParticleColor(value: unknown): string {

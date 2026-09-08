@@ -224,6 +224,8 @@
         "watch:webview": "cd webview && npm run dev",
         "test": "npm run compile && node ./node_modules/vscode/bin/test",
         "test:prune": "npm run compile && node scripts/test-prune-cache.js",
+        "test:particle": "npm run compile && node scripts/test-particle-throttle.js",
+        "test:unit": "npm run compile && node scripts/test-prune-cache.js && node scripts/test-particle-throttle.js",
         "check": "tslint -p ./"
     },
     "devDependencies": {

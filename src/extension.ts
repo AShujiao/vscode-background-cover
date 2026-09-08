@@ -217,10 +217,10 @@ export function activate(context: ExtensionContext) {
 	
 	if(openVersion != version){
 	context.globalState.update('ext_version',version);
-	vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
+	vsHelp.showInfoSupport(`🎉 BackgroundCover ${version}
 🚀 更新内容：
-    1.  透明度/模糊度按窗口独立：每个工作区可各自保存并显示不同的透明度与模糊度数值，在一个窗口调透明度/模糊度不再把其他窗口的数值刷成同一个。
-    2.  独立模式下透明度/模糊度不再回写全局 settings.json，切回「全部窗口共用」后恢复全局共享。
+    1. 在线图片缓存新增上限（默认 200 个），超出自动清理最旧的文件。
+    2. 粒子特效新增帧率上限（默认 60 帧），高刷屏下不再拉满 GPU。
 
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}

@@ -38,6 +38,15 @@ export const BLEND_MODES = ['auto', 'multiply', 'lighten'];
  */
 export const DEFAULT_CACHE_LIMIT = 200;
 
+/**
+ * Mirror of DEFAULT/MIN/MAX_PARTICLE_FPS in src/ParticleEffect.ts（前端无法 import 扩展侧代码）。
+ * 帧率上限用于修复高刷屏下粒子特效 GPU 占用随刷新率线性上升的问题（#230）。
+ * scripts/test-particle-throttle.js 会校验与扩展侧常量是否漂移。
+ */
+export const DEFAULT_PARTICLE_FPS = 60;
+export const MIN_PARTICLE_FPS = 10;
+export const MAX_PARTICLE_FPS = 120;
+
 export const ONLINE_GALLERY_URL = 'https://vs.20988.xyz';
 
 /** 关于区入口，与 src/PickList.ts getMoreMenuItems() 保持一致。 */

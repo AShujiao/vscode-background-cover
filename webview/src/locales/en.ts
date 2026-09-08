@@ -48,6 +48,8 @@ export default {
     particleColor:     'Color',
     particleCount:     'Count',
     particleOpacity:   'Opacity',
+    particleFps:       'Frame rate',
+    particleFpsHint:   'Upper bound on the particle redraw rate. Lowering it cuts GPU usage sharply on high-refresh displays (120/144/240Hz); particles then drift more slowly.',
 
     notSet:            'Not set',
     apply:             'Apply',
