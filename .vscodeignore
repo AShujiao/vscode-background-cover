@@ -4,6 +4,7 @@
 *.vsix
 out/test/**
 out/**/*.map
+scripts/**
 src/**
 webview/node_modules/**
 webview/src/**

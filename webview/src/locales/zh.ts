@@ -48,6 +48,8 @@ export default {
     particleColor:     '颜色',
     particleCount:     '数量',
     particleOpacity:   '透明度',
+    particleFps:       '帧率',
+    particleFpsHint:   '粒子特效的绘制帧率上限。高刷新率屏幕（120/144/240Hz）下调低可显著降低 GPU 占用；调低后粒子移动会变慢。',
 
     notSet:            '未设置',
     apply:             '应用',
@@ -73,6 +75,8 @@ export default {
     presetColors:         '预设颜色',
     customColor:          '自定义颜色',
     intervalSeconds:      '间隔（秒）',
+    cacheLimit:           '图片缓存上限（个）',
+    cacheLimitHint:       '在线图片缓存文件个数上限，超出后自动清理最旧的文件。防止无扩展名在线源长期自动换图导致磁盘占用无限增长',
     applyChanges:         '重启窗口生效',
     applyChangesHint:     '本部分功能修改后需重启窗口才能生效，修改完成后请点击下方按钮'
 };

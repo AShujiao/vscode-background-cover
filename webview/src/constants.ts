@@ -31,6 +31,22 @@ export const SIZE_MODES = [
 
 export const BLEND_MODES = ['auto', 'multiply', 'lighten'];
 
+/**
+ * Mirror of DEFAULT_ONLINE_CACHE_LIMIT in src/onlineCache.ts（前端无法 import 扩展侧代码）。
+ * 必须与 package.json 的 backgroundCover.cacheLimit 默认值一致，
+ * scripts/test-prune-cache.js 会校验三处是否漂移。
+ */
+export const DEFAULT_CACHE_LIMIT = 200;
+
+/**
+ * Mirror of DEFAULT/MIN/MAX_PARTICLE_FPS in src/ParticleEffect.ts（前端无法 import 扩展侧代码）。
+ * 帧率上限用于修复高刷屏下粒子特效 GPU 占用随刷新率线性上升的问题（#230）。
+ * scripts/test-particle-throttle.js 会校验与扩展侧常量是否漂移。
+ */
+export const DEFAULT_PARTICLE_FPS = 60;
+export const MIN_PARTICLE_FPS = 10;
+export const MAX_PARTICLE_FPS = 120;
+
 export const ONLINE_GALLERY_URL = 'https://vs.20988.xyz';
 
 /** 关于区入口，与 src/PickList.ts getMoreMenuItems() 保持一致。 */

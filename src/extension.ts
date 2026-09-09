@@ -23,6 +23,7 @@ import vsHelp from './vsHelp';
 import ReaderViewProvider from './readerView';
 import { setContext } from './global';
 import { CUSTOM_JS_FILE_PATH, collectStaleWindowCssFiles } from './FileDom';
+import { pruneOnlineCache } from './onlineCache';
 import { BackgroundCoverViewProvider } from './backgroundCoverView';
 import { StudioViewProvider } from './StudioViewProvider';
 import { hasCurrentImageRecord, resolveCurrentImagePath, setCurrentBlur, setCurrentImagePath, setCurrentOpacity } from './windowBackground';
@@ -82,6 +83,10 @@ export function activate(context: ExtensionContext) {
 	// 回收历史窗口会话遗留的 CSS 文件，不阻塞启动
 	void collectStaleWindowCssFiles();
 
+	// 收敛在线图片缓存目录：无扩展名在线源每次换图都会新增缓存文件，长期自动换图
+	// 会让 images/ 无限增长（#233）。启动时清一次超过上限的最旧文件，不阻塞启动。
+	void pruneOnlineCache();
+
 	// 监听配置变化
 	context.subscriptions.push(workspace.onDidChangeConfiguration(e => {
 		if (e.affectsConfiguration('backgroundCover.autoStatus') || e.affectsConfiguration('backgroundCover.autoInterval')) {
@@ -91,6 +96,10 @@ export function activate(context: ExtensionContext) {
 			// 切换独立/共用模式：重新应用一次，让本窗口写到新的目标 CSS 文件，
 			// 并把注入端的地址复位。其余窗口各自收到同一事件后自行处理。
 			void PickList.applyCurrentBackground();
+		}
+		if (e.affectsConfiguration('backgroundCover.cacheLimit')) {
+			// 调小上限后立即收敛一次，不必等下次下载或重启窗口。
+			void pruneOnlineCache();
 		}
 	}));
 
@@ -208,10 +217,10 @@ export function activate(context: ExtensionContext) {
 	
 	if(openVersion != version){
 	context.globalState.update('ext_version',version);
-	vsHelp.showInfoSupport(`🎉 BackgroundCover 已更新至 ${version}
+	vsHelp.showInfoSupport(`🎉 BackgroundCover ${version}
 🚀 更新内容：
-    1.  透明度/模糊度按窗口独立：每个工作区可各自保存并显示不同的透明度与模糊度数值，在一个窗口调透明度/模糊度不再把其他窗口的数值刷成同一个。
-    2.  独立模式下透明度/模糊度不再回写全局 settings.json，切回「全部窗口共用」后恢复全局共享。
+    1. 在线图片缓存新增上限（默认 200 个），超出自动清理最旧的文件。
+    2. 粒子特效新增帧率上限（默认 60 帧），高刷屏下不再拉满 GPU。
 
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}

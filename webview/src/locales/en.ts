@@ -48,6 +48,8 @@ export default {
     particleColor:     'Color',
     particleCount:     'Count',
     particleOpacity:   'Opacity',
+    particleFps:       'Frame rate',
+    particleFpsHint:   'Upper bound on the particle redraw rate. Lowering it cuts GPU usage sharply on high-refresh displays (120/144/240Hz); particles then drift more slowly.',
 
     notSet:            'Not set',
     apply:             'Apply',
@@ -73,6 +75,8 @@ export default {
     presetColors:         'Preset Colors',
     customColor:          'Custom Color',
     intervalSeconds:      'Interval (seconds)',
+    cacheLimit:           'Image cache limit',
+    cacheLimitHint:       'Max cached online image files. Oldest files are removed once the cache exceeds this. Prevents extension-less online sources from growing disk usage without bound under auto-random.',
     applyChanges:         'Reload to apply changes',
     applyChangesHint:     'Changes in this section require a window reload. Click the button below after editing.'
 };
