@@ -49,7 +49,7 @@ export const config = reactive<StudioConfig>({
     blendModel: 'auto',
     randomImageFolder: '',
     perWindowBackground: true,
-    cacheLimit: DEFAULT_CACHE_LIMIT
+    cacheLimit: DEFAULT_CACHE_LIMIT,
 });
 
 export const state = reactive<StudioState>({

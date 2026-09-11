@@ -158,7 +158,8 @@ export class StudioViewProvider implements WebviewViewProvider {
                     blendModel: cfg.get('blendModel') ?? 'auto',
                     randomImageFolder: cfg.get('randomImageFolder') ?? '',
                     perWindowBackground: cfg.get('perWindowBackground') ?? true,
-                    cacheLimit: cfg.get('cacheLimit') ?? DEFAULT_ONLINE_CACHE_LIMIT
+                    cacheLimit: cfg.get('cacheLimit') ?? DEFAULT_ONLINE_CACHE_LIMIT,
+                    backgroundTransition: true
                 },
                 state: {
                     petEnabled: gs.get('backgroundCoverPetEnabled') ?? false,

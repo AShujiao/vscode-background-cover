@@ -108,6 +108,7 @@
             >
                 <el-option v-for="opt in BLEND_MODES" :key="opt" :label="opt" :value="opt" />
             </el-select>
+            <div class="row-hint">{{ t('blendModeHint') }}</div>
         </el-card>
 
         <!-- Misc -->
@@ -128,7 +129,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Refresh, ArrowRight, FullScreen, Brush, FolderOpened, Star, Monitor } from '@element-plus/icons-vue';
+import { Refresh, ArrowRight, FullScreen, Brush, FolderOpened, Star, Monitor, MagicStick } from '@element-plus/icons-vue';
 import { useI18n } from '../composables/useI18n';
 import { useBridge } from '../composables/useBridge';
 import { config } from '../composables/useStore';

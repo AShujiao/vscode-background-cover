@@ -31,6 +31,7 @@ export default {
     sourceFolder:      'Source Folder',
     sizeMode:          'Size Mode',
     blendMode:         'Blend Mode',
+    blendModeHint:     'Auto adapts to the active theme instantly via CSS variables (dark = lighten, light = multiply).',
     windowScope:       'Window Background',
     perWindowBackground:     'Per-window background',
     perWindowBackgroundHint: 'On: each window keeps its own image. Off: all windows share one.',
