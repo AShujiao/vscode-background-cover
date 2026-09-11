@@ -16,6 +16,17 @@ import { getParticleEffectJs, DEFAULT_PARTICLE_FPS } from './ParticleEffect';
 import { getAllPets } from './PickList';
 import Color from './color';
 import { getSessionHash, getWindowCssFileName, isPerWindowEnabled } from './windowBackground';
+import { detectPatchStateFromFile, PatchState, BOOTSTRAP_VERSION } from './patchState';
+import { expandPathVariables, hasFileExtension, pickRandomFromFolder } from './pathUtil';
+import {
+    getCorruptionWarningCss,
+    getTransitionDeclaration,
+    getTransitionReducedMotionCss,
+    resolveBlendModeDeclaration,
+    resolveBlendModeValue,
+    resolveThemeBlendRules
+} from './backgroundCss';
+import { IMAGE_FADE_JS, PRELOAD_IMAGE_JS } from './loaderFragments';
 import {
     BackgroundApplyCancelledError,
     BackgroundDownloadError,
@@ -158,7 +169,6 @@ const WEB_RELATIVE_JS_PATH = IS_CODE_SERVER_TARGET ? getWebRelativePath(CUSTOM_J
 const CUSTOM_ASSET_DIR = path.join(selectedWorkbench.root, 'background-cover-assets');
 const RELATIVE_URL_PLACEHOLDER = '__BACKGROUND_COVER_BASE__';
 const HTML_CACHE_BUST_PARAM = 'background-cover';
-const BOOTSTRAP_VERSION = '1';
 const DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
 const DEFAULT_ACCEPT_HEADER = 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8';
 const DOWNLOAD_MAX_ATTEMPTS = 3;
@@ -318,6 +328,17 @@ export async function collectStaleWindowCssFiles(): Promise<void> {
     }
 }
 
+/**
+ * 补丁状态机（A1）：按主 workbench bundle 的实际内容标记判定补丁状态。
+ * - latest：已按当前 bootstrap 版本打过补丁；
+ * - legacy：打过旧版补丁（需要升级）；
+ * - none：文件被还原 / VS Code 更新替换 / 首次安装。
+ * 主文件缺失时也返回 none，保持静默。
+ */
+export async function detectPatchState(): Promise<PatchState> {
+    return detectPatchStateFromFile(JS_FILE_PATH);
+}
+
 export class FileDom {
     private readonly filePath: string;
     private readonly extName = "backgroundCover";
@@ -329,6 +350,7 @@ export class FileDom {
     private readonly systemType: string;
     private readonly forceHttpsUpgrade: boolean;
     private readonly skipOnlineCache: boolean;
+    private readonly transitionEnabled: boolean;
     private readonly shouldApply: () => boolean;
     private readonly windowCssFilePath: string;
     public readonly windowCssToken: string;
@@ -362,6 +384,8 @@ export class FileDom {
         this.blendModel = blendModel || this.workConfig.get('blendModel', '');
         this.systemType = os.type();
         this.forceHttpsUpgrade = this.workConfig.get('forceHttpsUpgrade', true);
+        // 背景切换动画始终启用；仍尊重系统减少动态效果设置。
+        this.transitionEnabled = true;
         // skipOnlineCache 只影响静态图是否复用已下载副本（换图源需要重下覆盖），
         // 不影响无扩展名动态源（其文件数由 pruneOnlineCache 收敛）。
         this.skipOnlineCache = skipOnlineCache;
@@ -387,8 +411,35 @@ export class FileDom {
         return ['.mp4', '.webm', '.ogg', '.mov'].includes(ext);
     }
 
+    /**
+     * 若 imagePath 指向一个本地文件夹（无扩展名且是目录），随机返回其中一张
+     * 图片/视频的完整路径；URL、data:、单文件或不存在一律返回 undefined。
+     */
+    private async resolveFolderBackground(): Promise<string | undefined> {
+        const lower = this.imagePath.toLowerCase();
+        if (lower.startsWith('http://') || lower.startsWith('https://') || lower.startsWith('data:')) {
+            return undefined;
+        }
+        if (hasFileExtension(this.imagePath)) {
+            return undefined;
+        }
+        return pickRandomFromFolder(this.imagePath);
+    }
+
     // 本地图片转换为vscode可访问路径
     private async initializeImage(): Promise<void> {
+        // A3：展开 ~ / ${ENV} / $ENV；无扩展名的本地路径按「文件夹」处理，随机取一张
+        // 作为本次背景（支持直接把壁纸目录填进 imagePath）。
+        // 注意只对本地路径展开：http/data URL 的查询串里可能含 $ 字面量，不能动。
+        const lowerInput = this.imagePath.toLowerCase();
+        if (!lowerInput.startsWith('http://') && !lowerInput.startsWith('https://') && !lowerInput.startsWith('data:')) {
+            this.imagePath = expandPathVariables(this.imagePath);
+        }
+        const folderPicked = await this.resolveFolderBackground();
+        if (folderPicked) {
+            this.imagePath = folderPicked;
+        }
+
         let lowerPath = this.imagePath.toLowerCase();
 
         if (lowerPath.startsWith('http://') || lowerPath.startsWith('https://')) {
@@ -1479,7 +1530,10 @@ export class FileDom {
                 url: rawPath,
                 opacity: opacity,
                 blur: this.blur,
-                blendMode: this.blendModel
+                // A4: auto 模式注入 CSS 变量，主题切换由 :has() 即时适配
+                blendMode: resolveBlendModeValue(this.blendModel),
+                // A6: 视频元素同样支持淡入淡出（loader 的 applyVideo 读取该字段）
+                transition: this.transitionEnabled
             };
             // Escape backticks and ${} for template literal safety, but keep backslashes as is (JSON stringified)
             const jsonConfig = JSON.stringify(config)
@@ -1490,7 +1544,8 @@ export class FileDom {
             /*background-cover-video-start*/
             ${jsonConfig}
             /*background-cover-video-end*/
-            ${this.getCorruptionWarningCss()}
+            ${resolveThemeBlendRules(this.blendModel)}
+            ${getCorruptionWarningCss()}
             `;
         }
 
@@ -1510,9 +1565,12 @@ export class FileDom {
             z-index: 2;
             pointer-events: none;
             filter: blur(${this.blur}px);
-            mix-blend-mode: ${this.blendModel};
+            ${resolveBlendModeDeclaration(this.blendModel)}
+            ${getTransitionDeclaration(this.transitionEnabled)}
         }
-        ${this.getCorruptionWarningCss()}
+        ${resolveThemeBlendRules(this.blendModel)}
+        ${getTransitionReducedMotionCss(this.transitionEnabled)}
+        ${getCorruptionWarningCss()}
         `;
     }
 
@@ -1648,6 +1706,12 @@ export class FileDom {
                     video.style.opacity = config.opacity + '';
                     video.style.filter = 'blur(' + config.blur + 'px)';
                     video.style.mixBlendMode = config.blendMode;
+
+                    // A6: 视频切换同样支持淡入淡出（尊重系统"减少动态效果"）
+                    if (config.transition) {
+                        var reducedMotion = (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
+                        video.style.transition = reducedMotion ? 'none' : 'opacity .25s ease, filter .25s ease';
+                    }
 
                     if (video.paused) {
                         video.play().catch(e => {
@@ -1895,6 +1959,9 @@ export class FileDom {
             
             ${videoSetup}
 
+            // A6: 换图淡入淡出片段（background-image 不可过渡，用 opacity 模拟交叉淡化）
+            ${IMAGE_FADE_JS}
+
             function applyStyle(targetWindow, css) {
                 try {
                     const doc = targetWindow && targetWindow.document;
@@ -1905,9 +1972,8 @@ export class FileDom {
                         style.id = 'background-cover-style';
                         doc.head.appendChild(style);
                     }
-                    if (style.textContent !== css) {
-                        style.textContent = css;
-                    }
+                    // A6: 换图交叉淡化（cross-fade 图片级混合，body::before 规则全程不变）
+                    bgcApplyStyleWithFade(targetWindow, style, css);
                 } catch (e) {
                     console.error('[BackgroundCover] applyStyle error:', e);
                 }
@@ -2013,6 +2079,9 @@ export class FileDom {
                 console.error('[BackgroundCover] window.open patch error:', e);
             }
 
+            // A5: 图片预加载片段（换图前预热，消除首帧闪烁）
+            ${PRELOAD_IMAGE_JS}
+
             let cssLoadInFlight = false;
             let lastCssLoadAt = 0;
 
@@ -2045,6 +2114,9 @@ export class FileDom {
                         lastVideoConfig = null;
                     }
 
+                    // A5: 换图前先预加载目标图片，避免首帧闪烁（最长等待 2s）
+                    return preloadBackgroundImage(resolvedCss);
+                }).then(() => {
                     applyToAll();
                 }).catch(e => console.error('[BackgroundCover] Load error:', e))
                 .finally(() => {
@@ -2517,19 +2589,6 @@ export class FileDom {
             }
         })();
         `;
-    }
-
-    // 隐藏损坏提示
-    private getCorruptionWarningCss(): string {
-        const translations = [
-            'installation appears to be corrupt',
-            '安装似乎损坏',
-        ];
-        return translations.map(trans => `
-        .notification-toast-container:has([aria-label*='${trans}']) {
-            display: none;
-        }
-        `).join('');
     }
 
     // 获取css样式值

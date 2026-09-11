@@ -2,7 +2,7 @@
     "name": "background-cover",
     "displayName": "background-cover",
     "description": "Add a picture you like to cover the entire vscode background (Hot Reload Supported). / 添加你喜欢的图片覆盖整个vscode背景（支持热更新）",
-    "version": "3.6.2",
+    "version": "3.7.0",
     "publisher": "manasxx",
     "engines": {
         "vscode": "^1.38.0"
@@ -143,7 +143,7 @@
                         "multiply",
                         "lighten"
                     ],
-                    "default": "cover",
+                    "default": "auto",
                     "description": "Background image blend mode / 图片文字混合模式，对应主题模式"
                 },
                 "backgroundCover.defaultOnlinePage": {
@@ -225,7 +225,8 @@
         "test": "npm run compile && node ./node_modules/vscode/bin/test",
         "test:prune": "npm run compile && node scripts/test-prune-cache.js",
         "test:particle": "npm run compile && node scripts/test-particle-throttle.js",
-        "test:unit": "npm run compile && node scripts/test-prune-cache.js && node scripts/test-particle-throttle.js",
+        "test:newfeatures": "npm run compile && node scripts/test-new-features.js",
+        "test:unit": "npm run compile && node scripts/test-prune-cache.js && node scripts/test-particle-throttle.js && node scripts/test-new-features.js",
         "check": "tslint -p ./"
     },
     "devDependencies": {

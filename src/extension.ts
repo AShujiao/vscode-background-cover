@@ -22,7 +22,7 @@ import { PickList } from './PickList';
 import vsHelp from './vsHelp';
 import ReaderViewProvider from './readerView';
 import { setContext } from './global';
-import { CUSTOM_JS_FILE_PATH, collectStaleWindowCssFiles } from './FileDom';
+import { CUSTOM_JS_FILE_PATH, collectStaleWindowCssFiles, detectPatchState } from './FileDom';
 import { pruneOnlineCache } from './onlineCache';
 import { BackgroundCoverViewProvider } from './backgroundCoverView';
 import { StudioViewProvider } from './StudioViewProvider';
@@ -53,11 +53,18 @@ export function activate(context: ExtensionContext) {
 			const config = workspace.getConfiguration('backgroundCover');
 			const resolved = resolveCurrentImagePath(config.imagePath || '');
 			const hasImage = !!resolved || hasCurrentImageRecord();
-			if (hasImage && !fs.existsSync(CUSTOM_JS_FILE_PATH)) {
+
+			// A1: 以实际内核文件的内容标记判定补丁状态（none/legacy/latest）。
+			// 覆盖"同一版本重装 VS Code / 用户手动还原 workbench 文件 / 打过旧版补丁"
+			// 这些仅凭版本号或文件存在性检测不到的丢失场景。
+			const patchState = await detectPatchState();
+			const patchOutdated = patchState !== 'latest' || !fs.existsSync(CUSTOM_JS_FILE_PATH);
+
+			if (hasImage && patchOutdated) {
 				const ex: Extension<any> | undefined = extensions.getExtension('manasxx.background-cover');
 				const extensionVersion: string = ex ? ex.packageJSON['version'] : '';
 				window.showInformationMessage(
-					`BackgroundCover ${extensionVersion || ''}：检测到核心文件尚未初始化，需要重新应用背景补丁。是否立即执行？ / BackgroundCover ${extensionVersion || ''}: Core files are not initialized. Apply the background patch now?`,
+					`BackgroundCover ${extensionVersion || ''}：检测到背景补丁缺失或版本过旧，需要重新应用。是否立即执行？ / BackgroundCover ${extensionVersion || ''}: Background patch is missing or outdated. Apply it now?`,
 					'Apply / 应用',
 					'Later / 稍后'
 				).then(async result => {
@@ -203,10 +210,8 @@ export function activate(context: ExtensionContext) {
 	// Initialize context
 	commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
 
-	// 监听主题变化
-	window.onDidChangeActiveColorTheme((event) => {
-        PickList.autoUpdateBlendModel();
-    });
+	// A4: 主题感知混合模式已改为注入 CSS 的变量 + :has() 即时适配（见 backgroundCss.ts），
+	// 不再需要监听主题变化并弹窗确认 / 重打补丁 / 重载窗口。
 
 
 
@@ -219,8 +224,10 @@ export function activate(context: ExtensionContext) {
 	context.globalState.update('ext_version',version);
 	vsHelp.showInfoSupport(`🎉 BackgroundCover ${version}
 🚀 更新内容：
-    1. 在线图片缓存新增上限（默认 200 个），超出自动清理最旧的文件。
-    2. 粒子特效新增帧率上限（默认 60 帧），高刷屏下不再拉满 GPU。
+    1. 背景切换过渡动画：换图时旧图渐隐、新图渐显，平滑不闪屏，支持自动换图 / 手动换图。
+    2. 补丁状态自检：VS Code 更新 / 重装或补丁丢失时自动提示重新应用。
+    3. 混合模式 auto 主题自适应：切换深浅主题即时生效，无需重载窗口。
+    4. 背景源支持 ~ / 环境变量 / 文件夹；换图前自动预加载。
 
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}

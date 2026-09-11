@@ -99,10 +99,12 @@ export function hasCurrentImageRecord(): boolean {
     return readGlobalImage() !== undefined;
 }
 
-export function resolveCurrentImagePath(globalFallback?: string): string {
-    if (volatileImagePath !== undefined) {
-        return volatileImagePath;
-    }
+/**
+ * 当前"持久化"的背景图：window → workspace → global → settings 兜底。
+ * 与 resolveCurrentImagePath 的区别是刻意忽略 volatile 内存态（定时自动换图
+ * 只写内存的临时图），供判断"在线单图源记录是否仍是当前背景"这类场景使用。
+ */
+export function getPersistedCurrentImage(globalFallback?: string): string {
     if (isPerWindowEnabled()) {
         const windowMap = readImageMap(WINDOW_IMAGES_KEY);
         const sessionHash = getSessionHash();
@@ -123,6 +125,27 @@ export function resolveCurrentImagePath(globalFallback?: string): string {
     }
     // 老用户迁移路径：globalState 里还没有记录时，读 settings.json 的旧值。
     return globalFallback || '';
+}
+
+export function resolveCurrentImagePath(globalFallback?: string): string {
+    if (volatileImagePath !== undefined) {
+        return volatileImagePath;
+    }
+    return getPersistedCurrentImage(globalFallback);
+}
+
+/**
+ * 在线单图源记录（backgroundCoverSingleImageSource）是否仍有效：
+ * 记录本身必须是在线 URL，且与当前持久化的背景图一致（用户确实还在用这张
+ * 在线单图）。一旦用户已经换成本地图/文件夹，这条记录就是陈旧的 —— 自动
+ * 换图时它会把本地 randomImageFolder 短路成"每轮重下同一张在线图"，图片
+ * 永远不会变，因此陈旧记录必须被识别并清理。
+ */
+export function isSingleSourceActive(singleSource: string | undefined): boolean {
+    if (!singleSource || !/^https?:\/\//i.test(singleSource)) {
+        return false;
+    }
+    return getPersistedCurrentImage() === singleSource;
 }
 
 export interface SetImageOptions {

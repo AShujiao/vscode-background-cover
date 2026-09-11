@@ -23,8 +23,8 @@ import { BackgroundPatchError, BackgroundApplyCancelledError, shouldTryNextAutoI
 import { ImgItem } from './ImgItem';
 import vsHelp from './vsHelp';
 import { getContext, onDidChangeGlobalState } from './global';
-import { hasCurrentImageRecord, resolveCurrentBlur, resolveCurrentImagePath, resolveCurrentOpacity, setCurrentBlur, setCurrentImagePath, setCurrentOpacity } from './windowBackground';
-import { BlendHelper } from './BlendHelper';
+import { hasCurrentImageRecord, isSingleSourceActive, resolveCurrentBlur, resolveCurrentImagePath, resolveCurrentOpacity, setCurrentBlur, setCurrentImagePath, setCurrentOpacity } from './windowBackground';
+import { expandPathVariables, pickRandomFromFolder } from './pathUtil';
 import Color, { getColorList } from './color'; // 导入颜色定义
 import { OnlineImageHelper } from './OnlineImageHelper';
 import { getOnlineCacheDir } from './onlineCache';
@@ -215,9 +215,8 @@ export class PickList {
     public static needAutoUpdate(config: WorkspaceConfiguration) {
         if (!resolveCurrentImagePath(config.imagePath || '')) { return; }
 
-        const nowBlenaStr = BlendHelper.autoBlendModel();
         PickList.itemList = new PickList(config);
-        PickList.itemList.updateDom(false, nowBlenaStr as string).then((requiresReload) => {
+        PickList.itemList.updateDom(false).then((requiresReload) => {
             if (requiresReload) {
                 // Avoid auto-reloading: the Studio "Reload to apply" button in
                 // the Decoration tab gives the user explicit control. We just
@@ -232,28 +231,10 @@ export class PickList {
         });
     }
 
-    public static autoUpdateBlendModel() {
-        const config = workspace.getConfiguration('backgroundCover');
-        if (!resolveCurrentImagePath(config.imagePath || '')) { return; }
-
-        const context = getContext();
-        const blendStr = context.globalState.get('backgroundCoverBlendModel');
-        const nowBlenaStr = BlendHelper.autoBlendModel();
-        if (blendStr == nowBlenaStr) { return false; }
-
-        window.showInformationMessage('主题模式发生变更，是否更新背景混合模式？', 'YES', 'NO').then(
-            (value) => {
-                if (value === 'YES') {
-                    PickList.itemList = new PickList(config);
-                    PickList.itemList.updateDom(false, nowBlenaStr as string).then((requiresReload) => {
-                        if (requiresReload) {
-                            commands.executeCommand('workbench.action.reloadWindow');
-                        }
-                    });
-                }
-            }
-        );
-    }
+    /**
+     * A4: 主题感知混合模式已改为注入 CSS 的变量 + :has() 即时适配，主题切换不再需要
+     * 扩展侧监听/弹窗确认/重打补丁，此方法随旧机制一并移除。
+     */
 
     public static autoUpdateBackground() {
         const config = workspace.getConfiguration('backgroundCover');
@@ -289,7 +270,7 @@ export class PickList {
         }
         PickList.itemList = new PickList(config);
         const result = resolved
-            ? await PickList.itemList.updateDom(false, BlendHelper.autoBlendModel() as string)
+            ? await PickList.itemList.updateDom(false)
             : await PickList.itemList.updateDom(true);
         PickList.itemList = undefined;
         return result;
@@ -688,17 +669,25 @@ export class PickList {
             }
         }
 
+        // 在线单图源：只有它确实是"当前持久化的背景图"且用户没有配置本地轮换
+        // 文件夹时，才把它作为唯一候选；否则视为陈旧记录清掉，让下面的
+        // randomImageFolder 正常轮换。否则每轮定时器都会重下同一张在线图，
+        // 缓存文件 URL 不变 → CSS 不变 → 图片永远不动。
+        const randomImageFolderCfg = this.config.get<string>('randomImageFolder');
         const singleSource = context.globalState.get<string>('backgroundCoverSingleImageSource');
-        if (singleSource && this.isOnlineUrl(singleSource)) {
+        if (singleSource && this.isOnlineUrl(singleSource) && isSingleSourceActive(singleSource) && !randomImageFolderCfg) {
             if (!persist) {
                 return await this.applyAutoCandidates([singleSource], persist);
             }
             await this.updateBackgound(singleSource, false, persist, { skipLargeImagePrompt: true });
             return true;
         }
+        if (singleSource && !isSingleSourceActive(singleSource)) {
+            await context.globalState.update('backgroundCoverSingleImageSource', undefined);
+        }
 
-        const randomImageFolder = this.config.get<string>('randomImageFolder');
-        if (randomImageFolder && this.checkFolder(randomImageFolder)) {
+        const randomImageFolder = this.resolveRandomFolder(randomImageFolderCfg);
+        if (randomImageFolder) {
             const files = this.getFolderImgList(randomImageFolder).map(file => path.join(randomImageFolder, file));
             if (files.length > 0) {
                 if (!persist) {
@@ -844,7 +833,7 @@ export class PickList {
             imageType: ActionType.ManualSelection
         }];
 
-        const randomPath: any = folderPath ? folderPath : this.config.get<string>('randomImageFolder');
+        const randomPath: any = folderPath ? folderPath : this.resolveRandomFolder(this.config.get<string>('randomImageFolder'));
         if (this.checkFolder(randomPath)) {
             const files = this.getFolderImgList(randomPath);
             if (files.length > 0) {
@@ -1009,6 +998,24 @@ export class PickList {
         if (!fsStatus) { return false; }
         const stat = fs.statSync(folderPath);
         return stat.isDirectory();
+    }
+
+    /**
+     * A3: 展开 randomImageFolder 中的 ~ / ${ENV} / $ENV 并校验是存在的目录；
+     * 无效返回空串。
+     */
+    private resolveRandomFolder(input?: string): string {
+        if (!input) { return ''; }
+        const expanded = expandPathVariables(input);
+        try {
+            const resolved = path.resolve(expanded);
+            if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
+                return resolved;
+            }
+        } catch {
+            // ignore
+        }
+        return '';
     }
 
     /**
@@ -1207,8 +1214,14 @@ export class PickList {
         let shouldClearOnlineCache = false;
 
         if (type === InputType.Path) {
-            const fsStatus = fs.existsSync(path.resolve(value));
             const isUrl = (value.slice(0, 8).toLowerCase() === 'https://') || (value.slice(0, 7).toLowerCase() === 'http://');
+            if (!isUrl) {
+                // A3: 展开 ~ / ${ENV} / $ENV；无扩展名的本地路径按文件夹处理，随机取一张
+                value = expandPathVariables(value);
+                const folderPicked = pickRandomFromFolder(value);
+                if (folderPicked) { value = folderPicked; }
+            }
+            const fsStatus = fs.existsSync(path.resolve(value));
             if (!fsStatus && !isUrl) {
                 window.showWarningMessage('No access to the file or the file does not exist! / 无权限访问文件或文件不存在！');
                 return false;
@@ -1501,11 +1514,10 @@ export class PickList {
         this.skipOnlineCache = value;
     }
 
-    private async updateDom(uninstall: boolean = false, colorThemeKind: string = ""): Promise<boolean> {
-        if (colorThemeKind == "") {
-            colorThemeKind = BlendHelper.autoBlendModel();
-        }
-
+    private async updateDom(uninstall: boolean = false, _colorThemeKind: string = ""): Promise<boolean> {
+        // A4: 混合模式不再在扩展侧解析。auto 由注入 CSS 的变量 + :has() 即时适配主题，
+        // 显式 multiply/lighten 直接写死。这里只把用户选择的模式传给 FileDom 生成 CSS。
+        const colorThemeKind = this.config.get<string>('blendModel') ?? 'auto';
         const context = getContext();
         context.globalState.update('backgroundCoverBlendModel', colorThemeKind);
 

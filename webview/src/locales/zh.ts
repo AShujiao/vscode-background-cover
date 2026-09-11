@@ -31,6 +31,7 @@ export default {
     sourceFolder:      '来源目录',
     sizeMode:          '尺寸模式',
     blendMode:         '混合模式',
+    blendModeHint:     'auto 通过 CSS 变量即时适配当前主题（深色=lighten，浅色=multiply），不再弹窗/重启',
     windowScope:       '窗口背景',
     perWindowBackground:     '每个窗口独立',
     perWindowBackgroundHint: '开启后各窗口可显示不同背景；关闭则所有窗口共用同一张',
