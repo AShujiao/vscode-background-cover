@@ -669,13 +669,12 @@ export class PickList {
             }
         }
 
-        // 在线单图源：只有它确实是"当前持久化的背景图"且用户没有配置本地轮换
-        // 文件夹时，才把它作为唯一候选；否则视为陈旧记录清掉，让下面的
-        // randomImageFolder 正常轮换。否则每轮定时器都会重下同一张在线图，
-        // 缓存文件 URL 不变 → CSS 不变 → 图片永远不动。
+        // An active online source takes precedence over a previously configured folder.
+        // Selecting a local folder clears the single-source record; a leftover folder
+        // setting alone must not prevent a random image API from refreshing.
         const randomImageFolderCfg = this.config.get<string>('randomImageFolder');
         const singleSource = context.globalState.get<string>('backgroundCoverSingleImageSource');
-        if (singleSource && this.isOnlineUrl(singleSource) && isSingleSourceActive(singleSource) && !randomImageFolderCfg) {
+        if (singleSource && this.isOnlineUrl(singleSource) && isSingleSourceActive(singleSource)) {
             if (!persist) {
                 return await this.applyAutoCandidates([singleSource], persist);
             }
@@ -1414,6 +1413,7 @@ export class PickList {
         if (type === 2) {
             this.clearOnlineFolder(true);
             await this.setConfigValue('randomImageFolder', fileUri.fsPath, false);
+            await getContext().globalState.update('backgroundCoverSingleImageSource', undefined);
             if (this.quickPick) {
                 return this.showImageSelectionList(fileUri.fsPath);
             }

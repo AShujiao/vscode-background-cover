@@ -145,7 +145,8 @@ export function isSingleSourceActive(singleSource: string | undefined): boolean 
     if (!singleSource || !/^https?:\/\//i.test(singleSource)) {
         return false;
     }
-    return getPersistedCurrentImage() === singleSource;
+    const settingsFallback = workspace.getConfiguration('backgroundCover').get<string>('imagePath') || '';
+    return getPersistedCurrentImage(settingsFallback) === singleSource;
 }
 
 export interface SetImageOptions {
