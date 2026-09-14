@@ -4,6 +4,7 @@
 const assert = require('assert').strict;
 const Module = require('module');
 const fs = require('fs');
+const http = require('http');
 const os = require('os');
 const path = require('path');
 
@@ -17,6 +18,7 @@ fs.writeFileSync(localImagePath, 'local test image');
 const globalState = new Map();
 const scheduledTimers = new Set();
 const appliedImages = [];
+const mockEnvironment = { sessionId: 'auto-refresh-test', appRoot: temporaryRoot };
 let settings;
 let selectedFolder;
 let failures = 0;
@@ -40,10 +42,11 @@ Module._load = function (request) {
     if (request === 'vscode') {
         return {
             EventEmitter: MockEventEmitter,
-            env: { sessionId: 'auto-refresh-test', appRoot: temporaryRoot },
+            env: mockEnvironment,
             workspace: { getConfiguration },
             window: {
                 setStatusBarMessage: () => ({ dispose() {} }),
+                createOutputChannel: () => ({ appendLine() {}, dispose() {} }),
                 showOpenDialog: async () => selectedFolder ? [{ fsPath: selectedFolder }] : undefined
             },
             commands: { executeCommand() {} },
@@ -59,6 +62,8 @@ Module._load = function (request) {
 const { setContext } = require('../out/global');
 const { setCurrentImagePath, isSingleSourceActive } = require('../out/windowBackground');
 const { PickList, ActionType } = require('../out/PickList');
+const { FileDom } = require('../out/FileDom');
+const { extractBackgroundImageUrl } = require('../out/loaderFragments');
 Module._load = originalLoad;
 
 // Exercise real scheduling and source selection without modifying the editor's workbench.
@@ -95,6 +100,7 @@ async function resetFixture(overrides = {}) {
     PickList.stopAutoRandomTask();
     globalState.clear();
     appliedImages.length = 0;
+    mockEnvironment.sessionId = 'auto-refresh-test';
     selectedFolder = localFolder;
     settings = {
         autoStatus: true,
@@ -107,6 +113,7 @@ async function resetFixture(overrides = {}) {
         ...overrides
     };
     setContext({
+        subscriptions: [],
         globalStorageUri: { fsPath: temporaryRoot },
         globalState: {
             get: (key, fallback) => globalState.get(key) ?? fallback,
@@ -133,6 +140,55 @@ async function runTest(label, test) {
 }
 
 async function main() {
+    await runTest('startup restore continues refreshing without legacy single-source metadata', async () => {
+        await resetFixture();
+        globalState.delete('backgroundCoverSingleImageSource');
+        await PickList.applyCurrentBackground();
+        appliedImages.length = 0;
+        PickList.startAutoRandomTask();
+        await advanceTime(599999);
+        assert.equal(appliedImages.length, 0);
+        await advanceTime(1);
+        await advanceTime(600000);
+        assert.equal(appliedImages.length, 2);
+        assert.ok(appliedImages.every(image => image.imagePath === randomImageUrl && image.skipOnlineCache && image.silent));
+    });
+
+    await runTest('settings-only API refreshes even when no source metadata was ever stored', async () => {
+        await resetFixture();
+        globalState.clear();
+        PickList.startAutoRandomTask();
+        await advanceTime(1200000);
+        assert.equal(appliedImages.length, 2);
+        assert.ok(appliedImages.every(image => image.imagePath === randomImageUrl));
+    });
+
+    await runTest('each window keeps its URL when another window owns the legacy source', async () => {
+        await resetFixture();
+        const otherImageUrl = 'https://img.aierlanta.net/api/random?format=webp&sfw=true';
+        mockEnvironment.sessionId = 'other-window';
+        await setCurrentImagePath(otherImageUrl);
+        globalState.set('backgroundCoverSingleImageSource', otherImageUrl);
+        const originalSource = globalState.get('backgroundCoverSingleImageSource');
+        mockEnvironment.sessionId = 'auto-refresh-test';
+        PickList.startAutoRandomTask();
+        await advanceTime(600000);
+        assert.equal(appliedImages.length, 1);
+        assert.equal(appliedImages[0].imagePath, randomImageUrl);
+        assert.equal(globalState.get('backgroundCoverSingleImageSource'), originalSource);
+        mockEnvironment.sessionId = 'other-window';
+        await advanceTime(600000);
+        assert.equal(appliedImages[1].imagePath, otherImageUrl);
+    });
+
+    await runTest('a local window does not delete another window single-source metadata', async () => {
+        await resetFixture({ imagePath: localImagePath });
+        PickList.startAutoRandomTask();
+        await advanceTime(600000);
+        assert.equal(appliedImages.length, 0);
+        assert.equal(globalState.get('backgroundCoverSingleImageSource'), randomImageUrl);
+    });
+
     await runTest('600-second ticks refresh an active API despite a missing old folder', async () => {
         await resetFixture({ randomImageFolder: path.join(temporaryRoot, 'missing-old-folder') });
         PickList.startAutoRandomTask();
@@ -173,6 +229,7 @@ async function main() {
         await advanceTime(600000);
         assert.equal(appliedImages.length, 1);
         assert.equal(appliedImages[0].imagePath, localImagePath);
+        assert.equal(globalState.get('backgroundCoverSingleImageSource'), randomImageUrl);
     });
 
     await runTest('explicit local-folder selection replaces the active single source', async () => {
@@ -222,6 +279,56 @@ async function main() {
         await advanceTime(1200000);
         assert.equal(scheduledTimers.size, 0);
         assert.equal(appliedImages.length, 0);
+    });
+
+    await runTest('timer ticks download different images and generate new CSS without source metadata', async () => {
+        const imageResponses = [
+            { contentType: 'image/png', body: fs.readFileSync(path.join(__dirname, '../resources/background-cover.png')) },
+            { contentType: 'image/jpeg', body: fs.readFileSync(path.join(__dirname, '../resources/readme-preview.jpg')) }
+        ];
+        let requestCount = 0;
+        const server = http.createServer((_request, response) => {
+            const image = imageResponses[requestCount++ % imageResponses.length];
+            response.writeHead(200, { 'Content-Type': image.contentType, 'Cache-Control': 'no-store' });
+            response.end(image.body);
+        });
+        await new Promise((resolve, reject) => {
+            server.once('error', reject);
+            server.listen(0, '127.0.0.1', resolve);
+        });
+        const originalInstall = FileDom.prototype.install;
+        const mockedUpdateDom = PickList.prototype.updateDom;
+        const generatedCss = [];
+        try {
+            const sourceUrl = `http://127.0.0.1:${server.address().port}/api/random?sfw=true&format=webp`;
+            await resetFixture({ imagePath: sourceUrl });
+            globalState.delete('backgroundCoverSingleImageSource');
+            PickList.prototype.updateDom = originalUpdateDom;
+            // Only workbench patching is replaced. Downloading, caching, CSS
+            // generation and reload notification use the production code.
+            FileDom.prototype.install = async function () {
+                await this.ensureInitialized();
+                generatedCss.push(this.getCss());
+                this.requiresReload = false;
+                this.didUpdateCss = true;
+                return true;
+            };
+            PickList.startAutoRandomTask();
+            await advanceTime(1200000);
+            assert.equal(requestCount, 2);
+            assert.equal(generatedCss.length, 2);
+            const imagePaths = generatedCss.map(css => extractBackgroundImageUrl(css));
+            assert.notEqual(imagePaths[0], imagePaths[1]);
+            for (const [imageIndex, imagePath] of imagePaths.entries()) {
+                assert.deepEqual(fs.readFileSync(imagePath), imageResponses[imageIndex].body);
+            }
+            assert.equal(globalState.has('backgroundCoverSingleImageSource'), false);
+        } finally {
+            PickList.stopAutoRandomTask();
+            PickList.prototype.updateDom = mockedUpdateDom;
+            FileDom.prototype.install = originalInstall;
+            await new Promise(resolve => server.close(resolve));
+        }
     });
 }
 
