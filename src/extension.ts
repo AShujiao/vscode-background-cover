@@ -224,10 +224,10 @@ export function activate(context: ExtensionContext) {
 	context.globalState.update('ext_version',version);
 	vsHelp.showInfoSupport(`🎉 BackgroundCover ${version}
 🚀 更新内容：
-    1. 背景切换过渡动画：换图时旧图渐隐、新图渐显，平滑不闪屏，支持自动换图 / 手动换图。
-    2. 补丁状态自检：VS Code 更新 / 重装或补丁丢失时自动提示重新应用。
-    3. 混合模式 auto 主题自适应：切换深浅主题即时生效，无需重载窗口。
-    4. 背景源支持 ~ / 环境变量 / 文件夹；换图前自动预加载。
+    1. 修复新版 VS Code 视频背景无法使用,更新后请手动重启vscode生效。
+    2. 修复在线随机图自动轮播失效：本地目录配置不再阻断在线源，在线单图仅在启用时参与轮换。
+    3. 多窗口独立模式状态隔离：定时自动换图只更新当前窗口，不再串扰其他窗口。
+    4. 新增「Background Cover」输出通道：自动换图 / 恢复 / 清理等事件可查看诊断日志。
 
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}
