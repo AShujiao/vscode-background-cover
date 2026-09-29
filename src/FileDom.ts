@@ -168,6 +168,18 @@ const WEB_RELATIVE_CSS_PATH = IS_CODE_SERVER_TARGET ? getWebRelativePath(CUSTOM_
 const WEB_RELATIVE_JS_PATH = IS_CODE_SERVER_TARGET ? getWebRelativePath(CUSTOM_JS_FILE_PATH) : undefined;
 const CUSTOM_ASSET_DIR = path.join(selectedWorkbench.root, 'background-cover-assets');
 const RELATIVE_URL_PLACEHOLDER = '__BACKGROUND_COVER_BASE__';
+// 桌面端 workbench 的 CSP 只允许 media-src 'self'，本地视频经 vscode-file:// 由
+// main.js 的 net.fetch(file://) 代理返回时缺少 Accept-Ranges（Electron 43 起不再
+// 为 file:// 补 Range 头），Chromium 150 的 <video> 因此报 "no supported sources"。
+// 修复方案：渲染层把 vscode-file 的视频 fetch 成 blob 再播放，并放行 CSP 的
+// media-src blob:/data:。这里记录需要同步放开 media-src 的 HTML 入口文件
+// （主 workbench + sessions 辅助窗口共用同一份 CSP 规则）。
+const DESKTOP_HTML_ENTRIES = [
+    path.join(APP_OUT_PATH, 'vs', 'code', 'electron-browser', 'workbench', 'workbench.html'),
+    path.join(APP_OUT_PATH, 'vs', 'sessions', 'electron-browser', 'sessions.html')
+];
+const CSP_MEDIA_PATCH_START = '/*background-cover-media-csp-start*/';
+const CSP_MEDIA_PATCH_END = '/*background-cover-media-csp-end*/';
 const HTML_CACHE_BUST_PARAM = 'background-cover';
 const DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
 const DEFAULT_ACCEPT_HEADER = 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8';
@@ -726,7 +738,18 @@ export class FileDom {
         await this.handleLegacyCleanup();
         await this.ensureBackup();
 
-        return await this.applyPatch();
+        const patched = await this.applyPatch();
+        if (patched) {
+            // 视频背景依赖渲染层 fetch(vscode-file://).blob() 播放，须放行 CSP 的
+            // media-src。主窗口 + 辅助窗口(sessions) 的 HTML 都要同步处理，
+            // 缺文件（老版本 VSCode）时静默跳过。
+            try {
+                await this.patchMediaCspForEntries();
+            } catch (e) {
+                console.warn('[FileDom] Failed to patch media CSP:', e);
+            }
+        }
+        return patched;
     }
 
     // 检查文件是否存在
@@ -1096,6 +1119,12 @@ export class FileDom {
             }
 
             await this.clearCodeServerHtmlContent();
+            // 还原 CSP：卸载时把 media-src 里的 blob:/data: 放行撤掉。
+            try {
+                await this.restoreMediaCspForEntries();
+            } catch (e) {
+                console.warn('[FileDom] Failed to restore media CSP:', e);
+            }
 
             return true;
         } catch (error) {
@@ -1122,6 +1151,78 @@ export class FileDom {
     // 读取原文件内容
     private async getContent(filePath: string): Promise<string> {
         return await fse.readFile(filePath, 'utf-8');
+    }
+
+    /**
+     * 视频背景修复（一）：放行 workbench CSP 的 media-src，允许渲染层用
+     * blob:/data: 播放本地/在线视频。只改含 CSP meta 的 HTML 入口文件，
+     * 幂等（重复安装不叠加）。入口列表桌面端覆盖主窗口 + sessions 辅助窗口，
+     * code-server 复用 selectedWorkbench.html。
+     */
+    private getMediaCspEntries(): string[] {
+        const entries: string[] = [];
+        if (IS_CODE_SERVER_TARGET) {
+            if (HTML_FILE_PATH) {
+                entries.push(HTML_FILE_PATH);
+            }
+        } else {
+            for (const htmlPath of DESKTOP_HTML_ENTRIES) {
+                if (fse.pathExistsSync(htmlPath)) {
+                    entries.push(htmlPath);
+                }
+            }
+        }
+        return entries;
+    }
+
+    private patchMediaCsp(content: string): string {
+        if (content.indexOf(CSP_MEDIA_PATCH_START) !== -1) {
+            // 已打过补丁，直接返回。
+            return content;
+        }
+        // 只在 `media-src 'self'` 之后插入 blob:/data:。注意不能吞掉后面的分号：
+        // 原始 meta 是 `media-src\n\t'self'\n\t\t;`，`;` 在捕获组之外由替换保留，
+        // 否则 frame-src 等后续指令会被并进 media-src，CSP 直接解析失败。
+        return content.replace(/media-src\s+'self'/g, `media-src 'self' ${CSP_MEDIA_PATCH_START} blob: data: ${CSP_MEDIA_PATCH_END}`);
+    }
+
+    private restoreMediaCsp(content: string): string {
+        const markerRe = new RegExp(
+            `\\s*${CSP_MEDIA_PATCH_START}\\s*blob:\\s*data:\\s*${CSP_MEDIA_PATCH_END}`,
+            'g'
+        );
+        return content.replace(markerRe, '');
+    }
+
+    private async patchMediaCspForEntries(): Promise<void> {
+        for (const htmlPath of this.getMediaCspEntries()) {
+            try {
+                const raw = await this.getContent(htmlPath);
+                const patched = this.patchMediaCsp(raw);
+                if (patched !== raw) {
+                    await this.writeWithPermission(htmlPath, patched);
+                    if (htmlPath.indexOf('workbench.html') !== -1) {
+                        console.log(`[FileDom] media CSP patched in ${htmlPath}`);
+                    }
+                }
+            } catch (e) {
+                console.warn(`[FileDom] Failed to patch media CSP in ${htmlPath}:`, e);
+            }
+        }
+    }
+
+    private async restoreMediaCspForEntries(): Promise<void> {
+        for (const htmlPath of this.getMediaCspEntries()) {
+            try {
+                const raw = await this.getContent(htmlPath);
+                const restored = this.restoreMediaCsp(raw);
+                if (restored !== raw) {
+                    await this.writeWithPermission(htmlPath, restored);
+                }
+            } catch (e) {
+                console.warn(`[FileDom] Failed to restore media CSP in ${htmlPath}:`, e);
+            }
+        }
     }
 
     // 写入文件内容
@@ -1662,7 +1763,12 @@ export class FileDom {
                     if (!doc || !doc.body) return;
                     let video = doc.getElementById('background-cover-video');
                     if (!config) {
-                        if (video) video.remove();
+                        if (video) {
+                            if (video.__bgcObjectUrl) {
+                                try { URL.revokeObjectURL(video.__bgcObjectUrl); } catch (e) {}
+                            }
+                            video.remove();
+                        }
                         return;
                     }
                     if (!video) {
@@ -1691,18 +1797,6 @@ export class FileDom {
                     if (!video.loop) video.loop = true;
                     if (!video.muted) video.muted = true;
 
-                    let currentSrc = video.src;
-                    let newSrc = url;
-                    try {
-                        if (currentSrc !== newSrc && decodeURIComponent(currentSrc) !== decodeURIComponent(newSrc)) {
-                            video.src = newSrc;
-                        }
-                    } catch (e) {
-                        if (currentSrc !== newSrc) {
-                            video.src = newSrc;
-                        }
-                    }
-
                     video.style.opacity = config.opacity + '';
                     video.style.filter = 'blur(' + config.blur + 'px)';
                     video.style.mixBlendMode = config.blendMode;
@@ -1711,6 +1805,76 @@ export class FileDom {
                     if (config.transition) {
                         var reducedMotion = (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches);
                         video.style.transition = reducedMotion ? 'none' : 'opacity .25s ease, filter .25s ease';
+                    }
+
+                    // B1: vscode-file 协议由 main.js 的 net.fetch(file://) 代理，Electron 43
+                    // 起不再补 Accept-Ranges/206，Chromium 150 的 <video> 直接报
+                    // "no supported sources"。把 vscode-file 的视频 fetch 成完整 blob
+                    // 再用 object URL 播放，绕开协议层对 Range 的依赖。
+                    if (url.toLowerCase().startsWith('vscode-file:')) {
+                        var currentObj = video.__bgcObjectUrl;
+                        if (currentObj && video.__bgcSourceUrl === url) {
+                            // 同一文件已加载过，无需重新 fetch。
+                            if (video.paused) {
+                                video.play().catch(function(e) {
+                                    if (e.name !== 'AbortError') {
+                                        console.error('BackgroundCover video play error:', e);
+                                    }
+                                });
+                            }
+                            return;
+                        }
+                        fetch(url).then(function(r) {
+                            if (!r.ok) throw new Error('vscode-file fetch failed: ' + r.status);
+                            return r.blob();
+                        }).then(function(blob) {
+                            var nextUrl = URL.createObjectURL(blob);
+                            var prevObj = video.__bgcObjectUrl;
+                            video.__bgcObjectUrl = nextUrl;
+                            video.__bgcSourceUrl = url;
+                            video.src = nextUrl;
+                            if (prevObj) {
+                                try { URL.revokeObjectURL(prevObj); } catch (e) {}
+                            }
+                            return video.play();
+                        }).catch(function(e) {
+                            console.error('BackgroundCover video blob load error:', e);
+                            // 降级：直接挂 vscode-file 地址（老版本 Electron 仍可播放）。
+                            if (video.src !== url) {
+                                video.src = url;
+                            }
+                            if (video.paused) {
+                                video.play().catch(function(e2) {
+                                    if (e2.name !== 'AbortError') {
+                                        console.error('BackgroundCover video play error:', e2);
+                                    }
+                                });
+                            }
+                        });
+                        return;
+                    }
+
+                    let currentSrc = video.src;
+                    let newSrc = url;
+                    try {
+                        if (currentSrc !== newSrc && decodeURIComponent(currentSrc) !== decodeURIComponent(newSrc)) {
+                            // 从 blob 切回直链时，回收旧的 object URL。
+                            if (video.__bgcObjectUrl) {
+                                try { URL.revokeObjectURL(video.__bgcObjectUrl); } catch (e) {}
+                                video.__bgcObjectUrl = null;
+                                video.__bgcSourceUrl = null;
+                            }
+                            video.src = newSrc;
+                        }
+                    } catch (e) {
+                        if (currentSrc !== newSrc) {
+                            if (video.__bgcObjectUrl) {
+                                try { URL.revokeObjectURL(video.__bgcObjectUrl); } catch (e) {}
+                                video.__bgcObjectUrl = null;
+                                video.__bgcSourceUrl = null;
+                            }
+                            video.src = newSrc;
+                        }
                     }
 
                     if (video.paused) {
