@@ -5,3 +5,4 @@ node_modules
 webview/node_modules
 webview/dist
 截图/
+.claude/
