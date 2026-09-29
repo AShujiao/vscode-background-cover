@@ -15,7 +15,8 @@ import {
 	extensions,
 	InputBoxOptions,
 	ConfigurationTarget,
-    ProgressLocation
+    ProgressLocation,
+    OutputChannel
 } from 'vscode';
 
 import { FileDom } from './FileDom';
@@ -23,7 +24,7 @@ import { BackgroundPatchError, BackgroundApplyCancelledError, shouldTryNextAutoI
 import { ImgItem } from './ImgItem';
 import vsHelp from './vsHelp';
 import { getContext, onDidChangeGlobalState } from './global';
-import { hasCurrentImageRecord, isSingleSourceActive, resolveCurrentBlur, resolveCurrentImagePath, resolveCurrentOpacity, setCurrentBlur, setCurrentImagePath, setCurrentOpacity } from './windowBackground';
+import { getPersistedCurrentImage, hasCurrentImageRecord, isSingleSourceActive, resolveCurrentBlur, resolveCurrentImagePath, resolveCurrentOpacity, setCurrentBlur, setCurrentImagePath, setCurrentOpacity } from './windowBackground';
 import { expandPathVariables, pickRandomFromFolder } from './pathUtil';
 import Color, { getColorList } from './color'; // 导入颜色定义
 import { OnlineImageHelper } from './OnlineImageHelper';
@@ -183,6 +184,7 @@ export function getAllPets(): PetEntry[] {
 export class PickList {
     public static itemList: PickList | undefined;
     private static intervalHandle: NodeJS.Timeout | undefined;
+    private static autoRefreshOutput: OutputChannel | undefined;
     private static isAutoRunning: boolean = false;
     private static _reloadTriggerSeq: number = 0;
     private static _updateSeq: number = 0;
@@ -284,36 +286,67 @@ export class PickList {
         PickList.stopAutoRandomTask();
 
         if (autoStatus && interval > 0) {
-            console.log(`[BackgroundCover] Starting auto update task. Interval: ${interval}s`);
+            PickList.logAutoRefresh(`Timer started. Interval: ${interval}s.`);
             PickList.intervalHandle = setInterval(async () => {
                 if (PickList.isAutoRunning) {
-                    console.log('[BackgroundCover] Previous auto update still running, skipping this round');
+                    PickList.logAutoRefresh('Timer tick skipped: previous refresh is still running.');
                     return;
                 }
                 const cfg = workspace.getConfiguration('backgroundCover');
                 const context = getContext();
                 const hasOnlineFolder = context.globalState.get('backgroundCoverOnlineFolder');
-                const hasSingleSource = context.globalState.get('backgroundCoverSingleImageSource');
+                const hasSingleSource = PickList.resolveSingleImageSource(cfg);
                 if (cfg.randomImageFolder || hasOnlineFolder || hasSingleSource) {
+                    PickList.logAutoRefresh(`Timer tick: starting refresh (singleSource=${!!hasSingleSource}, onlineFolder=${!!hasOnlineFolder}, configuredFolder=${!!cfg.randomImageFolder}).`);
                     PickList.isAutoRunning = true;
                     try {
                         const pl = new PickList(cfg);
                         pl.setSkipOnlineCache(true);
                         await pl.autoUpdateBackground(false);
+                        PickList.logAutoRefresh('Refresh cycle finished.');
                     } catch (err) {
+                        PickList.logAutoRefresh('Refresh cycle failed; see extension host console for details.');
                         console.error(err);
                     } finally {
                         PickList.isAutoRunning = false;
                     }
+                } else {
+                    PickList.logAutoRefresh('Timer tick skipped: no active image source.');
                 }
             }, interval * 1000);
         }
+    }
+
+    private static logAutoRefresh(message: string): void {
+        if (!PickList.autoRefreshOutput) {
+            PickList.autoRefreshOutput = window.createOutputChannel('Background Cover');
+            getContext().subscriptions.push(PickList.autoRefreshOutput);
+        }
+        PickList.autoRefreshOutput.appendLine(`[${new Date().toISOString()}] ${message}`);
+    }
+
+    private static resolveSingleImageSource(config: WorkspaceConfiguration): string | undefined {
+        const context = getContext();
+        const recordedSource = context.globalState.get<string>('backgroundCoverSingleImageSource');
+        if (recordedSource && isSingleSourceActive(recordedSource)) {
+            return recordedSource;
+        }
+
+        // Startup restores the window image without recreating the legacy global
+        // source record. Another window can also replace that record. With no
+        // folder selected, use this window's persisted URL, not another window's.
+        if (config.get<string>('randomImageFolder') || context.globalState.get('backgroundCoverOnlineFolder')) {
+            return undefined;
+        }
+        const currentImage = getPersistedCurrentImage(config.get<string>('imagePath') || '');
+        return /^https?:\/\//i.test(currentImage) ? currentImage : undefined;
     }
 
     public static stopAutoRandomTask() {
         if (PickList.intervalHandle) {
             clearInterval(PickList.intervalHandle);
             PickList.intervalHandle = undefined;
+            PickList.logAutoRefresh('Timer stopped.');
         }
     }
 
@@ -669,21 +702,17 @@ export class PickList {
             }
         }
 
-        // 在线单图源：只有它确实是"当前持久化的背景图"且用户没有配置本地轮换
-        // 文件夹时，才把它作为唯一候选；否则视为陈旧记录清掉，让下面的
-        // randomImageFolder 正常轮换。否则每轮定时器都会重下同一张在线图，
-        // 缓存文件 URL 不变 → CSS 不变 → 图片永远不动。
+        // An active online source takes precedence over a previously configured folder.
+        // Selecting a local folder clears the single-source record; a leftover folder
+        // setting alone must not prevent a random image API from refreshing.
         const randomImageFolderCfg = this.config.get<string>('randomImageFolder');
-        const singleSource = context.globalState.get<string>('backgroundCoverSingleImageSource');
-        if (singleSource && this.isOnlineUrl(singleSource) && isSingleSourceActive(singleSource) && !randomImageFolderCfg) {
+        const singleSource = PickList.resolveSingleImageSource(this.config);
+        if (singleSource) {
             if (!persist) {
                 return await this.applyAutoCandidates([singleSource], persist);
             }
             await this.updateBackgound(singleSource, false, persist, { skipLargeImagePrompt: true });
             return true;
-        }
-        if (singleSource && !isSingleSourceActive(singleSource)) {
-            await context.globalState.update('backgroundCoverSingleImageSource', undefined);
         }
 
         const randomImageFolder = this.resolveRandomFolder(randomImageFolderCfg);
@@ -1414,6 +1443,7 @@ export class PickList {
         if (type === 2) {
             this.clearOnlineFolder(true);
             await this.setConfigValue('randomImageFolder', fileUri.fsPath, false);
+            await getContext().globalState.update('backgroundCoverSingleImageSource', undefined);
             if (this.quickPick) {
                 return this.showImageSelectionList(fileUri.fsPath);
             }
@@ -1432,12 +1462,13 @@ export class PickList {
             const previousPath = this.imgPath;
             this.imgPath = nextPath;
 
-            const context = getContext();
-            const hasOnlineFolder = context.globalState.get('backgroundCoverOnlineFolder');
-            if (nextPath && this.isOnlineUrl(nextPath) && !hasOnlineFolder) {
-                context.globalState.update('backgroundCoverSingleImageSource', nextPath);
-            } else {
-                context.globalState.update('backgroundCoverSingleImageSource', undefined);
+            // Automatic rotation is window-local and must not overwrite or clear
+            // another window's legacy source record.
+            if (persist) {
+                const context = getContext();
+                const hasOnlineFolder = context.globalState.get('backgroundCoverOnlineFolder');
+                const singleSource = nextPath && this.isOnlineUrl(nextPath) && !hasOnlineFolder ? nextPath : undefined;
+                await context.globalState.update('backgroundCoverSingleImageSource', singleSource);
             }
 
             // 先应用再记录：静默自动换图失败时 updateDom 会抛，此时这张图不该被
