@@ -28,6 +28,8 @@
                     ref="frameRef"
                     :key="frameKey"
                     :src="ONLINE_GALLERY_URL"
+                    :title="t('onlineGalleryFrameTitle')"
+                    :aria-label="t('onlineGalleryFrameTitle')"
                     sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
                     referrerpolicy="no-referrer"
                 />

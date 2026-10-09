@@ -2,6 +2,7 @@ import * as crypto from 'crypto';
 import * as path from 'path';
 import { ConfigurationTarget, env, workspace, WorkspaceConfiguration } from 'vscode';
 import { getContext, onDidChangeGlobalState } from './global';
+import { isOnlineUrl } from './pathUtil';
 
 const WINDOW_IMAGES_KEY = 'backgroundCover.windowImages';
 const WORKSPACE_IMAGES_KEY = 'backgroundCover.workspaceImages';
@@ -142,7 +143,7 @@ export function resolveCurrentImagePath(globalFallback?: string): string {
  * 永远不会变，因此陈旧记录必须被识别并清理。
  */
 export function isSingleSourceActive(singleSource: string | undefined): boolean {
-    if (!singleSource || !/^https?:\/\//i.test(singleSource)) {
+    if (!singleSource || !isOnlineUrl(singleSource)) {
         return false;
     }
     const settingsFallback = workspace.getConfiguration('backgroundCover').get<string>('imagePath') || '';
@@ -170,14 +171,17 @@ async function persistLevelValue(
     if (isPerWindowEnabled()) {
         const sessionHash = getSessionHash();
         const windowMap = { ...(context.globalState.get<Record<string, string | number>>(windowKey, {}) || {}) };
+        delete windowMap[sessionHash];
         windowMap[sessionHash] = value;
         await context.globalState.update(windowKey, pruneRecords(windowMap, sessionHash));
 
         const workspaceHash = getWorkspaceKey();
         if (workspaceHash) {
             const workspaceMap = { ...(context.globalState.get<Record<string, string | number>>(workspaceKey, {}) || {}) };
+            // 先删再写，把当前工作区挪到末尾：pruneRecords 按插入顺序淘汰最久未写入的记录。
+            delete workspaceMap[workspaceHash];
             workspaceMap[workspaceHash] = value;
-            await context.globalState.update(workspaceKey, workspaceMap);
+            await context.globalState.update(workspaceKey, pruneRecords(workspaceMap, workspaceHash));
         }
     }
     if (globalKey !== undefined) {

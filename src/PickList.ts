@@ -5,7 +5,6 @@ import { URL } from 'url';
 import {
 	QuickPick,
 	Disposable,
-	QuickPickItemKind,
 	workspace,
 	WorkspaceConfiguration,
 	window,
@@ -25,7 +24,7 @@ import { ImgItem } from './ImgItem';
 import vsHelp from './vsHelp';
 import { getContext, onDidChangeGlobalState } from './global';
 import { getPersistedCurrentImage, hasCurrentImageRecord, isSingleSourceActive, resolveCurrentBlur, resolveCurrentImagePath, resolveCurrentOpacity, setCurrentBlur, setCurrentImagePath, setCurrentOpacity } from './windowBackground';
-import { expandPathVariables, pickRandomFromFolder } from './pathUtil';
+import { delay, expandPathVariables, isOnlineUrl, isSupportedMedia, MEDIA_EXTS, pickRandomFromFolder } from './pathUtil';
 import Color, { getColorList } from './color'; // 导入颜色定义
 import { OnlineImageHelper } from './OnlineImageHelper';
 import { getOnlineCacheDir } from './onlineCache';
@@ -94,10 +93,6 @@ interface UpdateBackgroundOptions {
 
 const AUTO_IMAGE_ATTEMPTS = 3;
 const ONLINE_LIST_FETCH_ATTEMPTS = 2;
-
-function delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 /** Single source of truth for available pets (used by PickList + FileDom + Studio webview). */
 export const PET_LIST: PetEntry[] = [
@@ -202,17 +197,6 @@ export class PickList {
     private silentApply: boolean = false;
 
     // --- Static Entry Points ---
-
-    public static createItemLIst() {
-        const config = workspace.getConfiguration('backgroundCover');
-        const list = window.createQuickPick<ImgItem>();
-        list.placeholder = 'Please choose configuration! / 请选择相关配置！';
-        list.totalSteps = 2;
-        list.title = "背景图设置";
-        
-        PickList.itemList = new PickList(config, list);
-        PickList.itemList.showMainMenu();
-    }
 
     public static needAutoUpdate(config: WorkspaceConfiguration) {
         if (!resolveCurrentImagePath(config.imagePath || '')) { return; }
@@ -339,7 +323,7 @@ export class PickList {
             return undefined;
         }
         const currentImage = getPersistedCurrentImage(config.get<string>('imagePath') || '');
-        return /^https?:\/\//i.test(currentImage) ? currentImage : undefined;
+        return isOnlineUrl(currentImage) ? currentImage : undefined;
     }
 
     public static stopAutoRandomTask() {
@@ -360,8 +344,7 @@ export class PickList {
     }
 
     public static async updateImgPath(path: string) {
-        const isUrl = (path.slice(0, 8).toLowerCase() === 'https://') || (path.slice(0, 7).toLowerCase() === 'http://');
-        if (!isUrl) {
+        if (!isOnlineUrl(path)) {
             vsHelp.showInfo("非http/https格式图片，不支持配置！ / Non HTTP/HTTPS format image, configuration not supported!");
             return false;
         }
@@ -427,14 +410,14 @@ export class PickList {
 
         if (pickList) {
             this.quickPick = pickList;
-            this.quickPick.onDidAccept((e: any) => {
+            this.quickPick.onDidAccept(() => {
                 if (this.quickPick.selectedItems.length > 0) {
                     this.handleAction(
                         this.quickPick.selectedItems[0].imageType,
                         this.quickPick.selectedItems[0].path
                     );
                 }
-            });
+            }, null, this._disposables);
             this.quickPick.onDidHide(() => {
                 this.dispose();
             }, null, this._disposables);
@@ -442,71 +425,9 @@ export class PickList {
         }
     }
 
-    public getMainMenuItems(): ImgItem[] {
-        const items: ImgItem[] = [];
-
-        items.push(
-            { label: 'Image Source / 图片来源', kind: QuickPickItemKind.Separator, imageType: 0 },
-            { label: '$(file-media) Select Pictures', detail: '选择一张背景图', imageType: ActionType.SelectPictures },
-            { label: '$(file-directory) Add Directory', detail: '添加图片目录', imageType: ActionType.AddDirectory },
-            { label: '$(pencil) Input : Path/Https', detail: '输入图片路径：本地/https/json(api)/html(a标签)/在线图库（帖子地址）', imageType: ActionType.InputPath },
-            { label: '$(ports-open-browser-icon) Online images', detail: '在线图库', imageType: ActionType.OnlineImages, path: "https://vs.20988.xyz" }
-        );
-
-        const context = getContext();
-        const onlineFolder = context.globalState.get('backgroundCoverOnlineFolder');
-        if (onlineFolder) {
-            items.push({ label: '$(cloud-download) Refresh Online Folder', detail: '刷新在线文件夹图片列表', imageType: ActionType.RefreshOnlineFolder });
-        }
-
-        items.push(
-            { label: 'Appearance / 外观设置', kind: QuickPickItemKind.Separator, imageType: 0 },
-            { label: '$(settings) Background Opacity', detail: '更新图片不透明度', imageType: ActionType.BackgroundOpacity },
-            { label: '$(settings) Background Blur', detail: '模糊度', imageType: ActionType.BackgroundBlur },
-            { label: '$(layout) Size Mode', detail: '尺寸适应模式 / size adaptive mode', imageType: ActionType.SizeModeMenu }
-        );
-
-        items.push({ label: 'Actions / 操作', kind: QuickPickItemKind.Separator, imageType: 0 });
-
-        const autoStatus = this.config.get('autoStatus');
-        const autoInterval = this.config.get('autoInterval', 0);
-        const autoDesc = autoStatus 
-            ? `ON (Interval: ${autoInterval}s)` 
-            : 'OFF';
-        
-        items.push({ 
-            label: `$(sync) Auto Random: ${autoDesc}`, 
-            detail: '设置自动更换间隔 (0表示关闭) / Set auto update interval (0 to disable)', 
-            imageType: ActionType.AutoRandomSettings 
-        });
-
-        items.push(
-            { label: '$(refresh) Refresh Background', detail: '刷新背景图 / Refresh background', imageType: ActionType.UpdateBackground },
-            { label: '$(eye-closed) Closing Background', detail: '关闭背景图', imageType: ActionType.CloseBackground }
-        );
-
-        items.push(
-            { label: 'Effects / 特效', kind: QuickPickItemKind.Separator, imageType: 0 },
-            { label: '$(sparkle) Particle Effects🎉', detail: '粒子效果设置🎉', imageType: ActionType.ParticleSettings }
-        );
-
-        items.push(
-            { label: 'About / 关于', kind: QuickPickItemKind.Separator, imageType: 0 },
-            { label: '$(github) Github', detail: 'Github信息', imageType: ActionType.MoreMenu },
-            { label: '$(heart) Support', detail: '请作者喝一杯咖啡吧~', imageType: ActionType.OpenFilePath, path: "//resources//support.jpg" },
-            { label: '$(organization) Wechat', detail: '微信群聊~', imageType: ActionType.OpenFilePath, path: "//resources//wx.jpg" }
-        );
-
-        return items;
-    }
-
-    private showMainMenu() {
-        this.quickPick.items = this.getMainMenuItems();
-    }
-
     public async handleAction(type: ActionType, path?: string) {
         switch (type) {
-            case ActionType.SelectPictures: this.quickPick ? this.showImageSelectionList() : await this.openFieldDialog(1); break;
+            case ActionType.SelectPictures: await this.openFieldDialog(1); break;
             case ActionType.AddDirectory: await this.openFieldDialog(2); break;
             case ActionType.ManualSelection: await this.openFieldDialog(1); break;
             case ActionType.UpdateBackground: await this.updateBackgound(path); break;
@@ -515,10 +436,8 @@ export class PickList {
             case ActionType.CloseBackground: await this.updateDom(true); break;
             case ActionType.ReloadWindow: commands.executeCommand('workbench.action.reloadWindow'); break;
             case ActionType.CloseMenu: this.quickPick.hide(); break;
-            case ActionType.MoreMenu: this.showMoreMenu(); break;
             case ActionType.OpenExternalUrl: this.gotoPath(path); break;
             case ActionType.OpenFilePath: PickList.gotoFilePath(path); break;
-            case ActionType.SizeModeMenu: this.showSizeModeMenu(); break;
             case ActionType.SetSizeMode: this.setSizeModel(path); break;
             case ActionType.OnlineImages: commands.executeCommand('workbench.view.extension.backgroundCover-explorer'); break;
             case ActionType.BackgroundBlur: this.showBlurSlider(); break;
@@ -536,7 +455,7 @@ export class PickList {
             case ActionType.InputParticleColor: this.showInputBox(InputType.ParticleColor); break;
             
             // Pet Assistant
-            case ActionType.SelectPet: this.showPetSelection(); break;
+            case ActionType.SelectPet: path ? this.selectPet(path) : this.showPetSelection(); break;
             case ActionType.TogglePet: this.togglePet(); break;
 
             default: break;
@@ -554,17 +473,33 @@ export class PickList {
     }
 
     private showPetSelection() {
-        this.quickPick.items = this.getPetSelectionItems();
-        this.quickPick.onDidAccept(() => {
-            if (this.quickPick.selectedItems.length > 0) {
-                const selected = this.quickPick.selectedItems[0];
-                if (selected.path) {
-                    this.setContextValue('backgroundCoverPetType', selected.path, true);
-                    this.quickPick.hide();
-                }
-            }
+        this.showSubMenu(this.getPetSelectionItems());
+    }
+
+    private selectPet(petType: string) {
+        this.setContextValue('backgroundCoverPetType', petType, true);
+        if (this.quickPick) { this.quickPick.hide(); }
+    }
+
+    /**
+     * 子菜单统一入口：有父级 QuickPick 时复用它（构造函数里挂了唯一的 accept 分发），
+     * 否则（树视图 / webview 触发）临时建一个，关闭即释放，不会累积监听。
+     */
+    private showSubMenu(items: ImgItem[]) {
+        if (this.quickPick) {
+            this.quickPick.items = items;
+            this.quickPick.show();
+            return;
+        }
+        const picker = window.createQuickPick<ImgItem>();
+        picker.items = items;
+        picker.onDidAccept(() => {
+            const selected = picker.selectedItems[0];
+            picker.hide();
+            if (selected) { void this.handleAction(selected.imageType, selected.path); }
         });
-        this.quickPick.show();
+        picker.onDidHide(() => picker.dispose());
+        picker.show();
     }
 
     private togglePet() {
@@ -575,47 +510,6 @@ export class PickList {
     private gotoPath(path?: string) {
         if (path == undefined) { return window.showWarningMessage('无效菜单'); }
         env.openExternal(Uri.parse(path));
-    }
-
-    public getMoreMenuItems(): ImgItem[] {
-        return [
-            { label: '$(github) Repository', detail: '仓库地址', imageType: ActionType.OpenExternalUrl, path: "https://github.com/AShujiao/vscode-background-cover" },
-            { label: '$(issues) Issues', detail: '有疑问就来提问', imageType: ActionType.OpenExternalUrl, path: "https://github.com/AShujiao/vscode-background-cover/issues" },
-            { label: '$(star) Star', detail: '给作者点个Star吧', imageType: ActionType.OpenExternalUrl, path: "https://github.com/AShujiao/vscode-background-cover" }
-        ];
-    }
-
-    private showMoreMenu() {
-        this.quickPick.items = this.getMoreMenuItems();
-        this.quickPick.show();
-    }
-
-    public getSizeModeMenuItems(): ImgItem[] {
-        const modes = [
-            { label: 'cover (default)', value: 'cover', desc: '填充(默认)' },
-            { label: 'repeat', value: 'repeat', desc: '平铺' },
-            { label: 'contain', value: 'contain', desc: '拉伸' },
-            { label: 'center', value: 'center', desc: '居中' },
-            { label: 'not(center)', value: 'not_center', desc: '无适应(居中)' },
-            { label: 'not(right_bottom)', value: 'not_right_bottom', desc: '无适应(右下角)' },
-            { label: 'not(right_top)', value: 'not_right_top', desc: '无适应(右上角)' },
-            { label: 'not(left)', value: 'not_left', desc: '无适应(靠左)' },
-            { label: 'not(right)', value: 'not_right', desc: '无适应(靠右)' },
-            { label: 'not(top)', value: 'not_top', desc: '无适应(靠上)' },
-            { label: 'not(bottom)', value: 'not_bottom', desc: '无适应(靠下)' },
-        ];
-
-        return modes.map(m => ({
-            label: `$(layout) ${m.label}`,
-            detail: `${m.desc} ${this.sizeModel == m.value ? '$(check)' : ''}`,
-            imageType: ActionType.SetSizeMode,
-            path: m.value
-        }));
-    }
-
-    private showSizeModeMenu() {
-        this.quickPick.items = this.getSizeModeMenuItems();
-        this.quickPick.show();
     }
 
     public getParticleEffectMenuItems(): ImgItem[] {
@@ -633,8 +527,7 @@ export class PickList {
     }
 
     public particleEffectSettings() {
-        this.quickPick.items = this.getParticleEffectMenuItems();
-        this.quickPick.show();
+        this.showSubMenu(this.getParticleEffectMenuItems());
     }
 
     private toggleParticleEffect() {
@@ -658,13 +551,11 @@ export class PickList {
     }
 
     private showColorSelection() {
-        this.quickPick.items = this.getColorSelectionItems();
-        this.quickPick.show();
+        this.showSubMenu(this.getColorSelectionItems());
     }
 
     private dispose() {
         PickList.itemList = undefined;
-        this.quickPick.hide();
         while (this._disposables.length) {
             const x = this._disposables.pop();
             if (x) { x.dispose(); }
@@ -677,7 +568,7 @@ export class PickList {
         const onlineFolder = context.globalState.get<string>('backgroundCoverOnlineFolder');
         const cachedImages = context.globalState.get<string[]>('backgroundCoverOnlineImageList');
         
-        if (onlineFolder && this.isOnlineUrl(onlineFolder)) {
+        if (onlineFolder && isOnlineUrl(onlineFolder)) {
             try {
                 let images = cachedImages as string[] | undefined;
                 if (!images || images.length === 0) {
@@ -849,142 +740,6 @@ export class PickList {
         return path.normalize(trimmed).replace(/\\+/g, '/');
     }
 
-    private isOnlineUrl(url?: string): boolean {
-        if (!url) { return false; }
-        const lower = url.toLowerCase();
-        return lower.startsWith('http://') || lower.startsWith('https://');
-    }
-
-    private showImageSelectionList(folderPath?: string) {
-        let items: ImgItem[] = [{
-            label: '$(diff-added) Manual selection',
-            detail: '选择一张背景图',
-            imageType: ActionType.ManualSelection
-        }];
-
-        const randomPath: any = folderPath ? folderPath : this.resolveRandomFolder(this.config.get<string>('randomImageFolder'));
-        if (this.checkFolder(randomPath)) {
-            const files = this.getFolderImgList(randomPath);
-            if (files.length > 0) {
-                const randomFile = files[Math.floor(Math.random() * files.length)];
-                items.push({
-                    label: '$(light-bulb) Random pictures',
-                    detail: '随机自动选择       ctrl+shift+F7',
-                    imageType: ActionType.UpdateBackground,
-                    path: path.join(randomPath, randomFile)
-                });
-                items.push({ label: '', description: '', imageType: 0, kind: QuickPickItemKind.Separator });
-
-                // Build per-file metadata (size, mtime) once
-                const meta = new Map<string, { size: number; mtime: number }>();
-                for (const f of files) {
-                    try {
-                        const st = fs.statSync(path.join(randomPath, f));
-                        meta.set(f, { size: st.size, mtime: st.mtimeMs });
-                    } catch {
-                        meta.set(f, { size: 0, mtime: 0 });
-                    }
-                }
-
-                // Current image (so we can mark it with a check)
-                const currentImg = (resolveCurrentImagePath(this.config.get<string>('imagePath') || '') || '').toLowerCase();
-                const normalize = (p: string) => p.replace(/\\/g, '/').toLowerCase();
-
-                // Most-recently-used list (kept in globalState, capped at 5)
-                const context = getContext();
-                const recent = context.globalState.get<string[]>('backgroundCoverRecentImages', []) || [];
-                const recentSet = new Set(recent.map((r) => normalize(r)));
-
-                const isCurrent = (f: string) => normalize(path.join(randomPath, f)) === normalize(currentImg);
-                const isRecent  = (f: string) => recentSet.has(normalize(path.join(randomPath, f)));
-
-                // Bucket: current first, then recent (preserving recency order), then the rest alphabetically.
-                const current = files.filter(isCurrent);
-                const recentBucket = recent
-                    .map((full) => files.find((f) => normalize(path.join(randomPath, f)) === normalize(full)))
-                    .filter((f): f is string => !!f && !isCurrent(f));
-                const restBucket = files
-                    .filter((f) => !isCurrent(f) && !isRecent(f))
-                    .sort((a, b) => a.localeCompare(b));
-                const ordered = [...current, ...recentBucket, ...restBucket];
-
-                const toItem = (f: string): ImgItem => {
-                    const m = meta.get(f) || { size: 0, mtime: 0 };
-                    const sizeStr = this.formatFileSize(m.size);
-                    const tags: string[] = [];
-                    if (isCurrent(f)) { tags.push('$(check) current'); }
-                    if (isRecent(f) && !isCurrent(f)) { tags.push('$(history) recent'); }
-                    const isVideo = this.isVideoFile(f);
-                    const fullPath = path.join(randomPath, f);
-                    // Videos: keep $(file-media) text icon (no per-file thumbnail).
-                    // Images: pass Uri.file(...) as iconPath so VS Code renders a 16px thumbnail.
-                    const icon = isVideo
-                        ? '$(file-media)'
-                        : (isCurrent(f) ? '$(check)' : '');
-                    const labelText = icon ? `${icon} ${f}` : f;
-                    const detailText = `${sizeStr}${tags.length ? '   ' + tags.join('  ') : ''}`;
-                    return new ImgItem(
-                        labelText,
-                        detailText,
-                        ActionType.UpdateBackground,
-                        fullPath,
-                        isVideo ? undefined : Uri.file(fullPath)
-                    );
-                };
-
-                items = items.concat(ordered.map(toItem));
-            }
-        }
-
-        // --- Live preview wiring: hovering an item temporarily applies it ---
-        const originalImg = this.imgPath;
-        let committed = false;
-        let previewTimer: NodeJS.Timeout | undefined;
-
-        this.quickPick.onDidChangeActive((active: ImgItem[]) => {
-            if (!active || active.length === 0) { return; }
-            const a = active[0];
-            if (!a.path || a.imageType !== ActionType.UpdateBackground) { return; }
-            // Skip preview for video files — switching video sources is heavier.
-            if (this.isVideoFile(a.path)) { return; }
-            if (previewTimer) { clearTimeout(previewTimer); }
-            previewTimer = setTimeout(() => {
-                this.applyImagePreview(a.path!);
-            }, 120);
-        });
-
-        this.quickPick.onDidAccept(() => {
-            committed = true;
-            if (previewTimer) { clearTimeout(previewTimer); }
-        });
-
-        this.quickPick.onDidHide(async () => {
-            if (previewTimer) { clearTimeout(previewTimer); }
-            if (!committed && originalImg && originalImg !== this.imgPath) {
-                await this.applyImagePreview(originalImg);
-            }
-        });
-
-        this.quickPick.items = items;
-        this.quickPick.show();
-    }
-
-    /** Live-preview an image (no persistence) by swapping imgPath and re-rendering. */
-    private async applyImagePreview(filePath: string): Promise<void> {
-        if (!filePath) { return; }
-        this.imgPath = filePath;
-        try {
-            await this.updateDom();
-        } catch (e) {
-            console.error('[BackgroundCover] image preview failed:', e);
-        }
-    }
-
-    /** Common video file extensions used by the extension. */
-    private isVideoFile(f: string): boolean {
-        const lower = f.toLowerCase();
-        return lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.ogg') || lower.endsWith('.mov');
-    }
 
     /** Push a path to the front of the recent-used list (globalState), keep at most 5. */
     private pushRecentImage(filePath: string): void {
@@ -1000,33 +755,13 @@ export class PickList {
         }
     }
 
-    /** Pretty-print byte size into KB/MB. */
-    private formatFileSize(bytes: number): string {
-        if (!bytes || bytes < 1024) { return `${bytes}B`; }
-        if (bytes < 1024 * 1024) { return `${(bytes / 1024).toFixed(1)}KB`; }
-        return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-    }
-
     public static listFolderImages(pathUrl: string): string[] {
         if (!pathUrl || pathUrl === '') { return []; }
-        return fs.readdirSync(path.resolve(pathUrl)).filter((s) => {
-            // 增加视频文件 '.mp4', '.webm', '.ogg', '.mov'
-            return s.endsWith('.png') || s.endsWith('.PNG') || s.endsWith('.jpg') || s.endsWith('.JPG')
-                || s.endsWith('.jpeg') || s.endsWith('.gif') || s.endsWith('.webp') || s.endsWith('.bmp')
-                || s.endsWith('.jfif') || s.endsWith('.mp4') || s.endsWith('.webm') || s.endsWith('.ogg') || s.endsWith('.mov');
-        });
+        return fs.readdirSync(path.resolve(pathUrl)).filter((s) => isSupportedMedia(s));
     }
 
     private getFolderImgList(pathUrl: string): string[] {
         return PickList.listFolderImages(pathUrl);
-    }
-
-    private checkFolder(folderPath: string) {
-        if (!folderPath) { return false; }
-        const fsStatus = fs.existsSync(path.resolve(folderPath));
-        if (!fsStatus) { return false; }
-        const stat = fs.statSync(folderPath);
-        return stat.isDirectory();
     }
 
     /**
@@ -1243,7 +978,7 @@ export class PickList {
         let shouldClearOnlineCache = false;
 
         if (type === InputType.Path) {
-            const isUrl = (value.slice(0, 8).toLowerCase() === 'https://') || (value.slice(0, 7).toLowerCase() === 'http://');
+            const isUrl = isOnlineUrl(value);
             if (!isUrl) {
                 // A3: 展开 ~ / ${ENV} / $ENV；无扩展名的本地路径按文件夹处理，随机取一张
                 value = expandPathVariables(value);
@@ -1387,7 +1122,7 @@ export class PickList {
         // they don't get blindsided by a multi-second freeze on manual switch.
         // Automated random updates must not wait on a modal prompt, otherwise the
         // scheduler can get stuck behind an unattended large-image confirmation.
-        if (persist && !options.skipLargeImagePrompt && !this.isOnlineUrl(path)) {
+        if (persist && !options.skipLargeImagePrompt && !isOnlineUrl(path)) {
             const proceed = await this.confirmLargeLocalImage(path);
             if (!proceed) { return false; }
         }
@@ -1395,7 +1130,7 @@ export class PickList {
         // Record into the most-recently-used list (for QuickPick reordering).
         if (persist) { this.pushRecentImage(path); }
 
-        if (clearOnlineCache || !this.isOnlineUrl(path)) {
+        if (clearOnlineCache || !isOnlineUrl(path)) {
             this.clearOnlineFolder(true);
         }
         const shouldDisableAuto = persist && clearOnlineCache && this.isSingleImagePath(path);
@@ -1444,9 +1179,6 @@ export class PickList {
             this.clearOnlineFolder(true);
             await this.setConfigValue('randomImageFolder', fileUri.fsPath, false);
             await getContext().globalState.update('backgroundCoverSingleImageSource', undefined);
-            if (this.quickPick) {
-                return this.showImageSelectionList(fileUri.fsPath);
-            }
             return true;
         }
         if (type === 1) {
@@ -1467,7 +1199,7 @@ export class PickList {
             if (persist) {
                 const context = getContext();
                 const hasOnlineFolder = context.globalState.get('backgroundCoverOnlineFolder');
-                const singleSource = nextPath && this.isOnlineUrl(nextPath) && !hasOnlineFolder ? nextPath : undefined;
+                const singleSource = nextPath && isOnlineUrl(nextPath) && !hasOnlineFolder ? nextPath : undefined;
                 await context.globalState.update('backgroundCoverSingleImageSource', singleSource);
             }
 
@@ -1533,8 +1265,7 @@ export class PickList {
         if (!ext) {
             return false;
         }
-        const singleExts = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.jfif', '.svg', '.mp4', '.webm', '.ogg', '.mov'];
-        return singleExts.includes(ext);
+        return MEDIA_EXTS.includes(ext);
     }
 
     public setRandUpdate(value: boolean) {
@@ -1545,12 +1276,10 @@ export class PickList {
         this.skipOnlineCache = value;
     }
 
-    private async updateDom(uninstall: boolean = false, _colorThemeKind: string = ""): Promise<boolean> {
+    private async updateDom(uninstall: boolean = false): Promise<boolean> {
         // A4: 混合模式不再在扩展侧解析。auto 由注入 CSS 的变量 + :has() 即时适配主题，
         // 显式 multiply/lighten 直接写死。这里只把用户选择的模式传给 FileDom 生成 CSS。
         const colorThemeKind = this.config.get<string>('blendModel') ?? 'auto';
-        const context = getContext();
-        context.globalState.update('backgroundCoverBlendModel', colorThemeKind);
 
         const seq = ++PickList._updateSeq;
         const isCurrentUpdate = () => seq === PickList._updateSeq;

@@ -83,5 +83,27 @@ export default {
     cacheLimit:           '图片缓存上限（个）',
     cacheLimitHint:       '在线图片缓存文件个数上限，超出后自动清理最旧的文件。防止无扩展名在线源长期自动换图导致磁盘占用无限增长',
     applyChanges:         '重启窗口生效',
-    applyChangesHint:     '本部分功能修改后需重启窗口才能生效，修改完成后请点击下方按钮'
+    applyChangesHint:     '本部分功能修改后需重启窗口才能生效，修改完成后请点击下方按钮',
+
+    sizeModeCover:          '填充（默认）',
+    sizeModeRepeat:         '平铺',
+    sizeModeContain:        '拉伸',
+    sizeModeCenter:         '居中',
+    sizeModeNotCenter:      '原始尺寸（居中）',
+    sizeModeNotRightBottom: '原始尺寸（右下角）',
+    sizeModeNotRightTop:    '原始尺寸（右上角）',
+    sizeModeNotLeft:        '原始尺寸（靠左）',
+    sizeModeNotRight:       '原始尺寸（靠右）',
+    sizeModeNotTop:         '原始尺寸（靠上）',
+    sizeModeNotBottom:      '原始尺寸（靠下）',
+    blendModeAuto:          '自动（跟随主题）',
+    blendModeMultiply:      '正片叠底（multiply）',
+    blendModeLighten:       '变亮（lighten）',
+
+    themeOverwatchShort:    '守望',
+    logoAlt:                '扩展图标',
+    previewAlt:             '当前背景预览',
+    onlineGalleryFrameTitle: '在线图库',
+    thumbSelectLabel:       '设为背景：{name}',
+    videoThumbLabel:        '视频：{name}'
 };

@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
@@ -20,6 +21,24 @@ import { getColorEntries } from './color';
 import { resolveCurrentBlur, resolveCurrentImagePath, resolveCurrentOpacity } from './windowBackground';
 import { DEFAULT_ONLINE_CACHE_LIMIT, findCachedOnlineImage, isOnlineUrl, readOnlineCacheEntries } from './onlineCache';
 import { DEFAULT_PARTICLE_FPS } from './ParticleEffect';
+import { expandPathVariables } from './pathUtil';
+import { GALLERY_ORIGIN, isValidGalleryMessage } from './netSafety';
+
+const PUSH_DEBOUNCE_MS = 120;
+
+const DECORATION_STATE_KEYS = [
+    'backgroundCoverPetEnabled',
+    'backgroundCoverPetType',
+    'backgroundCoverPetMessages',
+    'backgroundCoverParticleEffect',
+    'backgroundCoverParticleColor',
+    'backgroundCoverParticleCount',
+    'backgroundCoverParticleOpacity',
+    'backgroundCoverParticleFps'
+];
+
+/** globalState keys the webview may write directly via `setGlobalState`. */
+const WEBVIEW_WRITABLE_STATE_KEYS = new Set<string>([...DECORATION_STATE_KEYS, 'backgroundCoverLocale']);
 
 /**
  * Vue-powered single-pane configuration webview.
@@ -49,6 +68,9 @@ export class StudioViewProvider implements WebviewViewProvider {
     private galleryBusy = false;
     /** Set of allowed local-resource root directories (fs paths). */
     private allowedRoots = new Set<string>();
+    private pushTimer?: ReturnType<typeof setTimeout>;
+    /** Folder listing cache keyed by folder path + mtime; avoids readdir on every push. */
+    private folderCache?: { folder: string; mtimeMs: number; names: string[] };
 
     constructor(private readonly ctx: ExtensionContext) {}
 
@@ -71,21 +93,45 @@ export class StudioViewProvider implements WebviewViewProvider {
         // Push state on config / globalState changes
 
         
+        // 配置/globalState 的变化往往是成串的（拖滑块、自动换图 tick），合并成一次推送。
         this.disposables.push(workspace.onDidChangeConfiguration(e => {
-            if (e.affectsConfiguration('backgroundCover')) { this.pushState(); }
+            if (e.affectsConfiguration('backgroundCover')) { this.schedulePush(); }
         }));
-        this.disposables.push(onDidChangeGlobalState.event(() => this.pushState()));
+        this.disposables.push(onDidChangeGlobalState.event(() => this.schedulePush()));
 
         view.onDidDispose(() => {
+            if (this.pushTimer) { clearTimeout(this.pushTimer); this.pushTimer = undefined; }
             this.disposables.forEach(d => d.dispose());
             this.disposables = [];
             this.view = undefined;
         });
     }
 
+    private schedulePush(): void {
+        if (!this.view) { return; }
+        if (this.pushTimer) { clearTimeout(this.pushTimer); }
+        this.pushTimer = setTimeout(() => {
+            this.pushTimer = undefined;
+            this.pushState();
+        }, PUSH_DEBOUNCE_MS);
+    }
+
+    /** List folder media, reusing the previous listing while the directory mtime is unchanged. */
+    private listFolder(folder: string): string[] {
+        const mtimeMs = fs.statSync(folder).mtimeMs;
+        const c = this.folderCache;
+        if (c && c.folder === folder && c.mtimeMs === mtimeMs) {
+            return c.names;
+        }
+        const names = PickList.listFolderImages(folder);
+        this.folderCache = { folder, mtimeMs, names };
+        return names;
+    }
+
     /** Re-send full state; used by external commands (refresh/home/support). */
     public pushState(): void {
         if (!this.view) { return; }
+        if (this.pushTimer) { clearTimeout(this.pushTimer); this.pushTimer = undefined; }
         const cfg = workspace.getConfiguration('backgroundCover');
         const gs = this.ctx.globalState;
 
@@ -101,12 +147,12 @@ export class StudioViewProvider implements WebviewViewProvider {
             name: this.basename(p)
         }));
 
-        const folder = cfg.get<string>('randomImageFolder') || '';
+        const folder = expandPathVariables(cfg.get<string>('randomImageFolder') || '');
         let folderImages: { path: string; display: string; name: string }[] = [];
         let folderImagesTotal = 0;
         try {
             if (folder && fs.existsSync(folder) && fs.statSync(folder).isDirectory()) {
-                const names = PickList.listFolderImages(folder);
+                const names = this.listFolder(folder);
                 folderImagesTotal = names.length;
                 folderImages = names.slice(0, 2000).map(name => {
                     const full = path.join(folder, name);
@@ -211,7 +257,7 @@ export class StudioViewProvider implements WebviewViewProvider {
                 return;
 
             case 'setGlobalState':
-                if (typeof msg.key === 'string') {
+                if (typeof msg.key === 'string' && WEBVIEW_WRITABLE_STATE_KEYS.has(msg.key)) {
                     await this.ctx.globalState.update(msg.key, msg.value);
                     onDidChangeGlobalState.fire();
                 }
@@ -227,7 +273,7 @@ export class StudioViewProvider implements WebviewViewProvider {
                 return;
 
             case 'openExternal':
-                if (typeof msg.url === 'string') {
+                if (typeof msg.url === 'string' && /^https:\/\//i.test(msg.url)) {
                     await env.openExternal(Uri.parse(msg.url));
                 }
                 return;
@@ -238,6 +284,9 @@ export class StudioViewProvider implements WebviewViewProvider {
                 this.galleryBusy = true;
                 try {
                     const data = msg.data || {};
+                    if (!isValidGalleryMessage(msg.command, data)) {
+                        return;
+                    }
                     if (msg.command === 'set_img') {
                         if (data.link) {
                             await this.ctx.globalState.update('backgroundCoverOnlineDefault', data.link);
@@ -256,17 +305,7 @@ export class StudioViewProvider implements WebviewViewProvider {
     }
 
     private async applyDecorations(state: any): Promise<void> {
-        const allowedKeys = [
-            'backgroundCoverPetEnabled',
-            'backgroundCoverPetType',
-            'backgroundCoverPetMessages',
-            'backgroundCoverParticleEffect',
-            'backgroundCoverParticleColor',
-            'backgroundCoverParticleCount',
-            'backgroundCoverParticleOpacity',
-            'backgroundCoverParticleFps'
-        ];
-        for (const key of allowedKeys) {
+        for (const key of DECORATION_STATE_KEYS) {
             if (Object.prototype.hasOwnProperty.call(state, key)) {
                 await this.ctx.globalState.update(key, state[key]);
             }
@@ -351,7 +390,7 @@ export class StudioViewProvider implements WebviewViewProvider {
             return this.fallbackHtml('webview-dist/index.html not found. Run `npm run build:webview`.');
         }
 
-        const nonce = randomNonce();
+        const nonce = crypto.randomBytes(16).toString('base64');
         // img-src/media-src 不放开 https:：所有预览都必须引用下载到本地的缓存副本，
         // 否则面板每次刷新都会回源云存储。frame-src 仍需 https 供在线图库 iframe 使用。
         const csp = [
@@ -361,13 +400,12 @@ export class StudioViewProvider implements WebviewViewProvider {
             `style-src ${webview.cspSource} 'unsafe-inline'`,
             `font-src ${webview.cspSource} data:`,
             `script-src 'nonce-${nonce}'`,
-            `frame-src https:`
+            `frame-src ${GALLERY_ORIGIN}`
         ].join('; ');
 
-        // Inject CSP meta if missing
-        if (!/Content-Security-Policy/i.test(html)) {
-            html = html.replace(/<head[^>]*>/i, m => `${m}\n<meta http-equiv="Content-Security-Policy" content="${csp}">`);
-        }
+        // Always use our own CSP so the nonce below matches; drop any CSP shipped in the build.
+        html = html.replace(/<meta[^>]+http-equiv=["']Content-Security-Policy["'][^>]*>/gi, '');
+        html = html.replace(/<head[^>]*>/i, m => `${m}\n<meta http-equiv="Content-Security-Policy" content="${csp}">`);
 
         // Stamp nonce on every inline/external script
         html = html.replace(/<script(?![^>]*\bnonce=)/gi, `<script nonce="${nonce}"`);
@@ -381,11 +419,4 @@ export class StudioViewProvider implements WebviewViewProvider {
             <p>${msg}</p>
         </body></html>`;
     }
-}
-
-function randomNonce(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let out = '';
-    for (let i = 0; i < 32; i++) { out += chars.charAt(Math.floor(Math.random() * chars.length)); }
-    return out;
 }

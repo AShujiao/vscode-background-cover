@@ -3,7 +3,7 @@
         <header class="studio-header">
             <div class="brand">
                 <span class="brand-icon">
-                    <img v-if="brand.logo" :src="brand.logo" :alt="brand.name || 'logo'" />
+                    <img v-if="brand.logo" :src="brand.logo" :alt="brand.name || t('logoAlt')" />
                     <el-icon v-else><Picture /></el-icon>
                 </span>
                 <span class="brand-title">{{ brand.name || t('appTitle') }}</span>
@@ -67,19 +67,21 @@
         </el-tabs>
 
         <main class="studio-body">
-            <component
-                v-for="tab in tabs"
-                :key="tab.key"
-                :is="views[tab.key]"
-                v-show="active === tab.key"
-                class="studio-panel"
-            />
+            <!-- 首次激活时才挂载，之后保持挂载（v-show）以保留各 Tab 状态 -->
+            <template v-for="tab in tabs" :key="tab.key">
+                <component
+                    :is="views[tab.key]"
+                    v-if="visited.has(tab.key)"
+                    v-show="active === tab.key"
+                    class="studio-panel"
+                />
+            </template>
         </main>
     </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import { Picture, Refresh, House, Folder, Promotion, Setting, MagicStick, Place, Brush } from '@element-plus/icons-vue';
 import HomeTab from './views/HomeTab.vue';
 import LocalGalleryTab from './views/LocalGalleryTab.vue';
@@ -96,28 +98,59 @@ const bridge = useBridge();
 const theme = useTheme();
 type StudioUiTheme = 'default' | 'overwatch';
 
-const uiTheme = ref<StudioUiTheme>(
-    ((localStorage.getItem('bgc.uiTheme') as StudioUiTheme | null) === 'overwatch')
-        ? 'overwatch'
-        : 'default'
-);
-const uiThemeLabel = computed(() => uiTheme.value === 'overwatch' ? 'OW' : t('themeDefaultShort'));
+/**
+ * 界面偏好存放在 VS Code webview state（acquireVsCodeApi().getState/setState），
+ * 不再使用 localStorage。首次运行时把旧 localStorage 中的值迁移过来。
+ */
+interface UiPrefs {
+    uiTheme?: StudioUiTheme;
+    locale?: Locale;
+    activeTab?: string;
+}
+const LEGACY_KEYS: Record<keyof UiPrefs, string> = {
+    uiTheme: 'bgc.uiTheme',
+    locale: 'bgc.locale',
+    activeTab: 'bgc.activeTab'
+};
+
+function loadPrefs(): UiPrefs {
+    const prefs: UiPrefs = { ...bridge.getState<UiPrefs>() };
+    const migrated: UiPrefs = {};
+    try {
+        for (const [field, legacyKey] of Object.entries(LEGACY_KEYS) as Array<[keyof UiPrefs, string]>) {
+            const legacy = localStorage.getItem(legacyKey);
+            if (legacy === null) { continue; }
+            if (prefs[field] === undefined) { (migrated as any)[field] = legacy; }
+            localStorage.removeItem(legacyKey);
+        }
+    } catch { /* localStorage 不可用时忽略 */ }
+    if (Object.keys(migrated).length) {
+        Object.assign(prefs, migrated);
+        bridge.patchState(migrated);
+    }
+    return prefs;
+}
+
+const prefs = loadPrefs();
+
+const uiTheme = ref<StudioUiTheme>(prefs.uiTheme === 'overwatch' ? 'overwatch' : 'default');
+const uiThemeLabel = computed(() => uiTheme.value === 'overwatch' ? t('themeOverwatchShort') : t('themeDefaultShort'));
 const dropdownPopperClass = computed(() => `studio-dropdown studio-dropdown--${uiTheme.value}`);
 
 function onUiThemeChange(value: StudioUiTheme) {
     uiTheme.value = value === 'overwatch' ? 'overwatch' : 'default';
-    try { localStorage.setItem('bgc.uiTheme', uiTheme.value); } catch { /* noop */ }
+    bridge.patchState({ uiTheme: uiTheme.value });
 }
 
 const userLocaleOverride = ref<Locale | null>(
-    (localStorage.getItem('bgc.locale') as Locale | null) || null
+    prefs.locale === 'zh' || prefs.locale === 'en' ? prefs.locale : null
 );
 if (userLocaleOverride.value) { setLocale(userLocaleOverride.value); }
 
 function onLangChange(value: Locale) {
     userLocaleOverride.value = value;
     setLocale(value);
-    try { localStorage.setItem('bgc.locale', value); } catch { /* noop */ }
+    bridge.patchState({ locale: value });
     bridge.post({ type: 'setGlobalState', key: 'backgroundCoverLocale', value });
 }
 
@@ -137,18 +170,13 @@ const views: Record<string, any> = {
     decoration: DecorationTab
 };
 
-const initialTab = (() => {
-    try {
-        const saved = localStorage.getItem('bgc.activeTab');
-        return saved && views[saved] ? saved : 'home';
-    } catch {
-        return 'home';
-    }
-})();
+const initialTab = prefs.activeTab && views[prefs.activeTab] ? prefs.activeTab : 'home';
 const active = ref(initialTab);
+const visited = reactive(new Set<string>([initialTab]));
 
 watch(active, (value) => {
-    try { localStorage.setItem('bgc.activeTab', value); } catch { /* noop */ }
+    visited.add(value);
+    bridge.patchState({ activeTab: value });
 });
 
 bridge.on('state', (data: any) => {

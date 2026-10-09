@@ -5,6 +5,7 @@ import * as crypto from 'crypto';
 import * as https from 'https';
 import * as http from 'http';
 import { URL } from 'url';
+import { pipeline, Transform } from 'stream';
 import { commands, env, Uri, window, WorkspaceConfiguration, UIKind } from 'vscode';
 import * as lockfile from 'proper-lockfile';
 import version from './version';
@@ -17,7 +18,7 @@ import { getAllPets } from './PickList';
 import Color from './color';
 import { getSessionHash, getWindowCssFileName, isPerWindowEnabled } from './windowBackground';
 import { detectPatchStateFromFile, PatchState, BOOTSTRAP_VERSION } from './patchState';
-import { expandPathVariables, hasFileExtension, pickRandomFromFolder } from './pathUtil';
+import { delay, expandPathVariables, hasFileExtension, isSupportedMedia, isVideoFile, pickRandomFromFolder } from './pathUtil';
 import {
     getCorruptionWarningCss,
     getTransitionDeclaration,
@@ -27,6 +28,15 @@ import {
     resolveThemeBlendRules
 } from './backgroundCss';
 import { IMAGE_FADE_JS, PRELOAD_IMAGE_JS } from './loaderFragments';
+import {
+    clearPatchBlock,
+    hasPatchBlock,
+    patchMediaCsp,
+    restoreMediaCsp,
+    patchCodeServerWorkbenchHtml,
+    clearCodeServerWorkbenchHtmlPatch
+} from './patchCleanup';
+import { MAX_DOWNLOAD_BYTES, MAX_REDIRECTS, parseHttpUrl } from './netSafety';
 import {
     BackgroundApplyCancelledError,
     BackgroundDownloadError,
@@ -178,16 +188,34 @@ const DESKTOP_HTML_ENTRIES = [
     path.join(APP_OUT_PATH, 'vs', 'code', 'electron-browser', 'workbench', 'workbench.html'),
     path.join(APP_OUT_PATH, 'vs', 'sessions', 'electron-browser', 'sessions.html')
 ];
-const CSP_MEDIA_PATCH_START = '/*background-cover-media-csp-start*/';
-const CSP_MEDIA_PATCH_END = '/*background-cover-media-csp-end*/';
-const HTML_CACHE_BUST_PARAM = 'background-cover';
 const DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
 const DEFAULT_ACCEPT_HEADER = 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8';
 const DOWNLOAD_MAX_ATTEMPTS = 3;
 const DOWNLOAD_RETRY_DELAYS_MS = [0, 500, 1500];
+const DOWNLOAD_TOTAL_TIMEOUT_MS = 120_000;
 
-function delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+// 本进程内已确认「补丁块 == 期望内容」的 bundle：路径 → 补丁 hash + 文件 mtime/size。
+// bootstrap 在同一扩展版本内是固定的，换图只改外部 CSS/JS，没必要每次都把十几 MB 的
+// workbench bundle 读进来做正则比对；文件被 VS Code 更新或被别处改写时 mtime/size 会变，
+// 自然落回完整校验。
+const verifiedBundles = new Map<string, { hash: string; mtimeMs: number; size: number }>();
+
+async function statSignature(filePath: string): Promise<{ mtimeMs: number; size: number } | undefined> {
+    try {
+        const st = await fse.stat(filePath);
+        return { mtimeMs: st.mtimeMs, size: st.size };
+    } catch {
+        return undefined;
+    }
+}
+
+async function markBundleVerified(filePath: string, hash: string): Promise<void> {
+    const sig = await statSignature(filePath);
+    if (sig) {
+        verifiedBundles.set(filePath, { hash, ...sig });
+    } else {
+        verifiedBundles.delete(filePath);
+    }
 }
 
 function getWebRelativePath(filePath: string): string | undefined {
@@ -218,6 +246,15 @@ function quoteWinPath(filePath: string): string {
     return `"${filePath}"`;
 }
 
+/** POSIX shell 单引号转义：sudo 下路径里的 $ / 反引号 / 双引号都不会被解释。 */
+function quotePosixPath(filePath: string): string {
+    return `'${filePath.replace(/'/g, `'\\''`)}'`;
+}
+
+function quoteShellPath(filePath: string): string {
+    return os.type() === SystemType.WINDOWS ? quoteWinPath(filePath) : quotePosixPath(filePath);
+}
+
 async function unlockDir(dirPath: string): Promise<void> {
     window.setStatusBarMessage(
         '正在开放背景文件目录写入权限，请在弹出的授权窗口中确认一次。 / Granting write access to the background folder. Please confirm the permission prompt once.',
@@ -234,7 +271,7 @@ async function unlockDir(dirPath: string): Promise<void> {
         return;
     }
     if (systemType === SystemType.MACOS || systemType === SystemType.LINUX) {
-        await SudoPromptHelper.exec(`chmod a+rwx ${quoteWinPath(dirPath)}`);
+        await SudoPromptHelper.exec(`chmod a+rwx ${quotePosixPath(dirPath)}`);
     }
 }
 
@@ -294,7 +331,7 @@ export async function removeBackgroundCoverCssFiles(): Promise<void> {
             if (systemType === SystemType.WINDOWS) {
                 await SudoPromptHelper.exec(`del ${quoteWinPath(filePath)}`);
             } else {
-                await SudoPromptHelper.exec(`rm ${quoteWinPath(filePath)}`);
+                await SudoPromptHelper.exec(`rm ${quotePosixPath(filePath)}`);
             }
         } catch (error) {
             console.warn(`[FileDom] Failed to remove ${filePath}:`, error);
@@ -419,8 +456,7 @@ export class FileDom {
 
     // 检测是否为视频文件
     private checkIsVideo(filePath: string): boolean {
-        const ext = path.extname(filePath).toLowerCase();
-        return ['.mp4', '.webm', '.ogg', '.mov'].includes(ext);
+        return isVideoFile(filePath);
     }
 
     /**
@@ -507,7 +543,7 @@ export class FileDom {
                     uniqueDownload = true;
                 } else {
                     ext = detectedExt;
-                    if (['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.mp4', '.webm', '.ogg', '.mov'].includes(ext.toLowerCase())) {
+                    if (isSupportedMedia(ext)) {
                         isStaticImage = true;
                     } else {
                         uniqueDownload = true;
@@ -658,7 +694,7 @@ export class FileDom {
         return new Promise((resolve, reject) => {
             let urlObj: URL;
             try {
-                urlObj = new URL(url);
+                urlObj = parseHttpUrl(url);
             } catch (error) {
                 reject(wrapDownloadError(error));
                 return;
@@ -670,8 +706,18 @@ export class FileDom {
                 'Referer': `${urlObj.protocol}//${urlObj.host}/`,
             } as Record<string, string>;
 
+            let settled = false;
             const fail = (error: unknown, statusCode?: number) => {
+                if (settled) { return; }
+                settled = true;
+                clearTimeout(overallTimer);
                 reject(wrapDownloadError(error, statusCode));
+            };
+            const succeed = (value: { contentType?: string }) => {
+                if (settled) { return; }
+                settled = true;
+                clearTimeout(overallTimer);
+                resolve(value);
             };
 
             const protocolHandler = urlObj.protocol === 'https:' ? https : http;
@@ -679,20 +725,21 @@ export class FileDom {
                 const statusCode = response.statusCode ?? 0;
 
                 if ([301, 302, 303, 307, 308].includes(statusCode)) {
+                    response.resume();
                     const location = response.headers.location;
                     if (!location) {
-                        response.resume();
                         fail(new Error(`Failed to download: ${statusCode}`), statusCode);
                         return;
                     }
-                    if (redirectCount > 5) {
-                        response.resume();
+                    if (redirectCount >= MAX_REDIRECTS) {
                         fail(new Error('Too many redirects'));
                         return;
                     }
                     const nextUrl = new URL(location, urlObj).toString();
-                    response.resume();
-                    this.downloadFile(nextUrl, dest, redirectCount + 1).then(resolve).catch(reject);
+                    // 交给下一跳自己的总超时；当前这一跳的计时器先停掉。
+                    settled = true;
+                    clearTimeout(overallTimer);
+                    this.downloadFile(nextUrl, dest, redirectCount + 1).then(resolve, reject);
                     return;
                 }
 
@@ -702,16 +749,39 @@ export class FileDom {
                     return;
                 }
 
-                const file = fs.createWriteStream(dest);
-                response.pipe(file);
-                file.on('finish', () => {
-                    file.close();
-                    resolve({ contentType: response.headers['content-type'] as string | undefined });
+                const declared = Number(response.headers['content-length'] || 0);
+                if (declared > MAX_DOWNLOAD_BYTES) {
+                    response.destroy();
+                    fail(new Error('File too large'));
+                    return;
+                }
+
+                let received = 0;
+                const limiter = new Transform({
+                    transform(chunk: Buffer, _enc, cb) {
+                        received += chunk.length;
+                        if (received > MAX_DOWNLOAD_BYTES) {
+                            cb(new Error('File too large'));
+                            return;
+                        }
+                        cb(null, chunk);
+                    }
                 });
-                file.on('error', (err) => {
-                    fs.unlink(dest, () => fail(err));
+                // pipeline 统一处理 response/写入流任一端的 error/aborted，并负责销毁两端，
+                // 避免连接中途断开时 Promise 永不 settle 把自动换图调度器卡死。
+                pipeline(response, limiter, fs.createWriteStream(dest), (err) => {
+                    if (err) {
+                        fs.unlink(dest, () => fail(err));
+                        return;
+                    }
+                    succeed({ contentType: response.headers['content-type'] as string | undefined });
                 });
             });
+
+            // socket 空闲超时之外再加一道整体上限，慢速滴流也不会无限挂起。
+            const overallTimer = setTimeout(() => {
+                request.destroy(new Error('Download timeout'));
+            }, DOWNLOAD_TOTAL_TIMEOUT_MS);
 
             request.on('timeout', () => {
                 request.destroy(new Error('Request timeout'));
@@ -996,7 +1066,31 @@ export class FileDom {
         content: string,
         captureBak: boolean
     ): Promise<'unchanged' | 'patched' | 'failed'> {
+        const result = await this.patchOneJsFileInner(jsPath, bakPath, content, captureBak);
+        const hash = crypto.createHash('md5').update(content.trim()).digest('hex');
+        if (result === 'failed') {
+            verifiedBundles.delete(jsPath);
+        } else {
+            await markBundleVerified(jsPath, hash);
+        }
+        return result;
+    }
+
+    private async patchOneJsFileInner(
+        jsPath: string,
+        bakPath: string,
+        content: string,
+        captureBak: boolean
+    ): Promise<'unchanged' | 'patched' | 'failed'> {
         try {
+            const cached = verifiedBundles.get(jsPath);
+            if (cached && cached.hash === crypto.createHash('md5').update(content.trim()).digest('hex')) {
+                const sig = await statSignature(jsPath);
+                if (sig && sig.mtimeMs === cached.mtimeMs && sig.size === cached.size) {
+                    return 'unchanged';
+                }
+            }
+
             const currentContent = await this.getContent(jsPath);
             const markerRe = new RegExp(`\\/\\*ext-${this.extName}-start\\*\\/([\\s\\S]*?)\\/\\*ext-${this.extName}-end\\*\\/`);
             const match = currentContent.match(markerRe);
@@ -1060,7 +1154,7 @@ export class FileDom {
     // 获取单个文件权限（目录授权仍盖不住的已有受保护文件才走这里）
     public async getFilePermission(filePath: string): Promise<void> {
         try {
-            const quoted = quoteWinPath(filePath);
+            const quoted = quoteShellPath(filePath);
             const exists = await fse.pathExists(filePath);
             if (this.systemType === SystemType.WINDOWS) {
                 const create = exists ? '' : `echo. > ${quoted} & `;
@@ -1175,30 +1269,11 @@ export class FileDom {
         return entries;
     }
 
-    private patchMediaCsp(content: string): string {
-        if (content.indexOf(CSP_MEDIA_PATCH_START) !== -1) {
-            // 已打过补丁，直接返回。
-            return content;
-        }
-        // 只在 `media-src 'self'` 之后插入 blob:/data:。注意不能吞掉后面的分号：
-        // 原始 meta 是 `media-src\n\t'self'\n\t\t;`，`;` 在捕获组之外由替换保留，
-        // 否则 frame-src 等后续指令会被并进 media-src，CSP 直接解析失败。
-        return content.replace(/media-src\s+'self'/g, `media-src 'self' ${CSP_MEDIA_PATCH_START} blob: data: ${CSP_MEDIA_PATCH_END}`);
-    }
-
-    private restoreMediaCsp(content: string): string {
-        const markerRe = new RegExp(
-            `\\s*${CSP_MEDIA_PATCH_START}\\s*blob:\\s*data:\\s*${CSP_MEDIA_PATCH_END}`,
-            'g'
-        );
-        return content.replace(markerRe, '');
-    }
-
     private async patchMediaCspForEntries(): Promise<void> {
         for (const htmlPath of this.getMediaCspEntries()) {
             try {
                 const raw = await this.getContent(htmlPath);
-                const patched = this.patchMediaCsp(raw);
+                const patched = patchMediaCsp(raw);
                 if (patched !== raw) {
                     await this.writeWithPermission(htmlPath, patched);
                     if (htmlPath.indexOf('workbench.html') !== -1) {
@@ -1215,7 +1290,7 @@ export class FileDom {
         for (const htmlPath of this.getMediaCspEntries()) {
             try {
                 const raw = await this.getContent(htmlPath);
-                const restored = this.restoreMediaCsp(raw);
+                const restored = restoreMediaCsp(raw);
                 if (restored !== raw) {
                     await this.writeWithPermission(htmlPath, restored);
                 }
@@ -1323,7 +1398,7 @@ export class FileDom {
         }
 
         const content = await this.getContent(HTML_FILE_PATH);
-        const patchedContent = this.patchCodeServerWorkbenchHtml(content, cacheKey);
+        const patchedContent = patchCodeServerWorkbenchHtml(content, cacheKey);
 
         if (patchedContent === content) {
             return false;
@@ -1339,58 +1414,11 @@ export class FileDom {
         }
 
         const content = await this.getContent(HTML_FILE_PATH);
-        const patchedContent = this.clearCodeServerWorkbenchHtmlPatch(content);
+        const patchedContent = clearCodeServerWorkbenchHtmlPatch(content);
 
         if (patchedContent !== content) {
             await this.writeWithPermission(HTML_FILE_PATH, patchedContent);
         }
-    }
-
-    private patchCodeServerWorkbenchHtml(content: string, cacheKey: string): string {
-        const workbenchScriptRegex = /(<script\b[^>]*\bsrc=["'])([^"']*\/out\/vs\/code\/browser\/workbench\/workbench\.js(?:\?[^"']*)?)(["'][^>]*>\s*<\/script>)/g;
-        return content.replace(workbenchScriptRegex, (_match: string, prefix: string, scriptUrl: string, suffix: string) => {
-            return `${prefix}${this.withHtmlCacheBust(scriptUrl, cacheKey)}${suffix}`;
-        });
-    }
-
-    private clearCodeServerWorkbenchHtmlPatch(content: string): string {
-        const workbenchScriptRegex = /(<script\b[^>]*\bsrc=["'])([^"']*\/out\/vs\/code\/browser\/workbench\/workbench\.js(?:\?[^"']*)?)(["'][^>]*>\s*<\/script>)/g;
-        return content.replace(workbenchScriptRegex, (_match: string, prefix: string, scriptUrl: string, suffix: string) => {
-            return `${prefix}${this.withoutHtmlCacheBust(scriptUrl)}${suffix}`;
-        });
-    }
-
-    private withHtmlCacheBust(scriptUrl: string, cacheKey: string): string {
-        const hashIndex = scriptUrl.indexOf('#');
-        const hash = hashIndex === -1 ? '' : scriptUrl.substring(hashIndex);
-        const urlWithoutHash = hashIndex === -1 ? scriptUrl : scriptUrl.substring(0, hashIndex);
-        const queryIndex = urlWithoutHash.indexOf('?');
-        const base = queryIndex === -1 ? urlWithoutHash : urlWithoutHash.substring(0, queryIndex);
-        const query = queryIndex === -1 ? '' : urlWithoutHash.substring(queryIndex + 1);
-        const paramPrefix = `${HTML_CACHE_BUST_PARAM}=`;
-        const params = query.split('&').filter((param) => param && !param.startsWith(paramPrefix));
-
-        params.push(`${paramPrefix}${encodeURIComponent(cacheKey)}`);
-
-        return `${base}?${params.join('&')}${hash}`;
-    }
-
-    private withoutHtmlCacheBust(scriptUrl: string): string {
-        const hashIndex = scriptUrl.indexOf('#');
-        const hash = hashIndex === -1 ? '' : scriptUrl.substring(hashIndex);
-        const urlWithoutHash = hashIndex === -1 ? scriptUrl : scriptUrl.substring(0, hashIndex);
-        const queryIndex = urlWithoutHash.indexOf('?');
-
-        if (queryIndex === -1) {
-            return scriptUrl;
-        }
-
-        const base = urlWithoutHash.substring(0, queryIndex);
-        const query = urlWithoutHash.substring(queryIndex + 1);
-        const paramPrefix = `${HTML_CACHE_BUST_PARAM}=`;
-        const params = query.split('&').filter((param) => param && !param.startsWith(paramPrefix));
-
-        return `${base}${params.length ? `?${params.join('&')}` : ''}${hash}`;
     }
 
     // 获取要应用的js内容
@@ -2894,12 +2922,10 @@ export class FileDom {
     }
 
     private clearCssContent(content: string): string {
-        const regex = new RegExp(`\\/\\*ext-${this.extName}-start\\*\\/[\\s\\S]*?\\/\\*ext-${this.extName}-end\\*\\/`, 'g');
-        return content.replace(regex, '').trim();
+        return clearPatchBlock(content);
     }
 
     public getPatchContent(content: string): boolean {
-        const match = content.match(/\/\*ext-backgroundCover-start\*\/[\s\S]*?\/\*ext-backgroundCover-end\*\//g);
-        return !!match;
+        return hasPatchBlock(content);
     }
 }

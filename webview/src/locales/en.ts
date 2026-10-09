@@ -83,5 +83,27 @@ export default {
     cacheLimit:           'Image cache limit',
     cacheLimitHint:       'Max cached online image files. Oldest files are removed once the cache exceeds this. Prevents extension-less online sources from growing disk usage without bound under auto-random.',
     applyChanges:         'Reload to apply changes',
-    applyChangesHint:     'Changes in this section require a window reload. Click the button below after editing.'
+    applyChangesHint:     'Changes in this section require a window reload. Click the button below after editing.',
+
+    sizeModeCover:          'Cover (default)',
+    sizeModeRepeat:         'Repeat (tile)',
+    sizeModeContain:        'Contain (stretch)',
+    sizeModeCenter:         'Center',
+    sizeModeNotCenter:      'Original size (center)',
+    sizeModeNotRightBottom: 'Original size (bottom right)',
+    sizeModeNotRightTop:    'Original size (top right)',
+    sizeModeNotLeft:        'Original size (left)',
+    sizeModeNotRight:       'Original size (right)',
+    sizeModeNotTop:         'Original size (top)',
+    sizeModeNotBottom:      'Original size (bottom)',
+    blendModeAuto:          'Auto (follow theme)',
+    blendModeMultiply:      'Multiply',
+    blendModeLighten:       'Lighten',
+
+    themeOverwatchShort:    'OW',
+    logoAlt:                'Extension logo',
+    previewAlt:             'Current background preview',
+    onlineGalleryFrameTitle: 'Online gallery',
+    thumbSelectLabel:       'Set as background: {name}',
+    videoThumbLabel:        'Video: {name}'
 };

@@ -14,7 +14,7 @@
                 <img
                     v-else-if="displayUrl"
                     :src="displayUrl"
-                    alt="background preview"
+                    :alt="t('previewAlt')"
                 />
                 <div v-else class="preview-empty">
                     <el-icon :size="32"><Picture /></el-icon>
@@ -126,6 +126,7 @@ import { computed } from 'vue';
 import { Picture, Upload, Operation, RefreshRight, Delete, Grid, FolderOpened, Star, Link, ChatDotRound, ChatLineRound, StarFilled } from '@element-plus/icons-vue';
 import { useI18n } from '../composables/useI18n';
 import { useBridge } from '../composables/useBridge';
+import { useDebouncedPost } from '../composables/useDebouncedPost';
 import { config } from '../composables/useStore';
 import { ActionType, GITHUB_REPO_URL, GITHUB_ISSUES_URL } from '../constants';
 import { isVideoPath } from '../utils/media';
@@ -146,22 +147,16 @@ const shortPath = computed(() => {
 
 function formatOpacity(v: number) { return v.toFixed(2); }
 
-let opacityTimer: number | undefined;
+const opacityPost = useDebouncedPost('setConfig', 'opacity', { delay: 120 });
 function onOpacityInput(v: number) {
     config.opacity = v;
-    if (opacityTimer) { clearTimeout(opacityTimer); }
-    opacityTimer = window.setTimeout(() => {
-        bridge.post({ type: 'setConfig', key: 'opacity', value: v });
-    }, 120);
+    opacityPost.post(v);
 }
 
-let blurTimer: number | undefined;
+const blurPost = useDebouncedPost('setConfig', 'blur', { delay: 120 });
 function onBlurInput(v: number) {
     config.blur = v;
-    if (blurTimer) { clearTimeout(blurTimer); }
-    blurTimer = window.setTimeout(() => {
-        bridge.post({ type: 'setConfig', key: 'blur', value: v });
-    }, 120);
+    blurPost.post(v);
 }
 
 function onPick()    { bridge.post({ type: 'runAction', action: ActionType.SelectPictures }); }

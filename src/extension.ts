@@ -82,6 +82,8 @@ export function activate(context: ExtensionContext) {
 				PickList.autoUpdateBackground();
 			}
 		}
+	}).catch(err => {
+		console.error('[BackgroundCover] startup apply failed:', err);
 	});
 
 	// 启动自动更换任务
@@ -127,11 +129,11 @@ export function activate(context: ExtensionContext) {
 
 	// webview
 	const readerViewProvider = new ReaderViewProvider();
-	window.registerWebviewViewProvider('backgroundCover.readerView', readerViewProvider, {
+	context.subscriptions.push(window.registerWebviewViewProvider('backgroundCover.readerView', readerViewProvider, {
 	  webviewOptions: {
 		retainContextWhenHidden: true,
 	  },
-	});
+	}));
 
 	// New Vue-powered Studio webview (primary configuration UI)
 	const studioViewProvider = new StudioViewProvider(context);
@@ -141,21 +143,22 @@ export function activate(context: ExtensionContext) {
 		{ webviewOptions: { retainContextWhenHidden: true } }
 	));
 
-	commands.registerCommand('backgroundCover.refreshEntry',() => {
-		commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
-		studioViewProvider.refresh();
-		}
+	context.subscriptions.push(
+		commands.registerCommand('backgroundCover.refreshEntry', () => {
+			commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
+			studioViewProvider.refresh();
+		}),
+		commands.registerCommand('backgroundCover.home', () => {
+			commands.executeCommand('setContext', 'backgroundCover.mode', 'gallery');
+			readerViewProvider.home();
+			studioViewProvider.navigate('gallery');
+		}),
+		commands.registerCommand('backgroundCover.switchMode', () => {
+			commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
+			studioViewProvider.navigate('home');
+		}),
+		commands.registerCommand('backgroundCover.support', () => readerViewProvider.support())
 	);
-	commands.registerCommand('backgroundCover.home',() => {
-		commands.executeCommand('setContext', 'backgroundCover.mode', 'gallery');
-		readerViewProvider.home();
-		studioViewProvider.navigate('gallery');
-	});
-	commands.registerCommand('backgroundCover.switchMode',() => {
-		commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
-		studioViewProvider.navigate('home');
-	});
-	commands.registerCommand('backgroundCover.support',() => readerViewProvider.support());
 
 	// Register Tree Data Provider (with drag-and-drop support)
 	const backgroundCoverViewProvider = new BackgroundCoverViewProvider();
@@ -164,7 +167,7 @@ export function activate(context: ExtensionContext) {
 		dragAndDropController: backgroundCoverViewProvider,
 		canSelectMany: false
 	});
-	context.subscriptions.push(backgroundCoverTreeView);
+	context.subscriptions.push(backgroundCoverTreeView, backgroundCoverViewProvider);
 
 	// Register Command for Tree Item Click
 	context.subscriptions.push(commands.registerCommand('backgroundCover.runAction', async (type: number, path?: string) => {
@@ -265,14 +268,7 @@ async function checkVSCodeVersionChanged(context: ExtensionContext): Promise<boo
 				// A soft reload (workbench.action.reloadWindow) only rebuilds the renderer
 				// process and still pulls from the stale cache. A full restart is required
 				// to clear the main process cache and recompile the patched file.
-				const restartChoice = await window.showInformationMessage(
-					'背景补丁已应用，但需要完全关闭并重新打开 VS Code 才能生效（软重载不会清除编译缓存）。是否现在退出？ / Background patch applied. You must fully quit and restart VS Code for it to take effect (soft reload won\'t clear the compilation cache). Quit now?',
-					'Quit / 退出',
-					'Later / 稍后'
-				);
-				if (restartChoice === 'Quit / 退出') {
-					await commands.executeCommand('workbench.action.quit');
-				}
+				await promptRestartWindow();
 			} else {
 				window.setStatusBarMessage('Background already applied. / 背景已应用。', 5000);
 			}

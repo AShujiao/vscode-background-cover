@@ -150,6 +150,7 @@ import { computed } from 'vue';
 import { Sunny, MagicStick, Picture, Check, RefreshRight } from '@element-plus/icons-vue';
 import { useI18n } from '../composables/useI18n';
 import { useBridge } from '../composables/useBridge';
+import { useDebouncedPost } from '../composables/useDebouncedPost';
 import { state } from '../composables/useStore';
 import { ActionType, DEFAULT_PARTICLE_FPS, MIN_PARTICLE_FPS, MAX_PARTICLE_FPS } from '../constants';
 import { rgbStringToHex, hexToRgbString } from '../utils/color';
@@ -176,43 +177,32 @@ function selectPet(value: string) {
     bridge.post({ type: 'setGlobalState', key: 'backgroundCoverPetType', value });
 }
 
-let opacityTimer: number | undefined;
+const opacityPost  = useDebouncedPost('setGlobalState', 'backgroundCoverParticleOpacity', { delay: 180, storeKey: 'particleOpacity' });
+const countPost    = useDebouncedPost('setGlobalState', 'backgroundCoverParticleCount',   { delay: 180, storeKey: 'particleCount' });
+const fpsPost      = useDebouncedPost('setGlobalState', 'backgroundCoverParticleFps',     { delay: 180, storeKey: 'particleFps' });
+const messagesPost = useDebouncedPost('setGlobalState', 'backgroundCoverPetMessages',     { delay: 250, storeKey: 'petMessages' });
+
 function onParticleOpacityInput(v: number | number[]) {
     const value = Array.isArray(v) ? v[0] : v;
     state.particleOpacity = value;
-    if (opacityTimer) { clearTimeout(opacityTimer); }
-    opacityTimer = window.setTimeout(() => {
-        bridge.post({ type: 'setGlobalState', key: 'backgroundCoverParticleOpacity', value });
-    }, 180);
+    opacityPost.post(value);
 }
 
-let countTimer: number | undefined;
 function onParticleCountInput(v: number | number[]) {
     const value = Array.isArray(v) ? v[0] : v;
     state.particleCount = value;
-    if (countTimer) { clearTimeout(countTimer); }
-    countTimer = window.setTimeout(() => {
-        bridge.post({ type: 'setGlobalState', key: 'backgroundCoverParticleCount', value });
-    }, 180);
+    countPost.post(value);
 }
 
-let fpsTimer: number | undefined;
 function onParticleFpsInput(v: number | number[]) {
     const value = Array.isArray(v) ? v[0] : v;
     state.particleFps = value;
-    if (fpsTimer) { clearTimeout(fpsTimer); }
-    fpsTimer = window.setTimeout(() => {
-        bridge.post({ type: 'setGlobalState', key: 'backgroundCoverParticleFps', value });
-    }, 180);
+    fpsPost.post(value);
 }
 
-let messagesTimer: number | undefined;
 function onPetMessagesInput(value: string) {
     state.petMessages = value;
-    if (messagesTimer) { clearTimeout(messagesTimer); }
-    messagesTimer = window.setTimeout(() => {
-        bridge.post({ type: 'setGlobalState', key: 'backgroundCoverPetMessages', value });
-    }, 250);
+    messagesPost.post(value);
 }
 
 function onSelectPresetColor(name: string) {
@@ -228,22 +218,11 @@ function onCustomColorChange(hex: string | null) {
 }
 
 function onApply() {
-    if (opacityTimer) {
-        clearTimeout(opacityTimer);
-        opacityTimer = undefined;
-    }
-    if (countTimer) {
-        clearTimeout(countTimer);
-        countTimer = undefined;
-    }
-    if (fpsTimer) {
-        clearTimeout(fpsTimer);
-        fpsTimer = undefined;
-    }
-    if (messagesTimer) {
-        clearTimeout(messagesTimer);
-        messagesTimer = undefined;
-    }
+    // applyDecorations 会携带完整状态，挂起的单项更新无需再发送
+    opacityPost.cancel();
+    countPost.cancel();
+    fpsPost.cancel();
+    messagesPost.cancel();
     bridge.post({
         type: 'applyDecorations',
         state: {

@@ -1,26 +1,41 @@
 /*
  * @Description: vscode:uninstall hook — runs from the VS Code install root
- *               just before the extension files are removed from disk. Strips
- *               the background-cover marker block from every bundle we ever
- *               patch.
+ *               just before the extension files are removed from disk. Undoes
+ *               everything FileDom may have written: loader blocks in every
+ *               patched bundle, generated CSS/JS/asset files, the media-src
+ *               CSP relaxation and the code-server cache-bust query.
  */
 
 import * as path from 'path';
 import * as fs from 'fs';
+import {
+    CUSTOM_ASSET_DIR_NAME,
+    CUSTOM_CSS_FILE_PREFIX,
+    CUSTOM_JS_FILE_NAME,
+    clearCodeServerWorkbenchHtmlPatch,
+    clearPatchBlock,
+    restoreMediaCsp
+} from './patchCleanup';
 
-const base = process.cwd();
-const extName = "backgroundCover";
+const OUT = path.join(process.cwd(), 'resources', 'app', 'out');
+const DESKTOP_WORKBENCH_DIR = path.join(OUT, 'vs', 'workbench');
+const WEB_WORKBENCH_DIR = path.join(OUT, 'vs', 'code', 'browser', 'workbench');
 
-// Every JS bundle the extension may have patched. The main workbench bundle
-// is required; auxiliary bundles (AgentView etc.) are best-effort — older
-// VSCode builds may not ship them.
+// Every JS bundle the extension may have patched. Missing files are skipped —
+// older builds don't ship the auxiliary bundles.
 const TARGET_JS_PATHS: string[] = [
-    path.join(base, 'resources', 'app', 'out', 'vs', 'workbench', 'workbench.desktop.main.js'),
-    path.join(base, 'resources', 'app', 'out', 'vs', 'sessions', 'sessions.desktop.main.js'),
+    path.join(DESKTOP_WORKBENCH_DIR, 'workbench.desktop.main.js'),
+    path.join(OUT, 'vs', 'sessions', 'sessions.desktop.main.js'),
     // Cursor Agent Window (Glass) renderer bundle
-    path.join(base, 'resources', 'app', 'out', 'vs', 'workbench', 'workbench.glass.main.js'),
+    path.join(DESKTOP_WORKBENCH_DIR, 'workbench.glass.main.js'),
     // code-server (web mode) install layout
-    path.join(base, 'resources', 'app', 'out', 'vs', 'code', 'browser', 'workbench', 'workbench.js')
+    path.join(WEB_WORKBENCH_DIR, 'workbench.js')
+];
+
+const HTML_ENTRIES: string[] = [
+    path.join(OUT, 'vs', 'code', 'electron-browser', 'workbench', 'workbench.html'),
+    path.join(OUT, 'vs', 'sessions', 'electron-browser', 'sessions.html'),
+    path.join(WEB_WORKBENCH_DIR, 'workbench.html')
 ];
 
 main();
@@ -28,48 +43,50 @@ main();
 function main(): boolean {
     let allOk = true;
     for (const filePath of TARGET_JS_PATHS) {
-        if (!fs.existsSync(filePath)) {
-            continue;
-        }
-        try {
-            const original = fs.readFileSync(filePath, 'utf-8');
-            const cleaned = clearCssContent(original);
-            if (cleaned !== original) {
-                fs.writeFileSync(filePath, cleaned, 'utf-8');
-            }
-        } catch (ex) {
-            allOk = false;
-        }
+        allOk = rewrite(filePath, clearPatchBlock) && allOk;
     }
-    removeBackgroundCoverCssFiles(path.join(base, 'resources', 'app', 'out', 'vs', 'workbench'));
-    removeBackgroundCoverCssFiles(path.join(base, 'resources', 'app', 'out', 'vs', 'code', 'browser', 'workbench'));
+    for (const filePath of HTML_ENTRIES) {
+        allOk = rewrite(filePath, (c) => clearCodeServerWorkbenchHtmlPatch(restoreMediaCsp(c))) && allOk;
+    }
+    for (const dir of [DESKTOP_WORKBENCH_DIR, WEB_WORKBENCH_DIR]) {
+        removeGeneratedFiles(dir);
+    }
     return allOk;
 }
 
-function removeBackgroundCoverCssFiles(dir: string): void {
-    if (!fs.existsSync(dir)) {
-        return;
+/** Best-effort rewrite: uninstall runs without vscode APIs or sudo prompts. */
+function rewrite(filePath: string, transform: (content: string) => string): boolean {
+    if (!fs.existsSync(filePath)) {
+        return true;
     }
-    let names: string[] = [];
+    try {
+        const original = fs.readFileSync(filePath, 'utf-8');
+        const cleaned = transform(original);
+        if (cleaned !== original) {
+            fs.writeFileSync(filePath, cleaned, 'utf-8');
+        }
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function removeGeneratedFiles(dir: string): void {
+    let names: string[];
     try {
         names = fs.readdirSync(dir);
     } catch {
         return;
     }
     for (const name of names) {
-        if (name.startsWith('css-background-cover') && name.endsWith('.css')) {
-            try {
-                fs.unlinkSync(path.join(dir, name));
-            } catch {
-                // Best-effort: uninstall runs without vscode APIs or sudo prompts.
-            }
+        const isCss = name.startsWith(CUSTOM_CSS_FILE_PREFIX) && name.endsWith('.css');
+        if (!isCss && name !== CUSTOM_JS_FILE_NAME && name !== CUSTOM_ASSET_DIR_NAME) {
+            continue;
+        }
+        try {
+            fs.rmSync(path.join(dir, name), { recursive: true, force: true });
+        } catch {
+            // ignore
         }
     }
-}
-
-function clearCssContent(content: string): string {
-    const re = new RegExp("\\/\\*ext-" + extName + "-start\\*\\/[\\s\\S]*?\\/\\*ext-" + extName + "-end\\*" + "\\/", "g");
-    content = content.replace(re, '');
-    content = content.replace(/\s*$/, '');
-    return content;
 }

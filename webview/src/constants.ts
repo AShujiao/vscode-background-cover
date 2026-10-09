@@ -49,6 +49,6 @@ export const MAX_PARTICLE_FPS = 120;
 
 export const ONLINE_GALLERY_URL = 'https://vs.20988.xyz';
 
-/** 关于区入口，与 src/PickList.ts getMoreMenuItems() 保持一致。 */
+/** 关于区入口（仓库 / Issues / Star）。 */
 export const GITHUB_REPO_URL = 'https://github.com/AShujiao/vscode-background-cover';
 export const GITHUB_ISSUES_URL = 'https://github.com/AShujiao/vscode-background-cover/issues';

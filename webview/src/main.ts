@@ -1,16 +1,9 @@
 import { createApp } from 'vue';
 import App from './App.vue';
-import ElementPlus from 'element-plus';
-import 'element-plus/dist/index.css';
+// Element Plus 组件与样式由 unplugin-vue-components 按需引入（见 vite.config.ts）。
+// 暗色主题的 CSS 变量需要全局加载，按需引入不会包含它。
 import 'element-plus/theme-chalk/dark/css-vars.css';
-import * as ElIcons from '@element-plus/icons-vue';
 import './styles/element-overrides.scss';
 import './styles/base.scss';
 
-const app = createApp(App);
-app.use(ElementPlus);
-// Register all icons so templates can use <component :is="ElIconName" />
-for (const [name, comp] of Object.entries(ElIcons)) {
-    app.component(name, comp as any);
-}
-app.mount('#app');
+createApp(App).mount('#app');

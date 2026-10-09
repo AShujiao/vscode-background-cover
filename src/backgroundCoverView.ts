@@ -123,16 +123,25 @@ export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<Conf
     ];
     readonly dragMimeTypes: string[] = [];
 
-    constructor() {
-        vscode.workspace.onDidChangeConfiguration(e => {
-            if (e.affectsConfiguration('backgroundCover')) {
-                this.refresh();
-            }
-        });
+    private readonly _subscriptions: vscode.Disposable[] = [];
 
-        onDidChangeGlobalState.event(() => {
-            this.refresh();
-        });
+    constructor() {
+        this._subscriptions.push(
+            vscode.workspace.onDidChangeConfiguration(e => {
+                if (e.affectsConfiguration('backgroundCover')) {
+                    this.refresh();
+                }
+            }),
+            onDidChangeGlobalState.event(() => {
+                this.refresh();
+            }),
+            this._onDidChangeTreeData
+        );
+    }
+
+    public dispose(): void {
+        this._subscriptions.forEach(d => d.dispose());
+        this._subscriptions.length = 0;
     }
 
     /** No outgoing drag — the tree is read-only as a drag source. */

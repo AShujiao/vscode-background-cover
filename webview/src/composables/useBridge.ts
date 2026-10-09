@@ -45,6 +45,17 @@ export function useBridge() {
         post(msg: OutboundMessage) {
             getApi().postMessage(msg);
         },
+        /** VS Code webview 持久化状态（acquireVsCodeApi().getState） */
+        getState<T extends Record<string, any>>(): Partial<T> {
+            try { return (getApi().getState() as Partial<T>) ?? {}; } catch { return {}; }
+        },
+        /** 合并写入 webview 持久化状态，保留其它字段 */
+        patchState(patch: Record<string, any>) {
+            try {
+                const prev = getApi().getState() ?? {};
+                getApi().setState({ ...prev, ...patch });
+            } catch { /* noop */ }
+        },
         on(type: string, fn: Listener) {
             if (!listeners.has(type)) { listeners.set(type, new Set()); }
             listeners.get(type)!.add(fn);

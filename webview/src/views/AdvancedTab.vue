@@ -88,7 +88,7 @@
                 class="block-select"
                 @change="(v: any) => bridge.post({ type: 'setConfig', key: 'sizeModel', value: v })"
             >
-                <el-option v-for="opt in SIZE_MODES" :key="opt" :label="opt" :value="opt" />
+                <el-option v-for="opt in sizeModeOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
             </el-select>
         </el-card>
 
@@ -106,7 +106,7 @@
                 class="block-select"
                 @change="(v: any) => bridge.post({ type: 'setConfig', key: 'blendModel', value: v })"
             >
-                <el-option v-for="opt in BLEND_MODES" :key="opt" :label="opt" :value="opt" />
+                <el-option v-for="opt in blendModeOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
             </el-select>
             <div class="row-hint">{{ t('blendModeHint') }}</div>
         </el-card>
@@ -129,14 +129,35 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Refresh, ArrowRight, FullScreen, Brush, FolderOpened, Star, Monitor, MagicStick } from '@element-plus/icons-vue';
-import { useI18n } from '../composables/useI18n';
+import { Refresh, ArrowRight, FullScreen, Brush, FolderOpened, Star, Monitor } from '@element-plus/icons-vue';
+import { useI18n, type MessageKey } from '../composables/useI18n';
 import { useBridge } from '../composables/useBridge';
+import { useDebouncedPost } from '../composables/useDebouncedPost';
 import { config } from '../composables/useStore';
 import { ActionType, SIZE_MODES, BLEND_MODES, DEFAULT_CACHE_LIMIT } from '../constants';
 
 const { t } = useI18n();
 const bridge = useBridge();
+
+// 下拉框显示翻译后的名称，发送给扩展的值保持原枚举值不变
+const SIZE_MODE_LABEL_KEYS: Record<string, MessageKey> = {
+    cover:            'sizeModeCover',
+    repeat:           'sizeModeRepeat',
+    contain:          'sizeModeContain',
+    center:           'sizeModeCenter',
+    not_center:       'sizeModeNotCenter',
+    not_right_bottom: 'sizeModeNotRightBottom',
+    not_right_top:    'sizeModeNotRightTop',
+    not_left:         'sizeModeNotLeft',
+    not_right:        'sizeModeNotRight',
+    not_top:          'sizeModeNotTop',
+    not_bottom:       'sizeModeNotBottom'
+};
+const BLEND_MODE_LABEL_KEYS: Record<string, MessageKey> = {
+    auto:     'blendModeAuto',
+    multiply: 'blendModeMultiply',
+    lighten:  'blendModeLighten'
+};
 
 const shortFolder = computed(() => {
     const p = config.randomImageFolder || '';
@@ -144,24 +165,28 @@ const shortFolder = computed(() => {
     return p.length > 26 ? '…' + p.slice(-25) : p;
 });
 
-let intervalTimer: number | undefined;
-
+const intervalPost = useDebouncedPost('setConfig', 'autoInterval', { delay: 300 });
 function onIntervalChange(v: number | undefined) {
     const value = Number(v ?? 10);
-    if (intervalTimer) { clearTimeout(intervalTimer); }
-    intervalTimer = window.setTimeout(() => {
-        bridge.post({ type: 'setConfig', key: 'autoInterval', value });
-    }, 300);
+    config.autoInterval = value;
+    intervalPost.post(value);
 }
 
-let cacheLimitTimer: number | undefined;
+const cacheLimitPost = useDebouncedPost('setConfig', 'cacheLimit', { delay: 300 });
 function onCacheLimitChange(v: number | undefined) {
     const value = Number(v ?? DEFAULT_CACHE_LIMIT);
-    if (cacheLimitTimer) { clearTimeout(cacheLimitTimer); }
-    cacheLimitTimer = window.setTimeout(() => {
-        bridge.post({ type: 'setConfig', key: 'cacheLimit', value });
-    }, 300);
+    config.cacheLimit = value;
+    cacheLimitPost.post(value);
 }
+
+const sizeModeOptions = computed(() => SIZE_MODES.map((value) => ({
+    value,
+    label: t(SIZE_MODE_LABEL_KEYS[value] ?? 'sizeModeCover')
+})));
+const blendModeOptions = computed(() => BLEND_MODES.map((value) => ({
+    value,
+    label: t(BLEND_MODE_LABEL_KEYS[value] ?? 'blendModeAuto')
+})));
 
 function onSourceFolder() { bridge.post({ type: 'runAction', action: ActionType.AddDirectory }); }
 function onOpenCache()    { bridge.post({ type: 'runAction', action: ActionType.OpenCacheFolder }); }
