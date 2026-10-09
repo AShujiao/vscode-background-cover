@@ -227,10 +227,9 @@ export function activate(context: ExtensionContext) {
 	context.globalState.update('ext_version',version);
 	vsHelp.showInfoSupport(`🎉 BackgroundCover ${version}
 🚀 更新内容：
-    1. 修复新版 VS Code 视频背景无法使用,更新后请手动重启vscode生效。
-    2. 修复在线随机图自动轮播失效：本地目录配置不再阻断在线源，在线单图仅在启用时参与轮换。
-    3. 多窗口独立模式状态隔离：定时自动换图只更新当前窗口，不再串扰其他窗口。
-    4. 新增「Background Cover」输出通道：自动换图 / 恢复 / 清理等事件可查看诊断日志。
+    1. 新增最近使用「清除记录」。
+    2. 修复卸载后 CSP 未还原，并加固在线图库/下载的安全校验。
+    3. 换图与面板性能优化，修复下载卡住导致自动换图停摆。
 
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}
