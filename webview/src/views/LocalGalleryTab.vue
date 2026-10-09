@@ -15,11 +15,28 @@
         <!-- Recent thumbnails -->
         <el-card class="grid-card" shadow="never">
             <template #header>
-                <span class="card-title">
-                    <el-icon><PictureFilled /></el-icon>
-                    {{ t('recentImages') }}
-                    <el-tag size="small" round>{{ state.recentImages.length }}</el-tag>
-                </span>
+                <div class="folder-header">
+                    <span class="card-title">
+                        <el-icon><PictureFilled /></el-icon>
+                        {{ t('recentImages') }}
+                        <el-tag size="small" round>{{ state.recentImages.length }}</el-tag>
+                    </span>
+                    <el-popconfirm
+                        v-if="state.recentImages.length > 0"
+                        :title="t('clearRecentConfirm')"
+                        :confirm-button-text="t('confirm')"
+                        :cancel-button-text="t('cancel')"
+                        width="220"
+                        @confirm="onClearRecent"
+                    >
+                        <template #reference>
+                            <el-button size="small" text>
+                                <el-icon><Delete /></el-icon>
+                                {{ t('clearRecent') }}
+                            </el-button>
+                        </template>
+                    </el-popconfirm>
+                </div>
             </template>
 
             <el-empty
@@ -140,7 +157,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { Plus, FolderAdd, FolderOpened, PictureFilled, Picture, Check, VideoCamera } from '@element-plus/icons-vue';
+import { Plus, FolderAdd, FolderOpened, PictureFilled, Picture, Check, VideoCamera, Delete } from '@element-plus/icons-vue';
 import { useI18n } from '../composables/useI18n';
 import { useBridge } from '../composables/useBridge';
 import { config, state } from '../composables/useStore';
@@ -175,6 +192,10 @@ function onPick()      { bridge.post({ type: 'runAction', action: ActionType.Sel
 function onAddDir()    { bridge.post({ type: 'runAction', action: ActionType.AddDirectory }); }
 function onSelectRecent(path: string) {
     bridge.post({ type: 'runAction', action: ActionType.UpdateBackground, path });
+}
+function onClearRecent() {
+    state.recentImages = [];
+    bridge.post({ type: 'clearRecentImages' });
 }
 function onApplyFolderImage(path: string) {
     bridge.post({ type: 'setConfig', key: 'imagePath', value: path });

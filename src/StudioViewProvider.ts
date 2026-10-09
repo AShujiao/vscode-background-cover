@@ -217,6 +217,11 @@ export class StudioViewProvider implements WebviewViewProvider {
                 }
                 return;
 
+            case 'clearRecentImages':
+                await this.ctx.globalState.update('backgroundCoverRecentImages', []);
+                this.pushState();
+                return;
+
             case 'applyDecorations':
                 await this.applyDecorations(msg.state || {});
                 return;
