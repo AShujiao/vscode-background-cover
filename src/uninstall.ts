@@ -17,38 +17,71 @@ import {
     restoreMediaCsp
 } from './patchCleanup';
 
-const OUT = path.join(process.cwd(), 'resources', 'app', 'out');
-const DESKTOP_WORKBENCH_DIR = path.join(OUT, 'vs', 'workbench');
-const WEB_WORKBENCH_DIR = path.join(OUT, 'vs', 'code', 'browser', 'workbench');
+// VS Code forks this file as the entry script; skip when required by tests.
+if (require.main === module) {
+    main();
+}
 
-// Every JS bundle the extension may have patched. Missing files are skipped —
-// older builds don't ship the auxiliary bundles.
-const TARGET_JS_PATHS: string[] = [
-    path.join(DESKTOP_WORKBENCH_DIR, 'workbench.desktop.main.js'),
-    path.join(OUT, 'vs', 'sessions', 'sessions.desktop.main.js'),
-    // Cursor Agent Window (Glass) renderer bundle
-    path.join(DESKTOP_WORKBENCH_DIR, 'workbench.glass.main.js'),
-    // code-server (web mode) install layout
-    path.join(WEB_WORKBENCH_DIR, 'workbench.js')
-];
-
-const HTML_ENTRIES: string[] = [
-    path.join(OUT, 'vs', 'code', 'electron-browser', 'workbench', 'workbench.html'),
-    path.join(OUT, 'vs', 'sessions', 'electron-browser', 'sessions.html'),
-    path.join(WEB_WORKBENCH_DIR, 'workbench.html')
-];
-
-main();
+/**
+ * VS Code forks this hook without a cwd, so process.cwd() is inherited from
+ * the shared process (often `/` on macOS). Locate `<root>/resources/app/out`
+ * by walking up from the Electron executable instead, keeping cwd as fallback.
+ */
+export function findAppOutDirs(execPath: string, cwd: string): string[] {
+    const found: string[] = [];
+    const tryRoot = (root: string) => {
+        for (const res of ['resources', 'Resources']) {
+            const out = path.join(root, res, 'app', 'out');
+            if (!found.some((f) => f.toLowerCase() === out.toLowerCase()) && fs.existsSync(path.join(out, 'vs'))) {
+                found.push(out);
+            }
+        }
+    };
+    let dir = path.dirname(execPath);
+    for (let i = 0; i < 8; i++) {
+        tryRoot(dir);
+        const parent = path.dirname(dir);
+        if (parent === dir) { break; }
+        dir = parent;
+    }
+    tryRoot(cwd);
+    return found;
+}
 
 function main(): boolean {
     let allOk = true;
-    for (const filePath of TARGET_JS_PATHS) {
+    for (const out of findAppOutDirs(process.execPath, process.cwd())) {
+        allOk = cleanAppOut(out) && allOk;
+    }
+    return allOk;
+}
+
+export function cleanAppOut(out: string): boolean {
+    const desktopWorkbenchDir = path.join(out, 'vs', 'workbench');
+    const webWorkbenchDir = path.join(out, 'vs', 'code', 'browser', 'workbench');
+    // Every JS bundle the extension may have patched. Missing files are skipped —
+    // older builds don't ship the auxiliary bundles.
+    const targetJsPaths = [
+        path.join(desktopWorkbenchDir, 'workbench.desktop.main.js'),
+        path.join(out, 'vs', 'sessions', 'sessions.desktop.main.js'),
+        // Cursor Agent Window (Glass) renderer bundle
+        path.join(desktopWorkbenchDir, 'workbench.glass.main.js'),
+        // code-server (web mode) install layout
+        path.join(webWorkbenchDir, 'workbench.js')
+    ];
+    const htmlEntries = [
+        path.join(out, 'vs', 'code', 'electron-browser', 'workbench', 'workbench.html'),
+        path.join(out, 'vs', 'sessions', 'electron-browser', 'sessions.html'),
+        path.join(webWorkbenchDir, 'workbench.html')
+    ];
+    let allOk = true;
+    for (const filePath of targetJsPaths) {
         allOk = rewrite(filePath, clearPatchBlock) && allOk;
     }
-    for (const filePath of HTML_ENTRIES) {
+    for (const filePath of htmlEntries) {
         allOk = rewrite(filePath, (c) => clearCodeServerWorkbenchHtmlPatch(restoreMediaCsp(c))) && allOk;
     }
-    for (const dir of [DESKTOP_WORKBENCH_DIR, WEB_WORKBENCH_DIR]) {
+    for (const dir of [desktopWorkbenchDir, webWorkbenchDir]) {
         removeGeneratedFiles(dir);
     }
     return allOk;
