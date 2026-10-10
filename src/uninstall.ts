@@ -3,7 +3,8 @@
  *               just before the extension files are removed from disk. Undoes
  *               everything FileDom may have written: loader blocks in every
  *               patched bundle, generated CSS/JS/asset files, the media-src
- *               CSP relaxation and the code-server cache-bust query.
+ *               CSP relaxation, the code-server cache-bust query and the
+ *               first-patch .bak backups.
  */
 
 import * as path from 'path';
@@ -26,14 +27,42 @@ if (require.main === module) {
  * VS Code forks this hook without a cwd, so process.cwd() is inherited from
  * the shared process (often `/` on macOS). Locate `<root>/resources/app/out`
  * by walking up from the Electron executable instead, keeping cwd as fallback.
+ *
+ * Newer VS Code system installs use a versioned layout:
+ * `<install root>/<commit>/resources/app/out` — the workbench lives under a
+ * per-commit subdirectory, not directly under the root. So each candidate root
+ * is also scanned one level deep for `<sub>/resources/app/out`. The install
+ * root has only a handful of entries, so the extra readdir is cheap.
  */
 export function findAppOutDirs(execPath: string, cwd: string): string[] {
     const found: string[] = [];
+    const push = (out: string) => {
+        if (!found.some((f) => f.toLowerCase() === out.toLowerCase()) && fs.existsSync(path.join(out, 'vs'))) {
+            found.push(out);
+        }
+    };
     const tryRoot = (root: string) => {
         for (const res of ['resources', 'Resources']) {
-            const out = path.join(root, res, 'app', 'out');
-            if (!found.some((f) => f.toLowerCase() === out.toLowerCase()) && fs.existsSync(path.join(out, 'vs'))) {
-                found.push(out);
+            push(path.join(root, res, 'app', 'out'));
+        }
+        // Versioned layout: <root>/<commit-dir>/resources/app/out
+        let entries: fs.Dirent[];
+        try {
+            entries = fs.readdirSync(root, { withFileTypes: true });
+        } catch {
+            return;
+        }
+        for (const entry of entries) {
+            if (!entry.isDirectory()) {
+                continue;
+            }
+            // Commit dirs are hex hashes; skip obviously unrelated entries
+            // (bin, tools, locales, …) to keep the loop tight.
+            if (!/^[0-9a-f]{6,}$/i.test(entry.name)) {
+                continue;
+            }
+            for (const res of ['resources', 'Resources']) {
+                push(path.join(root, entry.name, res, 'app', 'out'));
             }
         }
     };
@@ -84,7 +113,23 @@ export function cleanAppOut(out: string): boolean {
     for (const dir of [desktopWorkbenchDir, webWorkbenchDir]) {
         removeGeneratedFiles(dir);
     }
+    // Drop the first-patch backups: the patch block is gone now, so the .bak
+    // rollback duty is over. Leaving it behind would break the next install —
+    // FileDom only re-captures a backup when the .bak file is absent, and a
+    // stale one may predate a VS Code update.
+    for (const filePath of targetJsPaths) {
+        removeBackupFile(`${filePath}.bak`);
+    }
     return allOk;
+}
+
+/** Best-effort removal of a single first-patch backup file. */
+function removeBackupFile(bakPath: string): void {
+    try {
+        fs.rmSync(bakPath, { force: true });
+    } catch {
+        // ignore — a leftover .bak is harmless on its own
+    }
 }
 
 /** Best-effort rewrite: uninstall runs without vscode APIs or sudo prompts. */
