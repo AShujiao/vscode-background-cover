@@ -227,7 +227,7 @@
         "test:particle": "npm run compile && node scripts/test-particle-throttle.js",
         "test:newfeatures": "npm run compile && node scripts/test-new-features.js",
         "test:autorefresh": "npm run compile && node scripts/test-auto-refresh.js",
-        "test:unit": "npm run compile && node scripts/test-auto-refresh.js && node scripts/test-prune-cache.js && node scripts/test-particle-throttle.js && node scripts/test-new-features.js",
+        "test:unit": "npm run compile && node scripts/test-config-update.js && node scripts/test-auto-refresh.js && node scripts/test-prune-cache.js && node scripts/test-particle-throttle.js && node scripts/test-new-features.js",
         "check": "tslint -p ./"
     },
     "devDependencies": {

@@ -199,7 +199,8 @@ export function activate(context: ExtensionContext) {
 			} else {
 				await setCurrentBlur(num, config);
 			}
-			PickList.needAutoUpdate(config);
+			// 配置对象是快照，保存后重新读取，避免共享模式应用上一次的值。
+			PickList.needAutoUpdate(workspace.getConfiguration('backgroundCover'));
 			return;
 		}
 		await config.update(key.replace(/^backgroundCover\./, ''), value, true);
@@ -207,7 +208,7 @@ export function activate(context: ExtensionContext) {
 			// 重新应用交给 onDidChangeConfiguration 统一处理，避免连开两次。
 			return;
 		}
-		PickList.needAutoUpdate(config);
+		PickList.needAutoUpdate(workspace.getConfiguration('backgroundCover'));
 	}));
 
 	// Initialize context
