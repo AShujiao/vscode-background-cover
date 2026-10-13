@@ -82,6 +82,8 @@ export function activate(context: ExtensionContext) {
 				PickList.autoUpdateBackground();
 			}
 		}
+	}).catch(err => {
+		console.error('[BackgroundCover] startup apply failed:', err);
 	});
 
 	// 启动自动更换任务
@@ -127,11 +129,11 @@ export function activate(context: ExtensionContext) {
 
 	// webview
 	const readerViewProvider = new ReaderViewProvider();
-	window.registerWebviewViewProvider('backgroundCover.readerView', readerViewProvider, {
+	context.subscriptions.push(window.registerWebviewViewProvider('backgroundCover.readerView', readerViewProvider, {
 	  webviewOptions: {
 		retainContextWhenHidden: true,
 	  },
-	});
+	}));
 
 	// New Vue-powered Studio webview (primary configuration UI)
 	const studioViewProvider = new StudioViewProvider(context);
@@ -141,21 +143,22 @@ export function activate(context: ExtensionContext) {
 		{ webviewOptions: { retainContextWhenHidden: true } }
 	));
 
-	commands.registerCommand('backgroundCover.refreshEntry',() => {
-		commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
-		studioViewProvider.refresh();
-		}
+	context.subscriptions.push(
+		commands.registerCommand('backgroundCover.refreshEntry', () => {
+			commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
+			studioViewProvider.refresh();
+		}),
+		commands.registerCommand('backgroundCover.home', () => {
+			commands.executeCommand('setContext', 'backgroundCover.mode', 'gallery');
+			readerViewProvider.home();
+			studioViewProvider.navigate('gallery');
+		}),
+		commands.registerCommand('backgroundCover.switchMode', () => {
+			commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
+			studioViewProvider.navigate('home');
+		}),
+		commands.registerCommand('backgroundCover.support', () => readerViewProvider.support())
 	);
-	commands.registerCommand('backgroundCover.home',() => {
-		commands.executeCommand('setContext', 'backgroundCover.mode', 'gallery');
-		readerViewProvider.home();
-		studioViewProvider.navigate('gallery');
-	});
-	commands.registerCommand('backgroundCover.switchMode',() => {
-		commands.executeCommand('setContext', 'backgroundCover.mode', 'menu');
-		studioViewProvider.navigate('home');
-	});
-	commands.registerCommand('backgroundCover.support',() => readerViewProvider.support());
 
 	// Register Tree Data Provider (with drag-and-drop support)
 	const backgroundCoverViewProvider = new BackgroundCoverViewProvider();
@@ -164,7 +167,7 @@ export function activate(context: ExtensionContext) {
 		dragAndDropController: backgroundCoverViewProvider,
 		canSelectMany: false
 	});
-	context.subscriptions.push(backgroundCoverTreeView);
+	context.subscriptions.push(backgroundCoverTreeView, backgroundCoverViewProvider);
 
 	// Register Command for Tree Item Click
 	context.subscriptions.push(commands.registerCommand('backgroundCover.runAction', async (type: number, path?: string) => {
@@ -196,7 +199,8 @@ export function activate(context: ExtensionContext) {
 			} else {
 				await setCurrentBlur(num, config);
 			}
-			PickList.needAutoUpdate(config);
+			// 配置对象是快照，保存后重新读取，避免共享模式应用上一次的值。
+			PickList.needAutoUpdate(workspace.getConfiguration('backgroundCover'));
 			return;
 		}
 		await config.update(key.replace(/^backgroundCover\./, ''), value, true);
@@ -204,7 +208,7 @@ export function activate(context: ExtensionContext) {
 			// 重新应用交给 onDidChangeConfiguration 统一处理，避免连开两次。
 			return;
 		}
-		PickList.needAutoUpdate(config);
+		PickList.needAutoUpdate(workspace.getConfiguration('backgroundCover'));
 	}));
 
 	// Initialize context
@@ -224,10 +228,9 @@ export function activate(context: ExtensionContext) {
 	context.globalState.update('ext_version',version);
 	vsHelp.showInfoSupport(`🎉 BackgroundCover ${version}
 🚀 更新内容：
-    1. 修复新版 VS Code 视频背景无法使用,更新后请手动重启vscode生效。
-    2. 修复在线随机图自动轮播失效：本地目录配置不再阻断在线源，在线单图仅在启用时参与轮换。
-    3. 多窗口独立模式状态隔离：定时自动换图只更新当前窗口，不再串扰其他窗口。
-    4. 新增「Background Cover」输出通道：自动换图 / 恢复 / 清理等事件可查看诊断日志。
+    1. 新增最近使用「清除记录」。
+    2. 修复卸载后 CSP 未还原，并加固在线图库/下载的安全校验。
+    3. 换图与面板性能优化，修复下载卡住导致自动换图停摆。
 
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
 	}
@@ -265,14 +268,7 @@ async function checkVSCodeVersionChanged(context: ExtensionContext): Promise<boo
 				// A soft reload (workbench.action.reloadWindow) only rebuilds the renderer
 				// process and still pulls from the stale cache. A full restart is required
 				// to clear the main process cache and recompile the patched file.
-				const restartChoice = await window.showInformationMessage(
-					'背景补丁已应用，但需要完全关闭并重新打开 VS Code 才能生效（软重载不会清除编译缓存）。是否现在退出？ / Background patch applied. You must fully quit and restart VS Code for it to take effect (soft reload won\'t clear the compilation cache). Quit now?',
-					'Quit / 退出',
-					'Later / 稍后'
-				);
-				if (restartChoice === 'Quit / 退出') {
-					await commands.executeCommand('workbench.action.quit');
-				}
+				await promptRestartWindow();
 			} else {
 				window.setStatusBarMessage('Background already applied. / 背景已应用。', 5000);
 			}

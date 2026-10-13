@@ -44,23 +44,61 @@ export function hasFileExtension(p: string): boolean {
     return /\.[^\\/]+$/.test(p);
 }
 
-function isSupportedMedia(name: string): boolean {
+export const VIDEO_EXTS = ['.mp4', '.webm', '.ogg', '.mov'];
+
+export function isSupportedMedia(name: string): boolean {
     const lower = name.toLowerCase();
     return MEDIA_EXTS.some((ext) => lower.endsWith(ext));
 }
 
+export function isVideoFile(name: string): boolean {
+    const lower = name.toLowerCase().split(/[?#]/)[0];
+    return VIDEO_EXTS.some((ext) => lower.endsWith(ext));
+}
+
+export function isOnlineUrl(value: string | undefined): boolean {
+    return !!value && /^https?:\/\//i.test(value);
+}
+
+export function delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/** 扫描上限：防止把整个 ~/ 或网盘挂载目录同步递归一遍卡住扩展宿主。 */
+export const FOLDER_SCAN_MAX_DEPTH = 6;
+export const FOLDER_SCAN_MAX_FILES = 5000;
+const FOLDER_SCAN_CACHE_TTL_MS = 30_000;
+const folderScanCache = new Map<string, { mtimeMs: number; at: number; files: string[] }>();
+
 /**
  * 递归扫描文件夹下的图片/视频文件（深度优先，目录按字母序保证结果稳定）。
  * 只返回文件，忽略子目录与不可读条目；空/不存在/非目录返回 []。
+ * 有深度与数量上限；结果按根目录 mtime + 短 TTL 缓存，自动换图时不必每次重扫。
  */
 export function listImagesInFolder(folder: string): string[] {
+    let root: string;
+    let rootMtime = 0;
+    try {
+        root = path.resolve(folder);
+        rootMtime = fs.statSync(root).mtimeMs;
+    } catch {
+        return [];
+    }
+    const cached = folderScanCache.get(root);
+    if (cached && cached.mtimeMs === rootMtime && Date.now() - cached.at < FOLDER_SCAN_CACHE_TTL_MS) {
+        return cached.files.slice();
+    }
+
     const results: string[] = [];
     const seen = new Set<string>();
 
-    const walk = (dir: string) => {
+    const walk = (dir: string, depth: number) => {
+        if (depth > FOLDER_SCAN_MAX_DEPTH || results.length >= FOLDER_SCAN_MAX_FILES) {
+            return;
+        }
         let normalized: string;
         try {
-            normalized = path.resolve(dir);
+            normalized = fs.realpathSync(dir);
         } catch {
             return;
         }
@@ -77,10 +115,13 @@ export function listImagesInFolder(folder: string): string[] {
         }
         entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
         for (const entry of entries) {
-            const full = path.join(normalized, entry.name);
+            if (results.length >= FOLDER_SCAN_MAX_FILES) {
+                return;
+            }
+            const full = path.join(dir, entry.name);
             try {
                 if (entry.isDirectory()) {
-                    walk(full);
+                    walk(full, depth + 1);
                 } else if (entry.isFile() && isSupportedMedia(entry.name)) {
                     results.push(full);
                 }
@@ -90,8 +131,9 @@ export function listImagesInFolder(folder: string): string[] {
         }
     };
 
-    walk(folder);
-    return results;
+    walk(root, 0);
+    folderScanCache.set(root, { mtimeMs: rootMtime, at: Date.now(), files: results });
+    return results.slice();
 }
 
 /**

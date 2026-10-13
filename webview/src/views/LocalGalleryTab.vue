@@ -15,11 +15,28 @@
         <!-- Recent thumbnails -->
         <el-card class="grid-card" shadow="never">
             <template #header>
-                <span class="card-title">
-                    <el-icon><PictureFilled /></el-icon>
-                    {{ t('recentImages') }}
-                    <el-tag size="small" round>{{ state.recentImages.length }}</el-tag>
-                </span>
+                <div class="folder-header">
+                    <span class="card-title">
+                        <el-icon><PictureFilled /></el-icon>
+                        {{ t('recentImages') }}
+                        <el-tag size="small" round>{{ state.recentImages.length }}</el-tag>
+                    </span>
+                    <el-popconfirm
+                        v-if="state.recentImages.length > 0"
+                        :title="t('clearRecentConfirm')"
+                        :confirm-button-text="t('confirm')"
+                        :cancel-button-text="t('cancel')"
+                        width="220"
+                        @confirm="onClearRecent"
+                    >
+                        <template #reference>
+                            <el-button size="small" text>
+                                <el-icon><Delete /></el-icon>
+                                {{ t('clearRecent') }}
+                            </el-button>
+                        </template>
+                    </el-popconfirm>
+                </div>
             </template>
 
             <el-empty
@@ -28,21 +45,25 @@
                 :image-size="60"
             />
             <div v-else class="thumb-grid">
-                <div
+                <button
                     v-for="img in state.recentImages"
                     :key="img.path"
+                    type="button"
                     class="thumb"
                     :class="{ 'is-active': img.path === config.imagePath }"
                     :title="img.name"
+                    :aria-label="t('thumbSelectLabel', { name: img.name })"
+                    :aria-pressed="img.path === config.imagePath"
                     @click="onSelectRecent(img.path)"
                 >
                     <video
                         v-if="img.display && isVideoPath(img.path)"
                         :src="img.display"
+                        :aria-label="t('videoThumbLabel', { name: img.name })"
                         muted
                         loop
                         playsinline
-                        preload="metadata"
+                        preload="none"
                         @mouseenter="onHover($event, true)"
                         @mouseleave="onHover($event, false)"
                     />
@@ -57,7 +78,7 @@
                     <div v-if="img.path === config.imagePath" class="thumb-badge">
                         <el-icon><Check /></el-icon>
                     </div>
-                </div>
+                </button>
             </div>
         </el-card>
 
@@ -83,21 +104,25 @@
             />
             <div v-else>
                 <div class="thumb-grid">
-                    <div
+                    <button
                         v-for="img in pagedFolderImages"
                         :key="img.path"
+                        type="button"
                         class="thumb"
                         :class="{ 'is-active': img.path === config.imagePath }"
                         :title="img.name"
+                        :aria-label="t('thumbSelectLabel', { name: img.name })"
+                        :aria-pressed="img.path === config.imagePath"
                         @click="onApplyFolderImage(img.path)"
                     >
                         <video
                             v-if="img.display && isVideoPath(img.path)"
                             :src="img.display"
+                            :aria-label="t('videoThumbLabel', { name: img.name })"
                             muted
                             loop
                             playsinline
-                            preload="metadata"
+                            preload="none"
                             @mouseenter="onHover($event, true)"
                             @mouseleave="onHover($event, false)"
                         />
@@ -112,7 +137,7 @@
                         <div v-if="img.path === config.imagePath" class="thumb-badge">
                             <el-icon><Check /></el-icon>
                         </div>
-                    </div>
+                    </button>
                 </div>
                 <div v-if="folderTotalPages > 1" class="folder-pager">
                     <el-pagination
@@ -130,7 +155,7 @@
                     v-if="state.folderImagesTotal > state.folderImages.length"
                     class="folder-more"
                 >
-                    {{ t('folderLibraryMore').replace('{n}', String(state.folderImagesTotal)).replace('{shown}', String(state.folderImages.length)) }}
+                    {{ t('folderLibraryMore', { n: state.folderImagesTotal, shown: state.folderImages.length }) }}
                 </div>
             </div>
         </el-card>
@@ -140,7 +165,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { Plus, FolderAdd, FolderOpened, PictureFilled, Picture, Check, VideoCamera } from '@element-plus/icons-vue';
+import { Plus, FolderAdd, FolderOpened, PictureFilled, Picture, Check, VideoCamera, Delete } from '@element-plus/icons-vue';
 import { useI18n } from '../composables/useI18n';
 import { useBridge } from '../composables/useBridge';
 import { config, state } from '../composables/useStore';
@@ -176,6 +201,10 @@ function onAddDir()    { bridge.post({ type: 'runAction', action: ActionType.Add
 function onSelectRecent(path: string) {
     bridge.post({ type: 'runAction', action: ActionType.UpdateBackground, path });
 }
+function onClearRecent() {
+    state.recentImages = [];
+    bridge.post({ type: 'clearRecentImages' });
+}
 function onApplyFolderImage(path: string) {
     bridge.post({ type: 'setConfig', key: 'imagePath', value: path });
 }
@@ -184,6 +213,8 @@ function onHover(ev: Event, entering: boolean) {
     const el = ev.currentTarget as HTMLVideoElement | null;
     if (!el) { return; }
     if (entering) {
+        // preload="none"：网格里的视频默认不拉取任何数据，悬停时才开始加载并播放
+        if (el.preload !== 'auto') { el.preload = 'auto'; }
         el.play().catch(() => { /* autoplay blocked */ });
     } else {
         el.pause();
@@ -221,6 +252,15 @@ function onHover(ev: Event, entering: boolean) {
 }
 
 .thumb {
+    // <button> 重置：保持与原 <div> 一致的外观
+    appearance: none;
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    text-align: inherit;
     position: relative;
     border-radius: 6px;
     overflow: hidden;
@@ -241,6 +281,10 @@ function onHover(ev: Event, entering: boolean) {
         box-shadow:
             0 0 0 2px var(--studio-accent),
             0 10px 24px rgba(108, 140, 255, 0.35);
+    }
+    &:focus-visible {
+        outline: 2px solid var(--vscode-focusBorder, var(--studio-accent));
+        outline-offset: 2px;
     }
     img, video {
         width: 100%;

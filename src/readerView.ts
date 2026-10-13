@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import {
   WebviewView,
   WebviewViewProvider,
@@ -8,6 +9,7 @@ import {
 } from 'vscode';
 import { PickList } from './PickList';
 import { getContext } from './global';
+import { GALLERY_ORIGIN, isGalleryUrl, isValidGalleryMessage } from './netSafety';
 
 export default class ReaderViewProvider implements WebviewViewProvider {
 
@@ -42,10 +44,6 @@ export default class ReaderViewProvider implements WebviewViewProvider {
     }
   }
 
-  switchMode():void{
-    // Deprecated
-  }
-
   support():void{
     PickList.gotoFilePath("//resources//support.jpg");
   }
@@ -59,6 +57,8 @@ export default class ReaderViewProvider implements WebviewViewProvider {
 
     webviewView.onDidDispose(() => {
       this._view = undefined;
+      this._disposables.forEach(d => d.dispose());
+      this._disposables = [];
     });
 
     this._view.webview.options = {
@@ -70,6 +70,7 @@ export default class ReaderViewProvider implements WebviewViewProvider {
     this._view.webview.html = this.getHtmlForWebview(pageToLoad);
     this._view.webview.onDidReceiveMessage(
         async message => {
+            if (!message || !isValidGalleryMessage(message.command, message.data)) { return; }
             if (this._isProcessing) { return; }
             this._isProcessing = true;
             try {
@@ -98,21 +99,21 @@ export default class ReaderViewProvider implements WebviewViewProvider {
   }
 
   private getHtmlForWebview(page ? : string) {
-    var url:string = 'https://vs.20988.xyz';
-    if(page == 'home'){
-      url = 'https://vs.20988.xyz';
-    }else{
-      let context = getContext();
-      let backgroundCoverOnlineDefault:string|undefined = context.globalState.get('backgroundCoverOnlineDefault');
-      if(backgroundCoverOnlineDefault){
-        url = backgroundCoverOnlineDefault;
+    let url: string = GALLERY_ORIGIN;
+    if (page !== 'home') {
+      const saved = getContext().globalState.get<string>('backgroundCoverOnlineDefault');
+      if (isGalleryUrl(saved)) {
+        url = saved;
       }
     }
+    const safeUrl = escapeHtmlAttr(url);
+    const nonce = crypto.randomBytes(16).toString('base64');
     
     return `<!DOCTYPE html>
       <html lang="en">
       <head>
         <meta charset="UTF-8">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; frame-src ${GALLERY_ORIGIN};">
         <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport">
         <title>Background Cover</title>
         <style>
@@ -121,14 +122,16 @@ export default class ReaderViewProvider implements WebviewViewProvider {
         </style>
       </head>
       <body>
-        <iframe id="gallery-frame" src="${url}"></iframe>
-      <script>
+        <iframe id="gallery-frame" title="Online gallery" src="${safeUrl}"></iframe>
+      <script nonce="${nonce}">
           const vscode = acquireVsCodeApi();
           
           // Handle iframe messages
+          const frame = document.getElementById('gallery-frame');
           window.addEventListener('message', event => {
+              if (!frame || event.source !== frame.contentWindow || event.origin !== '${GALLERY_ORIGIN}') { return; }
               const message = event.data;
-              if (message.command === 'set_img' || message.command === 'set_home') {
+              if (message && (message.command === 'set_img' || message.command === 'set_home')) {
                   // Forward from iframe to extension
                   vscode.postMessage(message);
               }
@@ -137,4 +140,8 @@ export default class ReaderViewProvider implements WebviewViewProvider {
       </body>
     </html>`;
   }
+}
+
+function escapeHtmlAttr(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }

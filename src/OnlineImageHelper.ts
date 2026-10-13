@@ -1,16 +1,19 @@
 import * as https from 'https';
 import * as http from 'http';
 import { URL } from 'url';
-import { isIP } from 'net';
 import { extensions } from 'vscode';
+import { MAX_REDIRECTS, MAX_TEXT_BYTES, parseAndValidateUrl } from './netSafety';
 
 export class OnlineImageHelper {
     private static cachedUserAgent: string | null = null;
+    /** 单次 getOnlineImages 内复用同一 URL 的正文，避免 JSON/HTML 两轮探测重复下载。 */
+    private static textCache: Map<string, Promise<string>> | null = null;
 
     /**
      * 获取在线图片列表（混合方案）
      */
     public static async getOnlineImages(urlString: string): Promise<string[]> {
+        this.textCache = new Map();
         try {
             const isImage = await this.isImageUrl(urlString);
             if (isImage) {
@@ -44,6 +47,8 @@ export class OnlineImageHelper {
         } catch (error: any) {
             console.error('[OnlineImageHelper] 获取在线图片失败:', error?.message || error);
             return [urlString];
+        } finally {
+            this.textCache = null;
         }
     }
 
@@ -268,10 +273,19 @@ export class OnlineImageHelper {
     }
 
     private static fetchText(urlString: string): Promise<string> {
+        const cache = this.textCache;
+        const hit = cache?.get(urlString);
+        if (hit) { return hit; }
+        const task = this.fetchTextUncached(urlString, 0);
+        cache?.set(urlString, task);
+        return task;
+    }
+
+    private static fetchTextUncached(urlString: string, redirectCount: number): Promise<string> {
         return new Promise((resolve, reject) => {
             let parsed: URL;
             try {
-                parsed = this.parseAndValidateUrl(urlString);
+                parsed = parseAndValidateUrl(urlString);
             } catch (error) {
                 reject(error);
                 return;
@@ -286,23 +300,19 @@ export class OnlineImageHelper {
             };
             const req = client.get(parsed, options, (res) => {
                 const status = res.statusCode ?? 0;
-                if ([301, 302, 307, 308].includes(status)) {
+                if ([301, 302, 303, 307, 308].includes(status)) {
+                    res.resume();
                     const redirectUrl = res.headers.location;
-                    if (redirectUrl) {
-                        const nextUrl = new URL(redirectUrl, parsed).toString();
-                        try {
-                            this.parseAndValidateUrl(nextUrl);
-                        } catch (validationError: any) {
-                            res.resume();
-                            reject(new Error(`Redirect URL is invalid or unsafe: ${validationError?.message || validationError}`));
-                            return;
-                        }
-                        res.resume();
-                        this.fetchText(nextUrl).then(resolve).catch(reject);
+                    if (!redirectUrl) {
+                        reject(new Error(`Redirect response received (HTTP ${status}) but no location header was provided.`));
                         return;
                     }
-                    res.resume();
-                    reject(new Error(`Redirect response received (HTTP ${status}) but no location header was provided.`));
+                    if (redirectCount >= MAX_REDIRECTS) {
+                        reject(new Error('Too many redirects'));
+                        return;
+                    }
+                    const nextUrl = new URL(redirectUrl, parsed).toString();
+                    this.fetchTextUncached(nextUrl, redirectCount + 1).then(resolve, reject);
                     return;
                 }
                 if (status !== 200) {
@@ -310,15 +320,29 @@ export class OnlineImageHelper {
                     reject(new Error(`HTTP ${status}`));
                     return;
                 }
-                let data = '';
-                res.setEncoding('utf8');
-                res.on('data', (chunk) => { data += chunk; });
-                res.on('end', () => resolve(data));
+                const declared = Number(res.headers['content-length'] || 0);
+                if (declared > MAX_TEXT_BYTES) {
+                    res.destroy();
+                    reject(new Error('Response too large'));
+                    return;
+                }
+                let size = 0;
+                const chunks: Buffer[] = [];
+                res.on('data', (chunk: Buffer) => {
+                    size += chunk.length;
+                    if (size > MAX_TEXT_BYTES) {
+                        res.destroy(new Error('Response too large'));
+                        return;
+                    }
+                    chunks.push(chunk);
+                });
+                res.on('error', reject);
+                res.on('aborted', () => reject(new Error('Response aborted')));
+                res.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
             });
             req.on('error', reject);
             req.on('timeout', () => {
-                req.destroy();
-                reject(new Error('Request timeout'));
+                req.destroy(new Error('Request timeout'));
             });
         });
     }
@@ -327,7 +351,7 @@ export class OnlineImageHelper {
         return new Promise((resolve, reject) => {
             let parsed: URL;
             try {
-                parsed = this.parseAndValidateUrl(urlString);
+                parsed = parseAndValidateUrl(urlString);
             } catch (error) {
                 reject(error);
                 return;
@@ -343,17 +367,17 @@ export class OnlineImageHelper {
             };
             const req = client.request(parsed, options, (res) => {
                 const status = res.statusCode ?? 0;
-                if ([301, 302, 307, 308].includes(status)) {
+                if ([301, 302, 303, 307, 308].includes(status)) {
                     const redirectUrl = res.headers.location;
                     if (redirectUrl) {
                         const nextUrl = new URL(redirectUrl, parsed).toString();
                         res.resume();
-                        if (redirectCount >= 5) {
+                        if (redirectCount >= MAX_REDIRECTS) {
                             reject(new Error('Too many redirects'));
                             return;
                         }
                         try {
-                            this.parseAndValidateUrl(nextUrl);
+                            parseAndValidateUrl(nextUrl);
                         } catch (validationError: any) {
                             reject(new Error(`Redirect URL is invalid or unsafe: ${validationError?.message || validationError}`));
                             return;
@@ -379,61 +403,6 @@ export class OnlineImageHelper {
         });
     }
 
-    private static parseAndValidateUrl(urlString: string): URL {
-        const parsed = new URL(urlString);
-        if (!/^https?:$/.test(parsed.protocol)) {
-            throw new Error('仅支持 HTTPS 或 HTTP 协议');
-        }
-        if (!parsed.hostname) {
-            throw new Error('URL 缺少主机');
-        }
-        if (this.isPrivateAddress(parsed.hostname)) {
-            throw new Error('禁止访问私有网络地址');
-        }
-        return parsed;
-    }
-
-    private static isPrivateAddress(hostname: string): boolean {
-        const lower = hostname.toLowerCase();
-        if (lower === 'localhost' || lower === '127.0.0.1' || lower === '::1') {
-            return true;
-        }
-        const ipVersion = isIP(hostname);
-        if (ipVersion === 4) {
-            const parts = hostname.split('.').map((segment) => Number(segment));
-            if (parts.length === 4 && parts.every((part) => !Number.isNaN(part))) {
-                const [first, second] = parts;
-                if (first === 10) {
-                    return true;
-                }
-                if (first === 127) {
-                    return true;
-                }
-                if (first === 169 && second === 254) {
-                    return true;
-                }
-                if (first === 172 && second >= 16 && second <= 31) {
-                    return true;
-                }
-                if (first === 192 && second === 168) {
-                    return true;
-                }
-                if (first === 0) {
-                    return true;
-                }
-            }
-        }
-        if (ipVersion === 6) {
-            if (lower === '::1') {
-                return true;
-            }
-            if (lower.startsWith('fc') || lower.startsWith('fd') || lower.startsWith('fe80') || lower.startsWith('fec0')) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private static getUserAgent(): string {
         if (!this.cachedUserAgent) {
             const extension = extensions.getExtension('manasxx.background-cover');
@@ -442,20 +411,5 @@ export class OnlineImageHelper {
             this.cachedUserAgent = `VSCode-Background-Cover${suffix}`;
         }
         return this.cachedUserAgent;
-    }
-
-    /**
-     * 检测URL类型（用于调试）
-     */
-    public static async detectUrlType(urlString: string): Promise<{ type: string; url?: string; images?: string[]; error?: string }> {
-        try {
-            const images = await this.getOnlineImages(urlString);
-            if (images.length === 1 && images[0] === urlString) {
-                return { type: 'image', url: urlString };
-            }
-            return { type: 'folder', images };
-        } catch (error: any) {
-            return { type: 'unknown', error: error.message };
-        }
     }
 }

@@ -3,6 +3,7 @@ import * as crypto from 'crypto';
 import { workspace } from 'vscode';
 import * as fse from 'fs-extra';
 import { getContext } from './global';
+import { isOnlineUrl } from './pathUtil';
 
 /**
  * 在线图片本地缓存的路径规则。FileDom 下载和 webview 预览必须共用这一份规则，
@@ -194,9 +195,7 @@ async function removeQuietly(file: string): Promise<number> {
     }
 }
 
-export function isOnlineUrl(value: string): boolean {
-    return /^https?:\/\//i.test(value || '');
-}
+export { isOnlineUrl } from './pathUtil';
 
 /**
  * 在缓存目录中查找某个在线地址已下载的本地文件。
