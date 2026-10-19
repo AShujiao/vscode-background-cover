@@ -26,7 +26,7 @@ import { CUSTOM_JS_FILE_PATH, collectStaleWindowCssFiles, detectPatchState } fro
 import { pruneOnlineCache } from './onlineCache';
 import { BackgroundCoverViewProvider } from './backgroundCoverView';
 import { StudioViewProvider } from './StudioViewProvider';
-import { hasCurrentImageRecord, resolveCurrentImagePath, setCurrentBlur, setCurrentImagePath, setCurrentOpacity } from './windowBackground';
+import { adoptSettingsLevelValue, consumeSelfWrittenLevel, hasCurrentImageRecord, resolveCurrentImagePath, setCurrentBlur, setCurrentImagePath, setCurrentOpacity } from './windowBackground';
 
 
 export function activate(context: ExtensionContext) {
@@ -109,6 +109,13 @@ export function activate(context: ExtensionContext) {
 		if (e.affectsConfiguration('backgroundCover.cacheLimit')) {
 			// 调小上限后立即收敛一次，不必等下次下载或重启窗口。
 			void pruneOnlineCache();
+		}
+		if (e.affectsConfiguration('backgroundCover.opacity') || e.affectsConfiguration('backgroundCover.blur')) {
+			// 直接改 settings.json / 设置界面的透明度、模糊度也要立即生效，不必重载窗口。
+			// affectsConfiguration 只在本次事件回调内可靠，先同步取好受影响的键再走异步处理。
+			const opacityChanged = e.affectsConfiguration('backgroundCover.opacity');
+			const blurChanged = e.affectsConfiguration('backgroundCover.blur');
+			void syncLevelSettings(opacityChanged, blurChanged);
 		}
 	}));
 
@@ -228,11 +235,45 @@ export function activate(context: ExtensionContext) {
 	context.globalState.update('ext_version',version);
 	vsHelp.showInfoSupport(`🎉 BackgroundCover ${version}
 🚀 更新内容：
-    1. 新增最近使用「清除记录」。
-    2. 修复卸载后 CSP 未还原，并加固在线图库/下载的安全校验。
-    3. 换图与面板性能优化，修复下载卡住导致自动换图停摆。
+    1. 修复未打开文件夹的窗口重启后透明度/模糊度回落到默认值的问题（#252）。
+    2. 直接修改 settings.json / 设置界面里的透明度、模糊度立即生效，无需重载。
+    3. 透明度/模糊度写入串行化，快速连续调整不再丢失最新值。
 
 ❤️ 觉得好用吗？支持一下在线图库运营吧！`);
+	}
+}
+
+/**
+ * settings.json / 设置界面里直接改透明度、模糊度后立即重新应用（#252 附带问题）。
+ * - 共用模式：配置本身就是生效值，重新应用一次即可；
+ * - 独立模式：窗口/工作区记录优先，必须先把新值采纳为当前窗口的记录，否则改动
+ *   会被旧记录遮蔽，看起来"改了没反应"（要重载窗口才会回落）。
+ *   注意：改用户级(User)设置会被每个已打开窗口采纳，即覆盖各窗口已保存的独立值；
+ *   工作区级设置只影响该工作区，不会写成无 folder 窗口的全局兜底。
+ * 扩展自己在共用模式下回写 settings.json 也会触发本事件，用 self-written 标记跳过，
+ * 避免同一次改动被应用两遍。
+ */
+async function syncLevelSettings(opacityChanged: boolean, blurChanged: boolean): Promise<void> {
+	try {
+		const config = workspace.getConfiguration('backgroundCover');
+		let shouldApply = false;
+		if (opacityChanged && !consumeSelfWrittenLevel('opacity', config.get<number>('opacity'))) {
+			// 'shared' 表示共用模式下配置本身就是生效值，必须重新应用；'adopted' 表示
+			// 已写成当前窗口记录；'skipped'（值非法）则什么都不用做。
+			if (await adoptSettingsLevelValue(config, 'opacity') !== 'skipped') {
+				shouldApply = true;
+			}
+		}
+		if (blurChanged && !consumeSelfWrittenLevel('blur', config.get<number>('blur'))) {
+			if (await adoptSettingsLevelValue(config, 'blur') !== 'skipped') {
+				shouldApply = true;
+			}
+		}
+		if (shouldApply) {
+			PickList.needAutoUpdate(workspace.getConfiguration('backgroundCover'));
+		}
+	} catch (error) {
+		console.error('[BackgroundCover] failed to apply opacity/blur setting change:', error);
 	}
 }
 
