@@ -374,7 +374,7 @@ export class BackgroundCoverViewProvider implements vscode.TreeDataProvider<Conf
     private getSizeModeOptions(config: vscode.WorkspaceConfiguration): ConfigItem[] {
         const modes = [
             "cover", "repeat", "contain", "center", "not_center", 
-            "not_right_bottom", "not_right_top", "not_left", 
+            "not_right_bottom", "not_right_top", "not_left_top", "not_left",
             "not_right", "not_top", "not_bottom"
         ];
         const current = config.get<string>('sizeModel');
