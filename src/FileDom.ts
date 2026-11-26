@@ -2275,6 +2275,10 @@ export class FileDom {
             ${PRELOAD_IMAGE_JS}
 
             let cssLoadInFlight = false;
+            // Coalesce refresh notifications that arrive while fetch/preload is
+            // pending. Otherwise both the trigger and its 600ms follow-up can be
+            // dropped, leaving the old image visible until the next manual action.
+            let cssLoadPending = false;
             let lastCssLoadAt = 0;
 
             function withCacheBust(url) {
@@ -2283,7 +2287,10 @@ export class FileDom {
             }
 
             function loadCss() {
-                if (cssLoadInFlight) return;
+                if (cssLoadInFlight) {
+                    cssLoadPending = true;
+                    return;
+                }
                 cssLoadInFlight = true;
                 lastCssLoadAt = Date.now();
                 const currentCssUrl = activeCssUrl();
@@ -2313,6 +2320,10 @@ export class FileDom {
                 }).catch(e => console.error('[BackgroundCover] Load error:', e))
                 .finally(() => {
                     cssLoadInFlight = false;
+                    if (cssLoadPending) {
+                        cssLoadPending = false;
+                        loadCss();
+                    }
                 });
             }
 

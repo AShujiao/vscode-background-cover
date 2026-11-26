@@ -34,11 +34,52 @@
                     referrerpolicy="no-referrer"
                 />
                 <div v-else class="frame-placeholder">
-                    <el-button type="primary" size="small" @click="onLoad">
-                        <el-icon><Promotion /></el-icon>
-                        {{ t('loadOnlineGallery') }}
-                    </el-button>
-                    <span class="frame-hint">{{ t('loadOnlineGalleryHint') }}</span>
+                    <div class="intro">
+                        <div class="intro-title">
+                            <el-icon><Star /></el-icon>
+                            <span>{{ t('onlineGallery') }} · {{ t('onlineGalleryDonorOnly') }}</span>
+                        </div>
+                        <p class="intro-desc">{{ t('onlineGalleryIntro') }}</p>
+                    </div>
+
+                    <div class="tiers">
+                        <div class="tier">
+                            <div class="tier-title">{{ t('tierTitle5') }}</div>
+                            <ul class="tier-benefits">
+                                <li>{{ t('tierBenefitBrowse') }}</li>
+                                <li>{{ t('tierBenefitPost') }}</li>
+                                <li>{{ t('tierBenefitSetBg') }}</li>
+                                <li>{{ t('tierBenefitThirdParty') }}</li>
+                            </ul>
+                        </div>
+                        <div class="tier tier-highlight">
+                            <div class="tier-badge">{{ t('tierRecommend') }}</div>
+                            <div class="tier-title">{{ t('tierTitle10') }}</div>
+                            <ul class="tier-benefits">
+                                <li>{{ t('tierBenefitBrowse') }}</li>
+                                <li>{{ t('tierBenefitPost') }}</li>
+                                <li>{{ t('tierBenefitSetBg') }}</li>
+                                <li>{{ t('tierBenefitThirdParty') }}</li>
+                                <li class="tier-extra">{{ t('tierBenefitUpload') }}</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="cta-group">
+                        <el-button type="primary" size="small" @click="onLoad">
+                            <el-icon><Promotion /></el-icon>
+                            {{ t('loadOnlineGallery') }}
+                        </el-button>
+                        <el-button type="danger" size="small" plain @click="onDonate">
+                            {{ t('donateNow') }}
+                        </el-button>
+                    </div>
+
+                    <ul class="frame-hint">
+                        <li>{{ t('loadOnlineGalleryHint1') }}</li>
+                        <li>{{ t('loadOnlineGalleryHint2') }}</li>
+                        <li>{{ t('loadOnlineGalleryHint3') }}</li>
+                    </ul>
                 </div>
             </div>
         </el-card>
@@ -47,7 +88,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { Refresh, Link, Promotion } from '@element-plus/icons-vue';
+import { Refresh, Link, Promotion, Star } from '@element-plus/icons-vue';
 import { useI18n } from '../composables/useI18n';
 import { useBridge } from '../composables/useBridge';
 import { ActionType, ONLINE_GALLERY_URL } from '../constants';
@@ -79,6 +120,15 @@ function onInputPath() {
 
 function onOpenExternal() {
     bridge.post({ type: 'openExternal', url: ONLINE_GALLERY_URL });
+}
+
+function onDonate() {
+    // 复用扩展侧既有的"赞助作者"动作：打开 resources/support.jpg 二维码图片。
+    bridge.post({
+        type: 'runAction',
+        action: ActionType.OpenFilePath,
+        path: '//resources//support.jpg'
+    });
 }
 
 // Forward set_img / set_home messages emitted by the embedded iframe
@@ -156,14 +206,109 @@ onUnmounted(() => { window.removeEventListener('message', onWindowMessage); });
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 12px;
     padding: 16px;
     text-align: center;
+    overflow-y: auto;
+}
+
+.intro {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.intro-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--vscode-foreground);
+    .el-icon { color: var(--studio-accent, #f5a623); }
+}
+
+.intro-desc {
+    margin: 0;
+    font-size: 12px;
+    opacity: 0.85;
+    color: var(--vscode-descriptionForeground);
+    max-width: 360px;
+}
+
+.tiers {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 100%;
+    max-width: 420px;
+}
+
+.tier {
+    position: relative;
+    border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.25));
+    border-radius: 6px;
+    padding: 10px 12px;
+    text-align: left;
+    background: var(--vscode-editor-background);
+}
+
+.tier-highlight {
+    border-color: var(--studio-accent, #f5a623);
+    box-shadow: 0 0 0 1px var(--studio-accent, #f5a623) inset;
+}
+
+.tier-badge {
+    position: absolute;
+    top: -8px;
+    right: 8px;
+    padding: 1px 8px;
+    font-size: 10px;
+    line-height: 14px;
+    border-radius: 8px;
+    background: var(--studio-accent, #f5a623);
+    color: #fff;
+    font-weight: 600;
+}
+
+.tier-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--vscode-foreground);
+}
+
+.tier-benefits {
+    margin: 0;
+    padding-left: 16px;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--vscode-descriptionForeground);
+    li + li { margin-top: 2px; }
+}
+
+.tier-extra {
+    color: var(--studio-accent, #f5a623);
+    font-weight: 600;
+}
+
+.cta-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
 .frame-hint {
     font-size: 11px;
     opacity: 0.7;
     color: var(--vscode-descriptionForeground);
+    margin: 0;
+    padding-left: 18px;
+    text-align: left;
+    max-width: 360px;
+    line-height: 1.6;
+    li + li { margin-top: 4px; }
 }
 </style>
