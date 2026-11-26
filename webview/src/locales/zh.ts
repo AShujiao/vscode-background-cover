@@ -38,7 +38,7 @@ export default {
     tierBenefitSetBg: '一键设为 VSC 背景',
     tierBenefitThirdParty: '帖子内可添加第三方图片地址',
     tierBenefitUpload: '帖子内可上传本地图片',
-    loadOnlineGalleryHint1: '在线图库涉及高昂的 CDN 流量费用，目前用户基数较多已入不敷出，仅面向捐赠（爱心）用户开放，捐赠金额不限。',
+    loadOnlineGalleryHint1: '在线图库涉及高昂的 CDN 流量费用，目前用户基数较多已入不敷出，仅面向捐赠（爱心）用户开放。',
     loadOnlineGalleryHint2: '捐赠后请联系站长开通权限，可通过微信、GitHub、邮箱等方式联系。',
     loadOnlineGalleryHint3: '过往已捐赠过的用户，也可直接联系站长确认后开通。',
 

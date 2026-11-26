@@ -118,7 +118,7 @@ A: 插件会自动请求密码，或手动 `sudo chown` 相关文件。
 
 [完整日志](https://github.com/vscode-extension/vscode-background-cover/blob/master/CHANGELOG.md)
 
-#### ver 3.7.3 (2026/10/19)
+#### ver 3.7.3 (2026/11/26)
 
 1. 修复独立背景模式下没有打开文件夹的窗口重启后透明度、模糊度回落到默认值的问题（#252）。
 2. 直接修改 settings.json / 设置界面里的透明度、模糊度立即生效，无需重载窗口。
