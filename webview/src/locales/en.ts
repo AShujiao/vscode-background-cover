@@ -92,6 +92,7 @@ export default {
     sizeModeNotCenter:      'Original size (center)',
     sizeModeNotRightBottom: 'Original size (bottom right)',
     sizeModeNotRightTop:    'Original size (top right)',
+    sizeModeNotLeftTop:     'Original size (top left)',
     sizeModeNotLeft:        'Original size (left)',
     sizeModeNotRight:       'Original size (right)',
     sizeModeNotTop:         'Original size (top)',

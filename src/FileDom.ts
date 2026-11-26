@@ -2814,6 +2814,10 @@ export class FileDom {
                 sizeModelVal = "auto";
                 positionVal = "right 30px";
                 break;
+            case "not_left_top":
+                sizeModelVal = "auto";
+                positionVal = "left 30px";
+                break;
             case "not_left":
                 sizeModelVal = "auto";
                 positionVal = "left";

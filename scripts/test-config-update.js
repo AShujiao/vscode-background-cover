@@ -229,7 +229,7 @@ async function main() {
         assert.equal(otherWorkspace.opacity, 0.2);
     });
 
-    for (const [key, values] of [['sizeModel', ['contain', 'repeat']], ['blendModel', ['multiply', 'lighten']]]) {
+    for (const [key, values] of [['sizeModel', ['contain', 'repeat', 'not_left_top']], ['blendModel', ['multiply', 'lighten']]]) {
         await test(`${key} uses fresh configuration after saving`, async () => {
             for (const value of values) {
                 const count = applied.length;

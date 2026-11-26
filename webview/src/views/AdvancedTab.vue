@@ -148,6 +148,7 @@ const SIZE_MODE_LABEL_KEYS: Record<string, MessageKey> = {
     not_center:       'sizeModeNotCenter',
     not_right_bottom: 'sizeModeNotRightBottom',
     not_right_top:    'sizeModeNotRightTop',
+    not_left_top:     'sizeModeNotLeftTop',
     not_left:         'sizeModeNotLeft',
     not_right:        'sizeModeNotRight',
     not_top:          'sizeModeNotTop',

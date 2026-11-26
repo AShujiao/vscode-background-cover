@@ -92,6 +92,7 @@ export default {
     sizeModeNotCenter:      '原始尺寸（居中）',
     sizeModeNotRightBottom: '原始尺寸（右下角）',
     sizeModeNotRightTop:    '原始尺寸（右上角）',
+    sizeModeNotLeftTop:     '原始尺寸（左上角）',
     sizeModeNotLeft:        '原始尺寸（靠左）',
     sizeModeNotRight:       '原始尺寸（靠右）',
     sizeModeNotTop:         '原始尺寸（靠上）',
