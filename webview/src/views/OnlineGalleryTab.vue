@@ -80,6 +80,8 @@
                         <li>{{ t('loadOnlineGalleryHint2') }}</li>
                         <li>{{ t('loadOnlineGalleryHint3') }}</li>
                     </ul>
+
+                    <p class="frame-disclaimer">{{ t('onlineGalleryDisclaimer') }}</p>
                 </div>
             </div>
         </el-card>
@@ -310,5 +312,18 @@ onUnmounted(() => { window.removeEventListener('message', onWindowMessage); });
     max-width: 360px;
     line-height: 1.6;
     li + li { margin-top: 4px; }
+}
+
+.frame-disclaimer {
+    margin: 4px 0 0;
+    padding: 6px 12px;
+    max-width: 360px;
+    font-size: 11px;
+    line-height: 1.6;
+    text-align: left;
+    color: var(--vscode-descriptionForeground);
+    border-left: 3px solid var(--studio-accent, #f5a623);
+    background: var(--vscode-editor-inactiveSelectionBackground, rgba(128, 128, 128, 0.06));
+    border-radius: 0 4px 4px 0;
 }
 </style>

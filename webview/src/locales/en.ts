@@ -41,6 +41,7 @@ export default {
     loadOnlineGalleryHint1: 'The online gallery incurs significant CDN bandwidth costs. With the growing user base it is no longer sustainable, so it is now limited to donors. Any amount is appreciated.',
     loadOnlineGalleryHint2: 'After donating, please contact the site owner to activate access via WeChat, GitHub, or email.',
     loadOnlineGalleryHint3: 'Past donors can also reach out directly to get access activated.',
+    onlineGalleryDisclaimer: 'The online gallery is purely an optional add-on — every core feature stays free. Donate only if you\'d like to. Thanks for any support ❤️',
 
     autoRandom:        'Auto Random',
     enabled:           'Enabled',

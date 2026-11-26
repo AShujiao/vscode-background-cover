@@ -41,6 +41,7 @@ export default {
     loadOnlineGalleryHint1: '在线图库涉及高昂的 CDN 流量费用，目前用户基数较多已入不敷出，仅面向捐赠（爱心）用户开放。',
     loadOnlineGalleryHint2: '捐赠后请联系站长开通权限，可通过微信、GitHub、邮箱等方式联系。',
     loadOnlineGalleryHint3: '过往已捐赠过的用户，也可直接联系站长确认后开通。',
+    onlineGalleryDisclaimer: '在线图库只是增值体验，插件本体的所有功能都可免费使用，是否捐赠完全看你，感谢每一份支持 ❤️',
 
     autoRandom:        '自动随机',
     enabled:           '启用',
